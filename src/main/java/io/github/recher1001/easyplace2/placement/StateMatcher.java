@@ -89,6 +89,29 @@ public class StateMatcher
         return null;
     }
 
+    /**
+     * @return true wenn an der Position schon der richtige Block mit allen platzierungsrelevanten
+     *         Eigenschaften steht (z.B. nur "waterlogged" weicht ab) und nichts mehr zu tun ist
+     */
+    public static boolean isComplete(BlockState current, BlockState target)
+    {
+        if (current.getBlock() != target.getBlock())
+        {
+            return false;
+        }
+
+        for (Property<?> property : target.getProperties())
+        {
+            if ((COUNTS.contains(property) || MUST_MATCH.contains(property)) &&
+                !current.getValue(property).equals(target.getValue(property)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static String describe(Property<?> property, BlockState simulated, BlockState target)
     {
         return property.getName() + "=" + valueName(simulated, property) + " statt " + valueName(target, property);

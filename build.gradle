@@ -28,6 +28,22 @@ dependencies {
 	modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
 }
 
+// Automatischer Spieltest (src/gametest): startet Minecraft mit Litematica + Easy Place 2.0,
+// verbindet sich mit einem Vanilla-Server und klickt ganz normal. Ausfuehren: ./gradlew runClientGameTest
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = 'easyplace2-test'
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true // Zustimmung zur Minecraft-EULA, noetig um den Testserver zu starten
+	}
+}
+
+afterEvaluate {
+	loom.runs.findByName('clientGameTest')?.vmArg('-Dfabric.client.gametest.disableNetworkSynchronizer=true')
+}
+
 processResources {
 	def props = [version: project.version, malilib_version: project.malilib_version, litematica_version: project.litematica_version]
 	inputs.properties props

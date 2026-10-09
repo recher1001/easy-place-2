@@ -25,3 +25,28 @@ jobs:
         with:
           name: easy-place-2
           path: build/libs/
+
+  # Startet Minecraft (ohne Bildschirm) und testet Easy Place 2.0 gegen einen Vanilla-Server
+  client_game_test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: run client game test
+        run: xvfb-run -a ./gradlew runClientGameTest --stacktrace
+      - name: upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: client-game-test
+          path: |
+            build/run/clientGameTest/screenshots/
+            build/run/clientGameTest/logs/latest.log
+          if-no-files-found: ignore

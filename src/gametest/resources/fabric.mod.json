@@ -1,0 +1,12 @@
+{
+	"schemaVersion": 1,
+	"id": "easyplace2-test",
+	"version": "1.0.0",
+	"name": "Easy Place 2.0 Tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"io.github.recher1001.easyplace2.test.EasyPlace2ClientGameTest"
+		]
+	}
+}

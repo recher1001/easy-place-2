@@ -82,7 +82,7 @@ public class EasyPlace2Handler
         BlockState stateClient = level.getBlockState(target);
 
         // Schon richtig, oder dort steht ein anderer fester Block -> normaler Rechtsklick
-        if (stateSchematic.isAir() || stateSchematic == stateClient ||
+        if (stateSchematic.isAir() || StateMatcher.isComplete(stateClient, stateSchematic) ||
             (!stateClient.canBeReplaced() && stateClient.getBlock() != stateSchematic.getBlock()))
         {
             return false;
