@@ -3,7 +3,7 @@ package io.github.recher1001.easyplace2.placement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;

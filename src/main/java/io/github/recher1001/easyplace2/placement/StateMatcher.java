@@ -2,7 +2,7 @@ package io.github.recher1001.easyplace2.placement;
 
 import java.util.HashSet;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import com.google.common.collect.ImmutableSet;
 
 import net.minecraft.world.level.block.state.BlockState;

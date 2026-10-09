@@ -2,7 +2,7 @@ package io.github.recher1001.easyplace2.placement;
 
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
