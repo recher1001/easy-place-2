@@ -1,0 +1,20 @@
+{
+    "easyplace2.gui.button.config_tab": "Easy Place 2.0",
+    "easyplace2.hotkeys.category.generic": "Easy Place 2.0",
+
+    "easyplace2.config.name.easyPlace2Mode": "easyPlace2Mode",
+    "easyplace2.config.prettyName.easyPlace2Mode": "Easy Place 2.0",
+    "easyplace2.config.comment.easyPlace2Mode": "Eigener Easy-Place-Modus, der nur mit normalen Vanilla-Klicks platziert:\nauf einen fehlenden Schematic-Block schauen und rechtsklicken. Das richtige Item\nwird automatisch gewaehlt und eine sichtbare Nachbarflaeche in Reichweite angeklickt.\nKein Air-Place, keine gefaelschte Drehung, keine Spezialpakete.\nUnabhaengig vom alten Easy Place von Litematica (das bitte aus lassen).",
+
+    "easyplace2.config.name.easyPlace2DelayTicks": "easyPlace2DelayTicks",
+    "easyplace2.config.prettyName.easyPlace2DelayTicks": "Verzoegerung (Ticks)",
+    "easyplace2.config.comment.easyPlace2DelayTicks": "Wartezeit zwischen zwei Platzierungen bei gehaltener rechter Maustaste,\nin Ticks (20 Ticks = 1 Sekunde). 4 ist Vanilla-Tempo, hoeher ist langsamer.",
+
+    "easyplace2.config.name.easyPlace2StrictCrosshair": "easyPlace2StrictCrosshair",
+    "easyplace2.config.prettyName.easyPlace2StrictCrosshair": "Strenges Fadenkreuz",
+    "easyplace2.config.comment.easyPlace2StrictCrosshair": "Wenn an: Es wird nur die Flaeche angeklickt, die dein Fadenkreuz wirklich trifft\n(der Block hinter dem Geisterblock), genau wie ein normaler Rechtsklick.\nWenn aus: Es darf auch eine andere sichtbare Nachbarflaeche in Reichweite benutzt werden.",
+
+    "easyplace2.config.name.easyPlace2Debug": "easyPlace2Debug",
+    "easyplace2.config.prettyName.easyPlace2Debug": "Debug-Meldungen",
+    "easyplace2.config.comment.easyPlace2Debug": "Zeigt in der Aktionsleiste und im Log, warum ein Block uebersprungen wurde."
+}

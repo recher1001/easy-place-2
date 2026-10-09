@@ -1,0 +1,20 @@
+{
+    "easyplace2.gui.button.config_tab": "Easy Place 2.0",
+    "easyplace2.hotkeys.category.generic": "Easy Place 2.0",
+
+    "easyplace2.config.name.easyPlace2Mode": "easyPlace2Mode",
+    "easyplace2.config.prettyName.easyPlace2Mode": "Easy Place 2.0",
+    "easyplace2.config.comment.easyPlace2Mode": "Separate Easy Place mode that only places blocks with normal vanilla clicks:\nlook at a missing schematic block and right click. The correct item is picked\nautomatically and a visible, reachable neighbor face is clicked.\nNo air place, no fake rotations, no special packets.\nIndependent from Litematica's old Easy Place (keep that one off).",
+
+    "easyplace2.config.name.easyPlace2DelayTicks": "easyPlace2DelayTicks",
+    "easyplace2.config.prettyName.easyPlace2DelayTicks": "Delay (ticks)",
+    "easyplace2.config.comment.easyPlace2DelayTicks": "Delay between two placements while holding right click, in game ticks\n(20 ticks = 1 second). 4 is the vanilla speed, higher values are slower.",
+
+    "easyplace2.config.name.easyPlace2StrictCrosshair": "easyPlace2StrictCrosshair",
+    "easyplace2.config.prettyName.easyPlace2StrictCrosshair": "Strict crosshair",
+    "easyplace2.config.comment.easyPlace2StrictCrosshair": "When enabled, only the face that your crosshair actually hits\n(the block behind the ghost block) is clicked, exactly like a plain vanilla right click.\nWhen disabled, any other neighbor face that is visible and in reach may be used.",
+
+    "easyplace2.config.name.easyPlace2Debug": "easyPlace2Debug",
+    "easyplace2.config.prettyName.easyPlace2Debug": "Debug messages",
+    "easyplace2.config.comment.easyPlace2Debug": "Shows in the action bar and the log why a block was skipped."
+}
