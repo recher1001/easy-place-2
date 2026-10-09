@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "easyplace2",
+	"version": "${version}",
+	"name": "Easy Place 2.0 (Litematica Addon)",
+	"description": "Ein eigener Easy-Place-Modus fuer Litematica, der Bloecke nur ueber normale Vanilla-Klicks auf echte Nachbarflaechen platziert.",
+	"authors": ["recher1001"],
+	"contact": {
+		"sources": "https://github.com/recher1001/easy-place-2"
+	},
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"io.github.recher1001.easyplace2.EasyPlace2"
+		]
+	},
+	"mixins": [
+		"easyplace2.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*",
+		"malilib": ">=${malilib_version}",
+		"litematica": ">=${litematica_version}"
+	}
+}
