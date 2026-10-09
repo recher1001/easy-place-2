@@ -10,17 +10,7 @@ base {
 }
 
 repositories {
-	// Litematica und MaLiLib (Maven-Repo von masa / sakura-ryoko)
-	maven {
-		url = 'https://masa.dy.fi/maven/sakura-ryoko'
-		content { includeGroupAndSubgroups('fi.dy.masa') }
-	}
-	// Wird von MaLiLib benoetigt
-	maven {
-		url = 'https://maven.fallenbreath.me/releases'
-		content { includeGroupAndSubgroups('me.fallenbreath') }
-	}
-	// Litematica selbst kommt von Modrinth
+	// Litematica und MaLiLib kommen von Modrinth
 	maven {
 		url = 'https://api.modrinth.com/maven'
 		content { includeGroup('maven.modrinth') }
@@ -34,8 +24,8 @@ dependencies {
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	modImplementation "fi.dy.masa.malilib:malilib-fabric-${project.minecraft_version}:${project.malilib_version}"
-	modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_version}"
+	modImplementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
+	modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
 }
 
 processResources {
