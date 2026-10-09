@@ -18,6 +18,12 @@ jobs:
           distribution: 'microsoft'
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
+      - name: list litematica/malilib versions on modrinth (temporary)
+        run: |
+          for p in litematica malilib; do
+            curl -sS "https://api.modrinth.com/v2/project/$p/version?game_versions=%5B%221.21.11%22%5D&loaders=%5B%22fabric%22%5D" \
+              | python3 -c 'import json,sys; [print(v["id"], v["version_number"], v["date_published"][:10]) for v in json.load(sys.stdin)[:8]]'
+          done
       - name: build
         run: ./gradlew build
       - name: capture build artifacts
