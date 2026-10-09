@@ -11,6 +11,8 @@ import fi.dy.masa.malilib.config.IConfigBase;
 import fi.dy.masa.malilib.config.IConfigHandler;
 import fi.dy.masa.malilib.config.options.ConfigBoolean;
 import fi.dy.masa.malilib.config.options.ConfigBooleanHotkeyed;
+import fi.dy.masa.malilib.config.options.ConfigDouble;
+import fi.dy.masa.malilib.config.options.ConfigHotkey;
 import fi.dy.masa.malilib.config.options.ConfigInteger;
 import fi.dy.masa.malilib.util.FileUtils;
 import fi.dy.masa.malilib.util.JsonUtils;
@@ -34,11 +36,48 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean         STRICT_CROSSHAIR = new ConfigBoolean("easyPlace2StrictCrosshair", false).apply(KEY);
     public static final ConfigBoolean         DEBUG          = new ConfigBoolean("easyPlace2Debug", false).apply(KEY);
 
+    // Printer: baut die ganze Schematic automatisch, platziert wird aber immer ueber Easy Place 2.0
+    public static final ConfigHotkey  PRINTER_MENU        = new ConfigHotkey("printerMenuHotkey", "O").apply(KEY);
+    public static final ConfigHotkey  PRINTER_TOGGLE      = new ConfigHotkey("printerToggleHotkey", "").apply(KEY);
+    public static final ConfigDouble  PRINTER_TURN_SPEED  = new ConfigDouble("printerTurnSpeed", 220.0, 40.0, 720.0).apply(KEY);
+    public static final ConfigDouble  PRINTER_TURN_JITTER = new ConfigDouble("printerTurnJitter", 0.25, 0.0, 1.0).apply(KEY);
+    public static final ConfigInteger PRINTER_EXTRA_DELAY = new ConfigInteger("printerExtraDelay", 3, 0, 40).apply(KEY);
+    public static final ConfigInteger PRINTER_INV_DELAY_MIN = new ConfigInteger("printerInventoryDelayMin", 5, 1, 40).apply(KEY);
+    public static final ConfigInteger PRINTER_INV_DELAY_MAX = new ConfigInteger("printerInventoryDelayMax", 10, 1, 60).apply(KEY);
+    public static final ConfigDouble  PRINTER_REACH_MARGIN = new ConfigDouble("printerReachMargin", 0.6, 0.0, 2.5).apply(KEY);
+    public static final ConfigBoolean PRINTER_USE_BARITONE = new ConfigBoolean("printerUseBaritone", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_SPRINT      = new ConfigBoolean("printerSprint", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_LAYER_RANGE = new ConfigBoolean("printerUseLayerRange", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_HUD         = new ConfigBoolean("printerHud", true).apply(KEY);
+    // Drehen und Klicken
+    public static final ConfigBoolean PRINTER_FAST_TURN   = new ConfigBoolean("printerFastTurn", false).apply(KEY);
+    public static final ConfigDouble  PRINTER_FAST_TURN_MAX_ANGLE = new ConfigDouble("printerFastTurnMaxAngle", 75.0, 5.0, 180.0).apply(KEY);
+    public static final ConfigInteger PRINTER_REACTION_MIN = new ConfigInteger("printerReactionMin", 1, 1, 20).apply(KEY);
+    public static final ConfigInteger PRINTER_REACTION_MAX = new ConfigInteger("printerReactionMax", 3, 1, 30).apply(KEY);
+    public static final ConfigBoolean PRINTER_PAUSE_ON_DAMAGE = new ConfigBoolean("printerPauseOnDamage", true).apply(KEY);
+
     public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
             EASY_PLACE_2,
             DELAY_TICKS,
             STRICT_CROSSHAIR,
-            DEBUG
+            DEBUG,
+            PRINTER_MENU,
+            PRINTER_TOGGLE,
+            PRINTER_TURN_SPEED,
+            PRINTER_TURN_JITTER,
+            PRINTER_EXTRA_DELAY,
+            PRINTER_INV_DELAY_MIN,
+            PRINTER_INV_DELAY_MAX,
+            PRINTER_REACH_MARGIN,
+            PRINTER_USE_BARITONE,
+            PRINTER_SPRINT,
+            PRINTER_LAYER_RANGE,
+            PRINTER_HUD,
+            PRINTER_FAST_TURN,
+            PRINTER_FAST_TURN_MAX_ANGLE,
+            PRINTER_REACTION_MIN,
+            PRINTER_REACTION_MAX,
+            PRINTER_PAUSE_ON_DAMAGE
     );
 
     public static void loadFromFile()

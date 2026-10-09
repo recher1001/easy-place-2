@@ -12,7 +12,7 @@ public class Ep2Hotkeys implements IKeybindProvider
 {
     public static final Ep2Hotkeys INSTANCE = new Ep2Hotkeys();
 
-    private static final List<IHotkey> HOTKEYS = List.of(Ep2Configs.EASY_PLACE_2);
+    private static final List<IHotkey> HOTKEYS = List.of(Ep2Configs.EASY_PLACE_2, Ep2Configs.PRINTER_MENU, Ep2Configs.PRINTER_TOGGLE);
 
     @Override
     public void addKeysToMap(IKeybindManager manager)

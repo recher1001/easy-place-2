@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.minecraft.client.Minecraft;
 
 import fi.dy.masa.malilib.config.ConfigManager;
 import fi.dy.masa.malilib.event.InitializationHandler;
@@ -12,6 +13,9 @@ import fi.dy.masa.malilib.hotkeys.KeyCallbackToggleBooleanConfigWithMessage;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.config.Ep2Hotkeys;
+import io.github.recher1001.easyplace2.printer.PrinterController;
+import io.github.recher1001.easyplace2.printer.gui.PrinterHud;
+import io.github.recher1001.easyplace2.printer.gui.PrinterScreen;
 
 public class EasyPlace2 implements ClientModInitializer
 {
@@ -30,6 +34,20 @@ public class EasyPlace2 implements ClientModInitializer
 
             Ep2Configs.EASY_PLACE_2.getKeybind().setCallback(
                     new KeyCallbackToggleBooleanConfigWithMessage(Ep2Configs.EASY_PLACE_2));
+
+            Ep2Configs.PRINTER_MENU.getKeybind().setCallback((action, key) ->
+            {
+                Minecraft.getInstance().setScreen(new PrinterScreen(null));
+                return true;
+            });
+            Ep2Configs.PRINTER_TOGGLE.getKeybind().setCallback((action, key) ->
+            {
+                PrinterController.INSTANCE.toggle();
+                return true;
+            });
         });
+
+        PrinterController.INSTANCE.register();
+        PrinterHud.register();
     }
 }

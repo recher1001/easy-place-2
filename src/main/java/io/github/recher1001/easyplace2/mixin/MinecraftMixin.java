@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.Minecraft;
 
 import io.github.recher1001.easyplace2.placement.EasyPlace2Handler;
+import io.github.recher1001.easyplace2.printer.AimController;
 
 @Mixin(Minecraft.class)
 public abstract class MinecraftMixin
@@ -23,5 +24,12 @@ public abstract class MinecraftMixin
         {
             ci.cancel();
         }
+    }
+
+    /** Einmal pro Bild: die Drehung des Printers laeuft so fluessig wie eine Mausbewegung. */
+    @Inject(method = "runTick", at = @At("HEAD"))
+    private void easyplace2$onFrame(CallbackInfo ci)
+    {
+        AimController.INSTANCE.onFrame((Minecraft) (Object) this);
     }
 }

@@ -157,6 +157,15 @@ public class PlacementPlanner
         return true;
     }
 
+    /**
+     * Alle sichtbaren und erreichbaren Klickpunkte an der Zielposition, noch ohne Vanilla-Pruefung.
+     * Der Printer sucht sich daraus einen Punkt, auf den er das Fadenkreuz dreht.
+     */
+    public List<BlockHitResult> visibleCandidates()
+    {
+        return this.collectCandidates();
+    }
+
     private List<BlockHitResult> collectCandidates()
     {
         List<BlockHitResult> list = new ArrayList<>();

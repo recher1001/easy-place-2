@@ -32,6 +32,7 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import io.github.recher1001.easyplace2.EasyPlace2;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
+import io.github.recher1001.easyplace2.printer.PrinterController;
 
 /**
  * Easy Place 2.0: wird bei jedem normalen Rechtsklick (Minecraft#startUseItem) gefragt.
@@ -118,9 +119,15 @@ public class EasyPlace2Handler
             return true;
         }
 
-        // Item mit Litematicas eigener Logik in die Hand holen (Hotbar, Inventar, Shulker-Option)
-        InventoryUtils.schematicWorldPickBlock(required, target, schematicWorld, mc);
+        // Item mit Litematicas eigener Logik in die Hand holen (Hotbar, Inventar, Shulker-Option).
+        // Der Printer holt Items selbst wie ein Spieler ueber das Inventar, dann wird hier nichts getauscht.
         InteractionHand hand = EntityUtils.getUsedHandForItem(player, required);
+
+        if (hand == null && !PrinterController.INSTANCE.isRunning())
+        {
+            InventoryUtils.schematicWorldPickBlock(required, target, schematicWorld, mc);
+            hand = EntityUtils.getUsedHandForItem(player, required);
+        }
 
         if (hand == null)
         {

@@ -3,7 +3,7 @@
 	"id": "easyplace2",
 	"version": "${version}",
 	"name": "Easy Place 2.0 (Litematica Addon)",
-	"description": "Ein eigener Easy-Place-Modus fuer Litematica, der Bloecke nur ueber normale Vanilla-Klicks auf echte Nachbarflaechen platziert.",
+	"description": "Ein eigener Easy-Place-Modus fuer Litematica, der Bloecke nur ueber normale Vanilla-Klicks auf echte Nachbarflaechen platziert. Mit Printer, der ganze Schematics automatisch baut (Laufen optional ueber Baritone).",
 	"authors": ["recher1001"],
 	"contact": {
 		"sources": "https://github.com/recher1001/easy-place-2"
@@ -25,5 +25,8 @@
 		"fabric-api": "*",
 		"malilib": ">=${malilib_version}",
 		"litematica": ">=${litematica_version}"
+	},
+	"suggests": {
+		"baritone": "*"
 	}
 }
