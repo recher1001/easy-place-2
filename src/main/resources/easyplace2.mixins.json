@@ -1,0 +1,16 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "io.github.recher1001.easyplace2.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"BlockItemInvoker",
+		"MinecraftAccessor",
+		"MinecraftMixin",
+		"litematica.GuiConfigsMixin",
+		"litematica.GuiConfigsTabButtonMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

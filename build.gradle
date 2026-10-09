@@ -1,0 +1,64 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = "${project.archives_base_name}-mc${project.minecraft_version}"
+}
+
+repositories {
+	// Litematica und MaLiLib kommen von Modrinth
+	maven {
+		url = 'https://api.modrinth.com/maven'
+		content { includeGroup('maven.modrinth') }
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	// Gleiche Mappings wie Litematica (offizielle Mojang-Namen)
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	modImplementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
+	modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
+}
+
+// Automatischer Spieltest (src/gametest): startet Minecraft mit Litematica + Easy Place 2.0,
+// verbindet sich mit einem Vanilla-Server und klickt ganz normal. Ausfuehren: ./gradlew runClientGameTest
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = 'easyplace2-test'
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true // Zustimmung zur Minecraft-EULA, noetig um den Testserver zu starten
+	}
+}
+
+afterEvaluate {
+	loom.runs.findByName('clientGameTest')?.vmArg('-Dfabric.client.gametest.disableNetworkSynchronizer=true')
+}
+
+processResources {
+	def props = [version: project.version, malilib_version: project.malilib_version, litematica_version: project.litematica_version]
+	inputs.properties props
+
+	filesMatching('fabric.mod.json') {
+		expand props
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 21
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
