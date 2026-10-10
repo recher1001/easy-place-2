@@ -2,23 +2,32 @@ package io.github.recher1001.easyplace2.printer.gui;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
-import fi.dy.masa.malilib.config.options.ConfigBoolean;
-import fi.dy.masa.malilib.config.options.ConfigDouble;
-import fi.dy.masa.malilib.config.options.ConfigInteger;
+import fi.dy.masa.malilib.config.IConfigResettable;
+import fi.dy.masa.malilib.event.InputEventHandler;
+import fi.dy.masa.malilib.hotkeys.IHotkey;
+import fi.dy.masa.malilib.util.KeyCodes;
 import fi.dy.masa.litematica.data.DataManager;
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
@@ -27,81 +36,389 @@ import io.github.recher1001.easyplace2.printer.BaritoneBridge;
 import io.github.recher1001.easyplace2.printer.InventoryManager;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.SchematicScanner;
+import io.github.recher1001.easyplace2.printer.gui.OptionEntry.Page;
 
 /**
- * Das Printer-Menue: Uebersicht mit Fortschritt und Material, Einstellungen und Info.
+ * Das Printer-Menue: Seitenleiste mit Kategorien, rechts Uebersicht, Optionen als Karten
+ * (Liste oder Kacheln), Themes, Tasten und Info.
  */
 public class PrinterScreen extends Screen
 {
-    private enum Page { OVERVIEW, SETTINGS, INFO }
-
     private static Page page = Page.OVERVIEW;
+    private static String query = "";
+
+    private static final int SIDEBAR_W = 132;
+    private static final int ROW_H = 30;
+    private static final int GAP = 6;
 
     @Nullable private final Screen parent;
-    private final List<Controls.Control> controls = new ArrayList<>();
-    private final List<Controls.Control> scrolling = new ArrayList<>();
-    private final List<Integer> scrollingBaseY = new ArrayList<>();
+    private final List<Controls.Control> sidebar = new ArrayList<>();
+    private final List<Controls.Control> header = new ArrayList<>();
+    private final List<Controls.Control> content = new ArrayList<>();
+    private final List<Integer> contentBaseY = new ArrayList<>();
+    private final Map<Page, Integer> sidebarY = new EnumMap<>(Page.class);
     @Nullable private Controls.Control dragging;
+    @Nullable private EditBox search;
+    @Nullable private IHotkey capturing;
 
     private int x0, y0, x1, y1;
-    private int contentTop, contentBottom;
-    private int scroll, maxScroll;
+    private int cx0, cx1, headerTop, contentTop, contentBottom;
+    private float scroll, scrollTarget;
+    private int maxScroll;
+    private float highlightY = -1f;
     private float shownProgress = -1f;
-    private float openAnim;
+    private long openedAt;
 
     public PrinterScreen(@Nullable Screen parent)
     {
+        this(parent, null);
+    }
+
+    public PrinterScreen(@Nullable Screen parent, @Nullable Page start)
+    {
         super(Component.translatable("easyplace2.printer.title"));
         this.parent = parent;
+
+        if (start != null)
+        {
+            page = start;
+            query = "";
+        }
     }
+
+    // ---------------------------------------------------------------- Aufbau
 
     @Override
     protected void init()
     {
-        int w = Math.min(440, this.width - 16);
-        int h = Math.min(290, this.height - 16);
+        int w = Math.min(560, this.width - 20);
+        int h = Math.min(340, this.height - 20);
         this.x0 = (this.width - w) / 2;
         this.y0 = (this.height - h) / 2;
         this.x1 = this.x0 + w;
         this.y1 = this.y0 + h;
-        this.contentTop = this.y0 + 56;
-        this.contentBottom = this.y1 - 10;
-        this.controls.clear();
-        this.scrolling.clear();
-        this.scrollingBaseY.clear();
-        this.scroll = 0;
+        this.cx0 = this.x0 + 6 + SIDEBAR_W + 12;
+        this.cx1 = this.x1 - 14;
+        this.headerTop = this.y0 + 14;
+        this.contentTop = this.y0 + 64;
+        this.contentBottom = this.y1 - 12;
 
-        int tabW = 86;
-        this.controls.add(new Controls.Tab(this.x0 + 10, this.y0 + 34, tabW, 16, Component.translatable("easyplace2.printer.tab.overview"),
-                () -> page == Page.OVERVIEW, () -> this.switchPage(Page.OVERVIEW)));
-        this.controls.add(new Controls.Tab(this.x0 + 12 + tabW, this.y0 + 34, tabW, 16, Component.translatable("easyplace2.printer.tab.settings"),
-                () -> page == Page.SETTINGS, () -> this.switchPage(Page.SETTINGS)));
-        this.controls.add(new Controls.Tab(this.x0 + 14 + tabW * 2, this.y0 + 34, tabW, 16, Component.translatable("easyplace2.printer.tab.info"),
-                () -> page == Page.INFO, () -> this.switchPage(Page.INFO)));
-
-        switch (page)
+        if (this.openedAt == 0)
         {
-            case OVERVIEW -> this.initOverview();
-            case SETTINGS -> this.initSettings();
-            case INFO -> {}
+            this.openedAt = System.currentTimeMillis();
+        }
+
+        this.buildSidebar();
+
+        int boxW = Math.min(150, (this.cx1 - this.cx0) / 3);
+        this.search = new EditBox(this.font, this.cx1 - boxW + 18, this.headerTop + 3, boxW - 24, 10, Component.empty());
+        this.search.setBordered(false);
+        this.search.setMaxLength(40);
+        this.search.setTextColor(Ui.text());
+        this.search.setHint(Component.translatable("easyplace2.printer.search"));
+        this.search.setValue(query);
+        this.search.setResponder(text ->
+        {
+            if (!text.equals(query))
+            {
+                query = text;
+                this.scrollTarget = 0;
+                this.rebuildContent();
+            }
+        });
+        this.addWidget(this.search);
+
+        this.rebuildContent();
+    }
+
+    private void buildSidebar()
+    {
+        this.sidebar.clear();
+        this.sidebarY.clear();
+        int sx = this.x0 + 6;
+        int y = this.y0 + 46;
+        OptionEntry.Section section = null;
+
+        for (Page p : Page.values())
+        {
+            if (p.section != section)
+            {
+                if (section != null)
+                {
+                    y += 8;
+                }
+
+                section = p.section;
+                OptionEntry.Section label = section;
+                this.sidebar.add(new Controls.Area(sx + 10, y, SIDEBAR_W - 20, 10, (g, font, a, hover) ->
+                        Ui.scaledText(g, font, Component.translatable("easyplace2.printer.section." + label.name().toLowerCase(Locale.ROOT)),
+                                a.x + 2, a.y + 2, 0.75f, Ui.textFaint()), null));
+                y += 13;
+            }
+
+            Page target = p;
+            this.sidebarY.put(p, y);
+            this.sidebar.add(new Controls.Area(sx + 6, y, SIDEBAR_W - 12, 18, (g, font, a, hover) -> this.paintSidebarItem(g, font, a, hover, target),
+                    () -> this.openPage(target)));
+            y += 19;
         }
     }
 
-    private void switchPage(Page next)
+    private void openPage(Page target)
     {
-        page = next;
-        this.rebuildWidgets();
+        page = target;
+        query = "";
+        this.capturing = null;
+        this.scroll = this.scrollTarget = 0;
+
+        if (this.search != null)
+        {
+            this.search.setValue("");
+        }
+
+        this.rebuildContent();
     }
 
-    private void initOverview()
+    private boolean searching()
+    {
+        return !query.isBlank();
+    }
+
+    /** Baut Kopf-Bedienelemente und Inhalt der aktuellen Seite neu auf. */
+    private void rebuildContent()
+    {
+        this.header.clear();
+        this.content.clear();
+        this.contentBaseY.clear();
+        this.contentBottom = page == Page.THEME && !this.searching() ? this.y1 - 22 : this.y1 - 12;
+
+        if (this.searching())
+        {
+            List<OptionEntry> results = OptionEntry.ALL.stream().filter(e -> e.matches(query)).toList();
+            this.addViewToggles();
+            this.buildOptions(results);
+        }
+        else
+        {
+            switch (page)
+            {
+                case OVERVIEW -> this.buildOverview();
+                case THEME -> this.buildThemes();
+                case KEYS -> this.buildKeys();
+                case INFO -> this.buildInfo();
+                default ->
+                {
+                    this.addViewToggles();
+                    this.addResetChip();
+                    this.buildOptions(OptionEntry.of(page));
+                }
+            }
+        }
+
+        int bottom = this.contentTop;
+
+        for (int i = 0; i < this.content.size(); i++)
+        {
+            bottom = Math.max(bottom, this.contentBaseY.get(i) + this.content.get(i).h);
+        }
+
+        this.maxScroll = Math.max(0, bottom + 4 - this.contentBottom);
+        this.scrollTarget = Math.min(this.scrollTarget, this.maxScroll);
+        this.scroll = Math.min(this.scroll, this.maxScroll);
+    }
+
+    private void add(Controls.Control control)
+    {
+        this.content.add(control);
+        this.contentBaseY.add(control.y);
+    }
+
+    // ---------------------------------------------------------------- Optionskarten
+
+    private void addViewToggles()
+    {
+        int y = this.headerTop + 26;
+        this.header.add(new Controls.Area(this.cx1 - 40, y, 18, 16, (g, font, a, hover) -> this.paintViewIcon(g, a, hover, false),
+                () -> this.setGrid(false)));
+        this.header.add(new Controls.Area(this.cx1 - 18, y, 18, 16, (g, font, a, hover) -> this.paintViewIcon(g, a, hover, true),
+                () -> this.setGrid(true)));
+    }
+
+    private void addResetChip()
+    {
+        Component label = Component.translatable("easyplace2.printer.reset");
+        int w = this.font.width(label) + 16;
+        this.header.add(new Controls.Area(this.cx0, this.headerTop + 26, w, 16, (g, font, a, hover) ->
+        {
+            Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.lerpColor(Ui.card(), Ui.cardHover(), hover), Ui.border());
+            Ui.text(g, font, label, a.x + 8, a.y + 4, Ui.lerpColor(Ui.textDim(), Ui.text(), hover));
+        }, () ->
+        {
+            for (OptionEntry e : OptionEntry.of(page))
+            {
+                if (e.config instanceof IConfigResettable r)
+                {
+                    r.resetToDefault();
+                }
+            }
+        }));
+    }
+
+    private void setGrid(boolean grid)
+    {
+        Ep2Configs.PRINTER_GRID_VIEW.setBooleanValue(grid);
+        this.rebuildContent();
+    }
+
+    private void buildOptions(List<OptionEntry> entries)
+    {
+        int width = this.cx1 - this.cx0;
+        boolean grid = Ep2Configs.PRINTER_GRID_VIEW.getBooleanValue();
+
+        if (entries.isEmpty())
+        {
+            this.add(new Controls.Area(this.cx0, this.contentTop, width, ROW_H, (g, font, a, hover) ->
+                    Ui.text(g, font, Component.translatable("easyplace2.printer.search.none"), a.x + 4, a.y + 10, Ui.textDim()), null));
+            return;
+        }
+
+        if (!grid)
+        {
+            int y = this.contentTop;
+
+            for (OptionEntry e : entries)
+            {
+                this.addListRow(e, this.cx0, y, width);
+                y += ROW_H + GAP;
+            }
+
+            return;
+        }
+
+        int cols = width >= 330 ? 3 : 2;
+        int cardW = (width - (cols - 1) * GAP) / cols;
+        int cardH = 64;
+
+        for (int i = 0; i < entries.size(); i++)
+        {
+            int x = this.cx0 + (i % cols) * (cardW + GAP);
+            int y = this.contentTop + (i / cols) * (cardH + GAP);
+            this.addGridCard(entries.get(i), x, y, cardW, cardH);
+        }
+    }
+
+    private void addListRow(OptionEntry e, int x, int y, int w)
+    {
+        int right = x + w;
+
+        if (e.isBoolean())
+        {
+            this.add(new Controls.Switch(right - 12 - Controls.Switch.WIDTH, y + (ROW_H - Controls.Switch.HEIGHT) / 2, e::getBoolean, e::setBoolean));
+        }
+        else
+        {
+            this.add(new Controls.Slider(right - 12 - 110, y + 10, 110, e.min, e.max, e.step, e::getNumber, e::setNumber));
+        }
+
+        int controlSpace = e.isBoolean() ? 56 : 180;
+        this.add(new Controls.Area(x, y, w, ROW_H, (g, font, a, hover) ->
+        {
+            this.paintCard(g, a, hover);
+            Ui.text(g, font, e.title().copy().withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 6, Ui.text());
+            Ui.text(g, font, Ui.clip(font, e.description().getString(), a.w - 20 - controlSpace), a.x + 10, a.y + 18, Ui.textFaint());
+
+            if (e.isBoolean())
+            {
+                Ui.text(g, font, "›", a.x + a.w - 46, a.y + 10, Ui.lerpColor(Ui.textFaint(), Ui.text(), hover));
+            }
+            else
+            {
+                String value = e.formattedValue();
+                Ui.text(g, font, value, a.x + a.w - 130 - font.width(value), a.y + 11, Ui.accent());
+            }
+        }, e.isBoolean() ? () -> e.setBoolean(!e.getBoolean()) : null));
+    }
+
+    private void addGridCard(OptionEntry e, int x, int y, int w, int h)
+    {
+        if (e.isBoolean())
+        {
+            this.add(new Controls.Switch(x + w - 10 - Controls.Switch.WIDTH, y + 8, e::getBoolean, e::setBoolean));
+        }
+        else
+        {
+            this.add(new Controls.Slider(x + 10, y + h - 16, w - 64, e.min, e.max, e.step, e::getNumber, e::setNumber));
+        }
+
+        this.add(new Controls.Area(x, y, w, h, (g, font, a, hover) ->
+        {
+            this.paintCard(g, a, hover);
+            Ui.text(g, font, Ui.clip(font, e.title().getString(), a.w - 46), a.x + 10, a.y + 9, Ui.text());
+            List<FormattedCharSequence> lines = font.split(e.description(), a.w - 20);
+
+            for (int i = 0; i < Math.min(2, lines.size()); i++)
+            {
+                g.drawString(font, lines.get(i), a.x + 10, a.y + 23 + i * 10, Ui.textFaint(), false);
+            }
+
+            if (e.isBoolean())
+            {
+                Ui.text(g, font, "›", a.x + a.w - 14, a.y + a.h - 15, Ui.lerpColor(Ui.textFaint(), Ui.text(), hover));
+            }
+            else
+            {
+                String value = e.formattedValue();
+                Ui.text(g, font, value, a.x + a.w - 10 - font.width(value), a.y + a.h - 17, Ui.accent());
+            }
+        }, e.isBoolean() ? () -> e.setBoolean(!e.getBoolean()) : null));
+    }
+
+    private void paintCard(GuiGraphics g, Controls.Area a, float hover)
+    {
+        Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.lerpColor(Ui.card(), Ui.cardHover(), hover),
+                Ui.lerpColor(Ui.border(), Ui.withAlpha(Ui.accent(), 0x90), hover * 0.6f));
+    }
+
+    // ---------------------------------------------------------------- Uebersicht
+
+    private void buildOverview()
     {
         PrinterController printer = PrinterController.INSTANCE;
-        int by = this.y1 - 30;
-        int bw = 110;
+        int width = this.cx1 - this.cx0;
+        int top = this.contentTop;
 
-        this.controls.add(new Controls.Button(this.x0 + 10, by, bw, 20,
+        // Fortschritt
+        this.add(new Controls.Area(this.cx0, top, width, 50, (g, font, a, hover) -> this.paintProgress(g, font, a), null));
+
+        // Statistik-Kacheln
+        int tileW = (width - 3 * GAP) / 4;
+        String[] keys = { "placed", "rate", "eta", "wrong" };
+
+        for (int i = 0; i < 4; i++)
+        {
+            String key = keys[i];
+            this.add(new Controls.Area(this.cx0 + i * (tileW + GAP), top + 56, tileW, 36, (g, font, a, hover) ->
+            {
+                this.paintCard(g, a, hover);
+                Ui.scaledText(g, font, Component.literal(this.statValue(key)).withStyle(ChatFormatting.BOLD), a.x + 9, a.y + 7, 1.25f, Ui.text());
+                Ui.text(g, font, Component.translatable("easyplace2.printer.stat." + key), a.x + 9, a.y + 23, Ui.textFaint());
+            }, null));
+        }
+
+        // Status und Material
+        int cardsTop = top + 98;
+        int cardsBottom = this.contentBottom - 28;
+        int half = (width - GAP) / 2;
+        this.add(new Controls.Area(this.cx0, cardsTop, half, Math.max(30, cardsBottom - cardsTop),
+                (g, font, a, hover) -> this.paintStatus(g, font, a, printer), null));
+        this.add(new Controls.Area(this.cx0 + half + GAP, cardsTop, width - half - GAP, Math.max(30, cardsBottom - cardsTop),
+                (g, font, a, hover) -> this.paintMaterials(g, font, a, printer), null));
+
+        // Knoepfe
+        int by = this.contentBottom - 20;
+        Controls.Button start = new Controls.Button(this.cx0, by, 116, 20,
                 () -> Component.translatable(printer.isRunning() ? "easyplace2.printer.button.stop" : "easyplace2.printer.button.start"),
-                () -> printer.isRunning() ? Ui.RED : Ui.GREEN,
+                () -> printer.isRunning() ? Ui.RED : Ui.accent(), true,
                 () ->
                 {
                     if (printer.isRunning())
@@ -114,246 +431,128 @@ public class PrinterScreen extends Screen
                         this.onClose();
                         printer.start();
                     }
-                }));
+                });
+        this.add(start);
 
-        Controls.Button pause = new Controls.Button(this.x0 + 16 + bw, by, bw, 20,
+        Controls.Button pause = new Controls.Button(this.cx0 + 122, by, 96, 20,
                 () -> Component.translatable(printer.isPaused() ? "easyplace2.printer.button.resume" : "easyplace2.printer.button.pause"),
-                () -> Ui.AMBER,
-                () -> printer.setPaused(!printer.isPaused()));
+                () -> Ui.AMBER, false, () -> printer.setPaused(!printer.isPaused()));
         pause.enabled = printer::isRunning;
-        this.controls.add(pause);
+        this.add(pause);
 
-        this.controls.add(new Controls.Button(this.x1 - 10 - 80, by, 80, 20,
-                () -> Component.translatable("easyplace2.printer.button.close"), () -> Ui.ACCENT, this::onClose));
+        this.add(new Controls.Button(this.cx1 - 80, by, 80, 20, () -> Component.translatable("easyplace2.printer.button.close"),
+                Ui::textDim, false, this::onClose));
     }
 
-    private void initSettings()
+    private String statValue(String key)
     {
-        int colW = (this.x1 - this.x0 - 30) / 2;
-        int left = this.x0 + 10;
-        int right = left + colW + 10;
-        int y = this.contentTop + 14;
-
-        // Linke Spalte: Bewegung und Zeiten
-        y = this.slider(left, y, colW, "turnSpeed", Ep2Configs.PRINTER_TURN_SPEED, 40, 720, 5, v -> String.format(Locale.ROOT, "%.0f°/s", v));
-        y = this.slider(left, y, colW, "turnJitter", Ep2Configs.PRINTER_TURN_JITTER, 0, 1, 0.05, v -> String.format(Locale.ROOT, "%.0f%%", v * 100));
-        y = this.slider(left, y, colW, "fastTurnMaxAngle", Ep2Configs.PRINTER_FAST_TURN_MAX_ANGLE, 5, 180, 5, v -> String.format(Locale.ROOT, "%.0f°", v));
-        y = this.slider(left, y, colW, "placeDelay", Ep2Configs.DELAY_TICKS, 4, 40, ticks());
-        y = this.slider(left, y, colW, "extraDelay", Ep2Configs.PRINTER_EXTRA_DELAY, 0, 40, ticks());
-        y = this.slider(left, y, colW, "reactionMin", Ep2Configs.PRINTER_REACTION_MIN, 1, 20, ticks());
-        y = this.slider(left, y, colW, "reactionMax", Ep2Configs.PRINTER_REACTION_MAX, 1, 30, ticks());
-        y = this.slider(left, y, colW, "invDelayMin", Ep2Configs.PRINTER_INV_DELAY_MIN, 1, 40, ticks());
-        y = this.slider(left, y, colW, "invDelayMax", Ep2Configs.PRINTER_INV_DELAY_MAX, 1, 60, ticks());
-        y = this.slider(left, y, colW, "reachMargin", Ep2Configs.PRINTER_REACH_MARGIN, 0, 2.5, 0.1, v -> String.format(Locale.ROOT, "%.1f", v));
-        int leftEnd = y;
-
-        // Rechte Spalte: Schalter
-        y = this.contentTop + 14;
-        y = this.toggle(right, y, colW, "fastTurn", Ep2Configs.PRINTER_FAST_TURN);
-        y = this.toggle(right, y, colW, "useBaritone", Ep2Configs.PRINTER_USE_BARITONE);
-        y = this.toggle(right, y, colW, "sprint", Ep2Configs.PRINTER_SPRINT);
-        y = this.toggle(right, y, colW, "layerRange", Ep2Configs.PRINTER_LAYER_RANGE);
-        y = this.toggle(right, y, colW, "pauseOnDamage", Ep2Configs.PRINTER_PAUSE_ON_DAMAGE);
-        y = this.toggle(right, y, colW, "hud", Ep2Configs.PRINTER_HUD);
-        y = this.toggle(right, y, colW, "debug", Ep2Configs.DEBUG);
-
-        this.maxScroll = Math.max(0, Math.max(leftEnd, y) + 4 - this.contentBottom);
-    }
-
-    private static java.util.function.DoubleFunction<String> ticks()
-    {
-        return v -> String.format(Locale.ROOT, "%d t", Math.round(v));
-    }
-
-    private int slider(int x, int y, int w, String key, ConfigDouble config, double min, double max, double step,
-                       java.util.function.DoubleFunction<String> format)
-    {
-        this.addScrolling(new Controls.Slider(x, y, w, 22, Component.translatable("easyplace2.printer.setting." + key), min, max, step,
-                config::getDoubleValue, config::setDoubleValue, format));
-        return y + 24;
-    }
-
-    private int slider(int x, int y, int w, String key, ConfigInteger config, int min, int max,
-                       java.util.function.DoubleFunction<String> format)
-    {
-        this.addScrolling(new Controls.Slider(x, y, w, 22, Component.translatable("easyplace2.printer.setting." + key), min, max, 1,
-                config::getIntegerValue, v -> config.setIntegerValue((int) Math.round(v)), format));
-        return y + 24;
-    }
-
-    private int toggle(int x, int y, int w, String key, ConfigBoolean config)
-    {
-        this.addScrolling(new Controls.Toggle(x, y, w, 18, Component.translatable("easyplace2.printer.setting." + key),
-                config::getBooleanValue, config::setBooleanValue));
-        return y + 20;
-    }
-
-    private void addScrolling(Controls.Control control)
-    {
-        this.scrolling.add(control);
-        this.scrollingBaseY.add(control.y);
-    }
-
-    // ---------------------------------------------------------------- Zeichnen
-
-    @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick)
-    {
-        // Eigener, ruhiger Hintergrund statt Unschaerfe
-        g.fillGradient(0, 0, this.width, this.height, Ui.BACKDROP_TOP, Ui.BACKDROP_BOTTOM);
-    }
-
-    @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick)
-    {
-        super.render(g, mouseX, mouseY, partialTick);
-        this.openAnim = Math.min(1f, this.openAnim + 0.12f);
-
         PrinterController printer = PrinterController.INSTANCE;
-
-        // Panel mit Schatten und Akzentleiste
-        Ui.round(g, this.x0 - 2, this.y0 - 1, this.x1 + 2, this.y1 + 3, 0x50000000);
-        Ui.card(g, this.x0, this.y0, this.x1, this.y1, Ui.PANEL, Ui.BORDER);
-        Ui.gradientH(g, this.x0 + 3, this.y0 + 1, this.x1 - 3, this.y0 + 3, Ui.ACCENT, Ui.ACCENT_2);
-
-        // Kopfzeile
-        g.drawString(this.font, Component.literal("Easy Place 2.0").withStyle(ChatFormatting.BOLD), this.x0 + 12, this.y0 + 12, Ui.TEXT, false);
-        g.drawString(this.font, Component.translatable("easyplace2.printer.subtitle"), this.x0 + 12 + this.font.width(Component.literal("Easy Place 2.0").withStyle(ChatFormatting.BOLD)) + 6,
-                this.y0 + 12, Ui.ACCENT, false);
-        this.drawStatusPill(g, printer.getState(), this.x1 - 12, this.y0 + 9);
-        g.fill(this.x0 + 10, this.y0 + 52, this.x1 - 10, this.y0 + 53, Ui.BORDER);
-
-        switch (page)
-        {
-            case OVERVIEW -> this.renderOverview(g, mouseX, mouseY, printer);
-            case SETTINGS -> this.renderSettingsHeader(g);
-            case INFO -> this.renderInfo(g);
-        }
-
-        for (Controls.Control c : this.controls)
-        {
-            c.render(g, this.font, mouseX, mouseY, partialTick);
-        }
-
-        if (!this.scrolling.isEmpty())
-        {
-            g.enableScissor(this.x0 + 2, this.contentTop + 12, this.x1 - 2, this.contentBottom);
-
-            for (int i = 0; i < this.scrolling.size(); i++)
-            {
-                Controls.Control c = this.scrolling.get(i);
-                c.y = this.scrollingBaseY.get(i) - this.scroll;
-                c.visible = c.y + c.h > this.contentTop + 12 && c.y < this.contentBottom;
-                c.render(g, this.font, mouseX, mouseY, partialTick);
-            }
-
-            g.disableScissor();
-        }
-    }
-
-    private void drawStatusPill(GuiGraphics g, PrinterController.State state, int right, int y)
-    {
-        Component name = Ui.stateName(state);
-        int color = Ui.stateColor(state);
-        int w = this.font.width(name) + 22;
-        int x = right - w;
-        Ui.round(g, x, y, right, y + 15, Ui.withAlpha(color, 0x30));
-        // pulsierender Punkt, solange gearbeitet wird
-        float pulse = state == PrinterController.State.OFF ? 1f : 0.55f + 0.45f * (float) Math.sin(System.currentTimeMillis() / 220.0);
-        Ui.round(g, x + 6, y + 5, x + 11, y + 10, Ui.withAlpha(color, (int) (0xFF * pulse)));
-        g.drawString(this.font, name, x + 15, y + 4, color, false);
-    }
-
-    private void renderOverview(GuiGraphics g, int mouseX, int mouseY, PrinterController printer)
-    {
         SchematicScanner.Snapshot snap = printer.getSnapshot();
-        int cx0 = this.x0 + 10, cx1 = this.x1 - 10;
-        int top = this.contentTop;
 
-        // Fortschritt
-        Ui.card(g, cx0, top, cx1, top + 46, Ui.PANEL_INNER, Ui.BORDER);
+        return switch (key)
+        {
+            case "placed" -> String.valueOf(printer.getPlaced());
+            case "rate" -> String.format(Locale.ROOT, "%.0f", printer.getRate());
+            case "eta" -> Ui.formatDuration(printer.getEtaSeconds());
+            default -> snap == null ? "–" : String.valueOf(snap.wrong());
+        };
+    }
+
+    private void paintProgress(GuiGraphics g, Font font, Controls.Area a)
+    {
+        PrinterController printer = PrinterController.INSTANCE;
+        SchematicScanner.Snapshot snap = printer.getSnapshot();
+        Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.card(), Ui.border());
+
         double progress = snap != null ? snap.progress() : 0.0;
-        this.shownProgress = this.shownProgress < 0 ? (float) progress : this.shownProgress + ((float) progress - this.shownProgress) * 0.12f;
-        String percent = String.format(Locale.ROOT, "%.1f %%", this.shownProgress * 100);
-        g.drawString(this.font, Component.translatable("easyplace2.printer.label.progress"), cx0 + 8, top + 7, Ui.TEXT_DIM, false);
-        g.drawString(this.font, Component.literal(percent).withStyle(ChatFormatting.BOLD), cx1 - 8 - this.font.width(Component.literal(percent).withStyle(ChatFormatting.BOLD)), top + 7, Ui.TEXT, false);
+        this.shownProgress = this.shownProgress < 0 ? (float) progress : Ui.approach(this.shownProgress, (float) progress, 0.08f);
 
-        int bx0 = cx0 + 8, bx1 = cx1 - 8, by = top + 19;
-        Ui.round(g, bx0, by, bx1, by + 8, Ui.TRACK);
+        Ui.text(g, font, Component.translatable("easyplace2.printer.label.progress"), a.x + 10, a.y + 8, Ui.textDim());
+        Component percent = Component.literal(String.format(Locale.ROOT, "%.1f %%", this.shownProgress * 100)).withStyle(ChatFormatting.BOLD);
+        Ui.scaledText(g, font, percent, a.x + a.w - 10 - Ui.scaledWidth(font, percent, 1.25f), a.y + 6, 1.25f, Ui.text());
+
+        int bx0 = a.x + 10, bx1 = a.x + a.w - 10, by = a.y + 22;
+        Ui.round(g, bx0, by, bx1, by + 8, Ui.track());
         int fill = bx0 + Math.round((bx1 - bx0) * Math.max(0f, Math.min(1f, this.shownProgress)));
 
         if (fill > bx0 + 2)
         {
-            Ui.gradientH(g, bx0 + 1, by + 1, fill - 1, by + 7, Ui.ACCENT, Ui.ACCENT_2);
-            // Glanzlicht, das ueber den Balken laeuft, solange gebaut wird
+            Ui.gradientH(g, bx0 + 1, by + 1, fill - 1, by + 7, Ui.accent2(), Ui.accent());
+
             if (printer.isRunning())
             {
+                // Glanzlicht, das ueber den Balken laeuft, solange gebaut wird
                 int shine = bx0 + (int) ((System.currentTimeMillis() / 6) % Math.max(1, fill - bx0));
-                g.fill(Math.max(bx0 + 1, shine - 6), by + 1, Math.min(fill - 1, shine + 6), by + 7, 0x30FFFFFF);
+                g.fill(Math.max(bx0 + 1, shine - 8), by + 1, Math.min(fill - 1, shine + 8), by + 7, 0x30FFFFFF);
             }
         }
 
         String stats = snap == null ? Component.translatable("easyplace2.printer.label.scanning").getString()
-                : Component.translatable("easyplace2.printer.label.stats", snap.done(), snap.total(),
-                        String.format(Locale.ROOT, "%.0f", printer.getRate()), Ui.formatDuration(printer.getEtaSeconds())).getString();
-        g.drawString(this.font, stats, cx0 + 8, top + 33, Ui.TEXT_DIM, false);
+                : Component.translatable("easyplace2.printer.label.stats", snap.done(), snap.total(), snap.missing().size()).getString();
+        Ui.text(g, font, Ui.clip(font, stats, a.w - 20), a.x + 10, a.y + 36, Ui.textFaint());
+    }
 
-        // Linke Karte: Status
-        int cardTop = top + 52;
-        int cardBottom = this.y1 - 36;
-        int mid = (cx0 + cx1) / 2;
-        Ui.card(g, cx0, cardTop, mid - 3, cardBottom, Ui.PANEL_INNER, Ui.BORDER);
-        g.drawString(this.font, Component.translatable("easyplace2.printer.label.status"), cx0 + 8, cardTop + 7, Ui.TEXT_DIM, false);
+    private void paintStatus(GuiGraphics g, Font font, Controls.Area a, PrinterController printer)
+    {
+        Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.card(), Ui.border());
+        Ui.text(g, font, Component.translatable("easyplace2.printer.label.status").copy().withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 8, Ui.text());
 
+        // Zustand als Pille oben rechts
+        PrinterController.State state = printer.getState();
+        Component name = Ui.stateName(state);
+        int color = Ui.stateColor(state);
+        int pw = font.width(name) + 18;
+        Ui.round(g, a.x + a.w - 8 - pw, a.y + 5, a.x + a.w - 8, a.y + 18, Ui.withAlpha(color, 0x30));
+        float pulse = state == PrinterController.State.OFF ? 1f : 0.55f + 0.45f * (float) Math.sin(System.currentTimeMillis() / 220.0);
+        Ui.dot(g, a.x + a.w - 8 - pw + 7, a.y + 11, 2, Ui.withAlpha(color, (int) (0xFF * pulse)));
+        Ui.text(g, font, name, a.x + a.w - 8 - pw + 12, a.y + 8, color);
+
+        SchematicScanner.Snapshot snap = printer.getSnapshot();
         SchematicScanner.Target target = printer.getCurrent();
-        int ry = cardTop + 21;
-        ry = this.row(g, cx0 + 8, mid - 11, ry, "schematic", snap == null || snap.names().isEmpty() ? "–" : snap.names());
-        ry = this.row(g, cx0 + 8, mid - 11, ry, "target", target == null ? "–" : target.state().getBlock().getName().getString());
-        ry = this.row(g, cx0 + 8, mid - 11, ry, "detail", this.detailText(printer));
-        ry = this.row(g, cx0 + 8, mid - 11, ry, "placed", String.valueOf(printer.getPlaced()));
-        ry = this.row(g, cx0 + 8, mid - 11, ry, "wrong", snap == null ? "–" : String.valueOf(snap.wrong()));
-        this.row(g, cx0 + 8, mid - 11, ry, "unplaceable", snap == null ? "–" : String.valueOf(snap.unplaceable()));
+        int y = a.y + 26;
+        y = this.statusRow(g, font, a, y, "schematic", snap == null || snap.names().isEmpty() ? "–" : snap.names());
+        y = this.statusRow(g, font, a, y, "target", target == null ? "–" : target.state().getBlock().getName().getString());
+        y = this.statusRow(g, font, a, y, "detail", this.detailText(printer));
+        y = this.statusRow(g, font, a, y, "unplaceable", snap == null ? "–" : String.valueOf(snap.unplaceable()));
+        this.statusRow(g, font, a, y, "baritone", Component.translatable(BaritoneBridge.isAvailable()
+                ? "easyplace2.printer.check.ok" : "easyplace2.printer.check.missing").getString());
+    }
 
-        // Rechte Karte: Material
-        Ui.card(g, mid + 3, cardTop, cx1, cardBottom, Ui.PANEL_INNER, Ui.BORDER);
-        Map<Item, Integer> missing = printer.getMissingMaterials();
-        boolean anyMissing = !missing.isEmpty();
-        g.drawString(this.font, Component.translatable(anyMissing ? "easyplace2.printer.label.missing" : "easyplace2.printer.label.materials"),
-                mid + 11, cardTop + 7, anyMissing ? Ui.RED : Ui.TEXT_DIM, false);
-        this.renderMaterials(g, mouseX, mouseY, mid + 11, cardTop + 20, cx1 - 8, cardBottom - 4, snap, missing);
+    private int statusRow(GuiGraphics g, Font font, Controls.Area a, int y, String key, String value)
+    {
+        if (y > a.y + a.h - 10)
+        {
+            return y;
+        }
+
+        Ui.text(g, font, Component.translatable("easyplace2.printer.row." + key), a.x + 10, y, Ui.textFaint());
+        int vx = a.x + 82;
+        Ui.text(g, font, Ui.clip(font, value, a.x + a.w - 10 - vx), vx, y, Ui.text());
+        return y + 12;
     }
 
     private String detailText(PrinterController printer)
     {
         String detail = printer.getDetail();
 
-        if ("skipped".equals(detail))
+        if ("skipped".equals(detail) || "damage".equals(detail))
         {
-            return Component.translatable("easyplace2.printer.detail.skipped").getString();
-        }
-
-        if ("damage".equals(detail))
-        {
-            return Component.translatable("easyplace2.printer.detail.damage").getString();
+            return Component.translatable("easyplace2.printer.detail." + detail).getString();
         }
 
         return detail.isEmpty() ? Ui.stateName(printer.getState()).getString() : detail;
     }
 
-    private int row(GuiGraphics g, int x, int right, int y, String key, String value)
+    private void paintMaterials(GuiGraphics g, Font font, Controls.Area a, PrinterController printer)
     {
-        Component label = Component.translatable("easyplace2.printer.row." + key);
-        g.drawString(this.font, label, x, y, Ui.TEXT_FAINT, false);
-        int vx = x + 74;
-        String shown = this.font.plainSubstrByWidth(value, Math.max(10, right - vx));
-        g.drawString(this.font, shown, vx, y, Ui.TEXT, false);
-        return y + 12;
-    }
+        Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.card(), Ui.border());
+        Map<Item, Integer> missing = printer.getMissingMaterials();
+        boolean anyMissing = !missing.isEmpty();
+        Ui.text(g, font, Component.translatable(anyMissing ? "easyplace2.printer.label.missing" : "easyplace2.printer.label.materials")
+                .copy().withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 8, anyMissing ? Ui.RED : Ui.text());
 
-    private void renderMaterials(GuiGraphics g, int mouseX, int mouseY, int x, int y, int right, int bottom,
-                                 @Nullable SchematicScanner.Snapshot snap, Map<Item, Integer> missing)
-    {
         Minecraft mc = Minecraft.getInstance();
+        SchematicScanner.Snapshot snap = printer.getSnapshot();
 
         if (snap == null || mc.player == null)
         {
@@ -361,19 +560,20 @@ public class PrinterScreen extends Screen
         }
 
         // Fehlendes Material zuerst, sonst die meistgebrauchten Items
-        Map<Item, Integer> source = missing.isEmpty() ? snap.neededItems() : missing;
+        Map<Item, Integer> source = anyMissing ? missing : snap.neededItems();
         List<Map.Entry<Item, Integer>> entries = new ArrayList<>(source.entrySet());
         entries.sort(Map.Entry.<Item, Integer>comparingByValue(Comparator.reverseOrder()));
 
         if (entries.isEmpty())
         {
-            g.drawString(this.font, Component.translatable("easyplace2.printer.label.nothing_needed"), x, y + 4, Ui.GREEN, false);
+            Ui.text(g, font, Component.translatable("easyplace2.printer.label.nothing_needed"), a.x + 10, a.y + 26, Ui.GREEN);
             return;
         }
 
-        int cell = 20;
-        int cols = Math.max(1, (right - x) / cell);
-        int rows = Math.max(1, (bottom - y - 12) / cell);
+        int x = a.x + 10, y = a.y + 24, cell = 21;
+        int cols = Math.max(1, (a.w - 20) / cell);
+        int rows = Math.max(1, (a.h - 24 - 14) / cell);
+        int mx = this.lastMouseX, my = this.lastMouseY;
         Component hovered = null;
 
         for (int i = 0; i < entries.size() && i < cols * rows; i++)
@@ -384,11 +584,11 @@ public class PrinterScreen extends Screen
             int ix = x + (i % cols) * cell;
             int iy = y + (i / cols) * cell;
             ItemStack stack = new ItemStack(item);
-            boolean hover = mouseX >= ix && mouseY >= iy && mouseX < ix + 18 && mouseY < iy + 18;
+            boolean hover = mx >= ix && my >= iy && mx < ix + 19 && my < iy + 19;
 
-            Ui.round(g, ix, iy, ix + 18, iy + 18, hover ? Ui.PANEL_HOVER : Ui.withAlpha(have >= need ? Ui.GREEN : Ui.RED, 0x22));
-            g.renderItem(stack, ix + 1, iy + 1);
-            g.renderItemDecorations(this.font, stack, ix + 1, iy + 1, compact(need));
+            Ui.round(g, ix, iy, ix + 19, iy + 19, hover ? Ui.cardHover() : Ui.withAlpha(have >= need ? Ui.GREEN : Ui.RED, 0x22));
+            g.renderItem(stack, ix + 2, iy + 2);
+            g.renderItemDecorations(font, stack, ix + 2, iy + 2, compact(need));
 
             if (hover)
             {
@@ -399,7 +599,7 @@ public class PrinterScreen extends Screen
 
         if (hovered != null)
         {
-            g.drawString(this.font, this.font.plainSubstrByWidth(hovered.getString(), right - x), x, bottom - 10, Ui.TEXT, false);
+            Ui.text(g, font, Ui.clip(font, hovered.getString(), a.w - 20), a.x + 10, a.y + a.h - 12, Ui.text());
         }
     }
 
@@ -408,90 +608,371 @@ public class PrinterScreen extends Screen
         return n >= 10000 ? (n / 1000) + "k" : n >= 1000 ? String.format(Locale.ROOT, "%.1fk", n / 1000.0) : String.valueOf(n);
     }
 
-    private void renderSettingsHeader(GuiGraphics g)
-    {
-        int colW = (this.x1 - this.x0 - 30) / 2;
-        g.drawString(this.font, Component.translatable("easyplace2.printer.section.timing"), this.x0 + 16, this.contentTop + 2, Ui.ACCENT, false);
-        g.drawString(this.font, Component.translatable("easyplace2.printer.section.behaviour"), this.x0 + 26 + colW, this.contentTop + 2, Ui.ACCENT, false);
+    // ---------------------------------------------------------------- Themes
 
-        if (this.maxScroll > 0)
+    private void buildThemes()
+    {
+        int width = this.cx1 - this.cx0;
+        int cols = width >= 330 ? 3 : 2;
+        int cardW = (width - (cols - 1) * GAP) / cols;
+        int cardH = 56;
+
+        for (int i = 0; i < Theme.ALL.size(); i++)
         {
-            int trackTop = this.contentTop + 14, trackBottom = this.contentBottom;
-            int h = Math.max(16, (trackBottom - trackTop) * (trackBottom - trackTop) / (trackBottom - trackTop + this.maxScroll));
-            int y = trackTop + (trackBottom - trackTop - h) * this.scroll / this.maxScroll;
-            g.fill(this.x1 - 6, trackTop, this.x1 - 4, trackBottom, Ui.TRACK);
-            g.fill(this.x1 - 6, y, this.x1 - 4, y + h, Ui.ACCENT);
+            Theme theme = Theme.ALL.get(i);
+            int x = this.cx0 + (i % cols) * (cardW + GAP);
+            int y = this.contentTop + (i / cols) * (cardH + GAP);
+            this.add(new Controls.Area(x, y, cardW, cardH, (g, font, a, hover) -> this.paintTheme(g, font, a, hover, theme),
+                    () -> Ep2Configs.PRINTER_THEME.setValueFromString(theme.id())));
         }
     }
 
-    private void renderInfo(GuiGraphics g)
+    private void paintTheme(GuiGraphics g, Font font, Controls.Area a, float hover, Theme theme)
     {
-        int x = this.x0 + 16;
-        int y = this.contentTop + 2;
-        Minecraft mc = Minecraft.getInstance();
+        boolean selected = Theme.current() == theme;
+        int accent = Ui.withAlpha(theme.accent(), 0xFF);
+        int border = selected ? accent : Ui.lerpColor(Ui.border(), Ui.withAlpha(accent, 0xA0), hover);
+        Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, selected ? Ui.cardHover() : Ui.lerpColor(Ui.card(), Ui.cardHover(), hover), border);
 
-        boolean schematic = SchematicWorldHandler.getSchematicWorld() != null &&
-                            !DataManager.getSchematicPlacementManager().getAllSchematicsPlacements().isEmpty();
+        // Farbfelder wie eine kleine Vorschau: drei dunkle Toene + Akzent
+        int sx = a.x + 10, sy = a.y + 9, sw = Math.min(20, (a.w - 70) / 4);
+        int[] swatches = { theme.sidebar(), theme.background(), theme.accent(), theme.card() };
 
-        g.drawString(this.font, Component.translatable("easyplace2.printer.section.checks"), x, y, Ui.ACCENT, false);
-        y += 14;
-        y = this.check(g, x, y, "litematica", true);
-        y = this.check(g, x, y, "schematic", schematic);
-        y = this.check(g, x, y, "baritone", BaritoneBridge.isAvailable());
-        y = this.check(g, x, y, "easyplace", Ep2Configs.EASY_PLACE_2.getBooleanValue());
-        y = this.check(g, x, y, "strict", Ep2Configs.STRICT_CROSSHAIR.getBooleanValue());
-        y += 8;
-
-        g.drawString(this.font, Component.translatable("easyplace2.printer.section.hotkeys"), x, y, Ui.ACCENT, false);
-        y += 14;
-        y = this.keyRow(g, x, y, "menu", Ep2Configs.PRINTER_MENU.getKeybind().getKeysDisplayString());
-        y = this.keyRow(g, x, y, "toggle", Ep2Configs.PRINTER_TOGGLE.getKeybind().getKeysDisplayString());
-        y += 8;
-
-        g.drawString(this.font, Component.translatable("easyplace2.printer.section.how"), x, y, Ui.ACCENT, false);
-        y += 14;
-
-        for (String key : new String[] { "how1", "how2", "how3", "how4" })
+        for (int i = 0; i < swatches.length; i++)
         {
-            for (var line : this.font.split(Component.translatable("easyplace2.printer.info." + key), this.x1 - this.x0 - 40))
+            g.fill(sx + i * sw, sy, sx + (i + 1) * sw, sy + 14, Ui.withAlpha(swatches[i], 0xFF));
+        }
+
+        // "GLASS"-Badge
+        Component badge = Component.translatable("easyplace2.printer.theme.badge");
+        int bw = Ui.scaledWidth(font, badge, 0.75f) + 8;
+        int bx = a.x + a.w - 10 - bw;
+        Ui.round(g, bx, sy + 1, bx + bw, sy + 13, Ui.withAlpha(theme.accent(), 0x30));
+        Ui.scaledText(g, font, badge, bx + 4, sy + 4, 0.75f, accent);
+
+        if (selected)
+        {
+            Ui.dot(g, bx - 9, sy + 7, 5, accent);
+            Ui.dot(g, bx - 9, sy + 7, 2, Ui.WHITE);
+        }
+
+        Ui.text(g, font, theme.displayName().copy().withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 29, Ui.text());
+        Ui.text(g, font, Ui.clip(font, theme.description().getString(), a.w - 20), a.x + 10, a.y + 41, Ui.textFaint());
+    }
+
+    // ---------------------------------------------------------------- Tasten
+
+    private void buildKeys()
+    {
+        int width = this.cx1 - this.cx0;
+        String[] keys = { "menu", "toggle", "easyplace" };
+        IHotkey[] hotkeys = { Ep2Configs.PRINTER_MENU, Ep2Configs.PRINTER_TOGGLE, Ep2Configs.EASY_PLACE_2 };
+        int y = this.contentTop;
+
+        for (int i = 0; i < keys.length; i++)
+        {
+            String key = keys[i];
+            IHotkey hotkey = hotkeys[i];
+            this.add(new Controls.Area(this.cx0, y, width, ROW_H, (g, font, a, hover) ->
             {
-                if (y > this.contentBottom - 10)
-                {
-                    return;
-                }
+                this.paintCard(g, a, hover);
+                Ui.text(g, font, Component.translatable("easyplace2.printer.key." + key).copy().withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 6, Ui.text());
+                Ui.text(g, font, Ui.clip(font, Component.translatable("easyplace2.printer.key." + key + ".desc").getString(), a.w - 140),
+                        a.x + 10, a.y + 18, Ui.textFaint());
 
-                g.drawString(this.font, line, x + 4, y, Ui.TEXT_DIM, false);
-                y += 10;
-            }
-
-            y += 2;
+                boolean active = this.capturing == hotkey;
+                String shown = active ? Component.translatable("easyplace2.printer.key.press").getString()
+                                      : hotkey.getKeybind().getKeysDisplayString();
+                shown = shown == null || shown.isEmpty() ? "–" : shown;
+                int cw = font.width(shown) + 14;
+                int chipX = a.x + a.w - 10 - cw;
+                float pulse = active ? 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 160.0) : 0f;
+                Ui.card(g, chipX, a.y + 7, chipX + cw, a.y + a.h - 7, Ui.track(),
+                        active ? Ui.withAlpha(Ui.accent(), (int) (0x80 + 0x7F * pulse)) : Ui.border());
+                Ui.text(g, font, shown, chipX + 7, a.y + 11, active ? Ui.accent() : Ui.text());
+            }, () -> this.capturing = this.capturing == hotkey ? null : hotkey));
+            y += ROW_H + GAP;
         }
 
-        if (mc.player == null)
+        this.add(new Controls.Area(this.cx0, y + 4, width, 12, (g, font, a, hover) ->
+                Ui.text(g, font, Component.translatable("easyplace2.printer.key.hint"), a.x + 2, a.y, Ui.textFaint()), null));
+    }
+
+    // ---------------------------------------------------------------- Info
+
+    private void buildInfo()
+    {
+        int width = this.cx1 - this.cx0;
+        this.add(new Controls.Area(this.cx0, this.contentTop, width, 82, (g, font, a, hover) ->
         {
-            g.drawString(this.font, Component.translatable("easyplace2.printer.info.no_world"), x, y, Ui.AMBER, false);
+            Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.card(), Ui.border());
+            boolean schematic = SchematicWorldHandler.getSchematicWorld() != null &&
+                                !DataManager.getSchematicPlacementManager().getAllSchematicsPlacements().isEmpty();
+            int y = a.y + 8;
+            y = this.check(g, font, a, y, "litematica", true);
+            y = this.check(g, font, a, y, "schematic", schematic);
+            y = this.check(g, font, a, y, "baritone", BaritoneBridge.isAvailable());
+            y = this.check(g, font, a, y, "easyplace", Ep2Configs.EASY_PLACE_2.getBooleanValue());
+            this.check(g, font, a, y, "strict", Ep2Configs.STRICT_CROSSHAIR.getBooleanValue());
+        }, null));
+
+        int y = this.contentTop + 88;
+
+        for (String key : new String[] { "how1", "how2", "how3", "how4", "server" })
+        {
+            Component text = Component.translatable("easyplace2.printer.info." + key);
+            int lines = Math.max(1, this.font.split(text, width - 20).size());
+            int h = 12 + lines * 10;
+            this.add(new Controls.Area(this.cx0, y, width, h, (g, font, a, hover) ->
+            {
+                this.paintCard(g, a, hover);
+                List<FormattedCharSequence> split = font.split(text, a.w - 20);
+
+                for (int i = 0; i < split.size(); i++)
+                {
+                    g.drawString(font, split.get(i), a.x + 10, a.y + 7 + i * 10, key.equals("server") ? Ui.AMBER : Ui.textDim(), false);
+                }
+            }, null));
+            y += h + 4;
         }
     }
 
-    private int check(GuiGraphics g, int x, int y, String key, boolean ok)
+    private int check(GuiGraphics g, Font font, Controls.Area a, int y, String key, boolean ok)
     {
         int color = ok ? Ui.GREEN : Ui.RED;
-        Ui.round(g, x, y, x + 8, y + 8, Ui.withAlpha(color, 0x50));
-        Ui.round(g, x + 2, y + 2, x + 6, y + 6, color);
-        g.drawString(this.font, Component.translatable("easyplace2.printer.check." + key), x + 14, y, Ui.TEXT, false);
+        Ui.dot(g, a.x + 14, y + 3, 4, Ui.withAlpha(color, 0x50));
+        Ui.dot(g, a.x + 14, y + 3, 2, color);
+        Ui.text(g, font, Component.translatable("easyplace2.printer.check." + key), a.x + 24, y, Ui.text());
         Component state = Component.translatable(ok ? "easyplace2.printer.check.ok" : "easyplace2.printer.check.missing");
-        g.drawString(this.font, state, this.x1 - 16 - this.font.width(state), y, color, false);
-        return y + 12;
+        Ui.text(g, font, state, a.x + a.w - 10 - font.width(state), y, color);
+        return y + 14;
     }
 
-    private int keyRow(GuiGraphics g, int x, int y, String key, String keys)
+    // ---------------------------------------------------------------- Zeichnen
+
+    private int lastMouseX, lastMouseY;
+
+    @Override
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick)
     {
-        String shown = keys == null || keys.isEmpty() ? "–" : keys;
-        g.drawString(this.font, Component.translatable("easyplace2.printer.key." + key), x, y, Ui.TEXT, false);
-        int w = this.font.width(shown) + 8;
-        Ui.round(g, this.x1 - 16 - w, y - 2, this.x1 - 16, y + 10, Ui.TRACK);
-        g.drawString(this.font, shown, this.x1 - 12 - w, y, Ui.ACCENT, false);
-        return y + 13;
+        if (Ep2Configs.PRINTER_GLASS.getBooleanValue() && this.minecraft != null && this.minecraft.level != null)
+        {
+            // Vanilla-Unschaerfe hinter dem Glas-Panel (wird pro Bild nur einmal aufgerufen)
+            super.renderBackground(g, mouseX, mouseY, partialTick);
+        }
+        else
+        {
+            g.fillGradient(0, 0, this.width, this.height, 0xB0050712, 0xD0050712);
+        }
+    }
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick)
+    {
+        super.render(g, mouseX, mouseY, partialTick);
+        this.lastMouseX = mouseX;
+        this.lastMouseY = mouseY;
+        this.scroll = Ui.approach(this.scroll, this.scrollTarget, 0.3f);
+
+        // Beim Oeffnen kurz von unten hereingleiten
+        float open = Ui.easeOut((System.currentTimeMillis() - this.openedAt) / 220f);
+        int slide = Math.round((1f - open) * 10f);
+        g.pose().pushMatrix();
+        g.pose().translate(0, slide);
+        int my = mouseY - slide;
+
+        this.renderFrame(g);
+        this.renderSidebar(g, mouseX, my);
+        this.renderHeader(g, mouseX, my);
+
+        for (Controls.Control c : this.header)
+        {
+            c.render(g, this.font, mouseX, my);
+        }
+
+        g.enableScissor(this.cx0 - 2, this.contentTop, this.cx1 + 6, this.contentBottom);
+        int offset = Math.round(this.scroll);
+
+        for (int i = 0; i < this.content.size(); i++)
+        {
+            Controls.Control c = this.content.get(i);
+            c.y = this.contentBaseY.get(i) - offset;
+            c.visible = c.y + c.h > this.contentTop && c.y < this.contentBottom;
+            boolean mouseInView = my >= this.contentTop && my < this.contentBottom;
+            c.render(g, this.font, mouseX, mouseInView ? my : -1000);
+        }
+
+        g.disableScissor();
+        this.renderScrollbar(g);
+
+        if (this.search != null)
+        {
+            this.search.render(g, mouseX, my, partialTick);
+        }
+
+        if (page == Page.THEME && !this.searching())
+        {
+            Component footer = Component.literal("● ").withColor(Ui.accent() & 0xFFFFFF)
+                    .append(Component.translatable("easyplace2.printer.theme.footer", Theme.current().displayName()).withColor(Ui.textFaint() & 0xFFFFFF));
+            Ui.text(g, this.font, footer, this.x1 - 14 - this.font.width(footer), this.y1 - 16, Ui.textFaint());
+        }
+
+        g.pose().popMatrix();
+    }
+
+    private void renderFrame(GuiGraphics g)
+    {
+        Ui.shadow(g, this.x0, this.y0, this.x1, this.y1);
+        Ui.card(g, this.x0, this.y0, this.x1, this.y1, Ui.background(), Ui.border());
+        // feiner Lichtschein oben im Panel
+        g.fillGradient(this.x0 + 2, this.y0 + 1, this.x1 - 2, this.y0 + 60, Ui.withAlpha(Ui.theme().accent(), 0x14), 0x00000000);
+        // Seitenleiste als eigenes Innenpanel
+        Ui.card(g, this.x0 + 6, this.y0 + 6, this.x0 + 6 + SIDEBAR_W, this.y1 - 6, Ui.sidebar(), Ui.border());
+    }
+
+    private void renderSidebar(GuiGraphics g, int mouseX, int mouseY)
+    {
+        int sx = this.x0 + 6;
+
+        // Logo und Name
+        Ui.item(g, new ItemStack(Items.GOLDEN_HELMET), sx + 9, this.y0 + 15, 0.75f);
+        MutableComponent name = Component.literal("Easy Place ").withStyle(ChatFormatting.BOLD);
+        Ui.text(g, this.font, name, sx + 24, this.y0 + 14, Ui.text());
+        Ui.text(g, this.font, Component.literal("Printer").withStyle(ChatFormatting.ITALIC), sx + 24 + this.font.width(name), this.y0 + 14, Ui.accent());
+        Ui.scaledText(g, this.font, Component.translatable("easyplace2.printer.version", "0.2.0"), sx + 24, this.y0 + 25, 0.75f, Ui.textFaint());
+
+        // gleitende Markierung des gewaehlten Eintrags
+        Integer targetY = this.sidebarY.get(page);
+
+        if (targetY != null)
+        {
+            this.highlightY = this.highlightY < 0 ? targetY : Ui.approach(this.highlightY, targetY, 0.3f);
+            int hy = Math.round(this.highlightY);
+            Ui.round(g, sx + 6, hy, sx + SIDEBAR_W - 6, hy + 18, Ui.lerpColor(Ui.cardHover(), Ui.withAlpha(Ui.theme().accent(), 0xFF), 0.18f));
+        }
+
+        for (Controls.Control c : this.sidebar)
+        {
+            c.render(g, this.font, mouseX, mouseY);
+        }
+
+        // Status ganz unten in der Seitenleiste
+        PrinterController.State state = PrinterController.INSTANCE.getState();
+        int color = Ui.stateColor(state);
+        int py = this.y1 - 30;
+        Ui.card(g, sx + 6, py, sx + SIDEBAR_W - 6, py + 18, Ui.card(), Ui.border());
+        float pulse = state == PrinterController.State.OFF ? 1f : 0.55f + 0.45f * (float) Math.sin(System.currentTimeMillis() / 220.0);
+        Ui.dot(g, sx + 15, py + 9, 2, Ui.withAlpha(color, (int) (0xFF * pulse)));
+        Ui.text(g, this.font, Ui.stateName(state), sx + 22, py + 5, color);
+    }
+
+    private void paintSidebarItem(GuiGraphics g, Font font, Controls.Area a, float hover, Page p)
+    {
+        boolean selected = p == page && !this.searching();
+
+        if (!selected && hover > 0.01f)
+        {
+            Ui.round(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.withAlpha(Ui.theme().cardHover(), (int) (0xB0 * hover)));
+        }
+
+        Ui.item(g, p.icon(), a.x + 5, a.y + 3, 0.75f);
+        Ui.text(g, font, p.title(), a.x + 22, a.y + 5, selected ? Ui.text() : Ui.lerpColor(Ui.textDim(), Ui.text(), hover));
+
+        int count = p.hasOptions() ? OptionEntry.of(p).size() : p == Page.THEME ? Theme.ALL.size() : p == Page.KEYS ? 3 : 0;
+
+        if (count > 0)
+        {
+            String c = String.valueOf(count);
+            Ui.scaledText(g, font, Component.literal(c), a.x + a.w - 6 - Ui.scaledWidth(font, Component.literal(c), 0.75f), a.y + 6, 0.75f, Ui.textFaint());
+        }
+    }
+
+    private void renderHeader(GuiGraphics g, int mouseX, int mouseY)
+    {
+        String keyA, keyB;
+        Component subtitle;
+
+        if (this.searching())
+        {
+            keyA = "easyplace2.printer.head.search.a";
+            keyB = "easyplace2.printer.head.search.b";
+            long count = OptionEntry.ALL.stream().filter(e -> e.matches(query)).count();
+            subtitle = Component.translatable("easyplace2.printer.head.search.sub", count, query);
+        }
+        else
+        {
+            keyA = "easyplace2.printer.head." + page.key() + ".a";
+            keyB = "easyplace2.printer.head." + page.key() + ".b";
+
+            if (page.hasOptions())
+            {
+                List<OptionEntry> entries = OptionEntry.of(page);
+                long enabled = entries.stream().filter(e -> e.isBoolean() && e.getBoolean()).count();
+                subtitle = Component.translatable("easyplace2.printer.head.options.sub", entries.size(), enabled);
+            }
+            else
+            {
+                subtitle = Component.translatable("easyplace2.printer.head." + page.key() + ".sub");
+            }
+        }
+
+        // Grosser Titel: Akzentwort kursiv, Rest fett
+        Component a = Component.translatable(keyA).withStyle(ChatFormatting.ITALIC);
+        Component b = Component.translatable(keyB).withStyle(ChatFormatting.BOLD);
+        Ui.scaledText(g, this.font, a, this.cx0, this.headerTop, 1.5f, Ui.accent());
+        Ui.scaledText(g, this.font, b, this.cx0 + Ui.scaledWidth(this.font, a, 1.5f) + 6, this.headerTop, 1.5f, Ui.text());
+        Ui.text(g, this.font, subtitle, this.cx0, this.headerTop + 16, Ui.textFaint());
+
+        // Suchfeld oben rechts
+        if (this.search != null)
+        {
+            int bx0 = this.search.getX() - 18, bx1 = this.cx1;
+            int by0 = this.headerTop - 2, by1 = this.headerTop + 15;
+            boolean focused = this.search.isFocused();
+            Ui.card(g, bx0, by0, bx1, by1, Ui.card(), focused ? Ui.withAlpha(Ui.accent(), 0xC0) : Ui.border());
+            // Lupe
+            int lx = bx0 + 8, ly = by0 + 7;
+            Ui.dot(g, lx, ly, 3, Ui.textDim());
+            Ui.dot(g, lx, ly, 2, Ui.card());
+            g.fill(lx + 2, ly + 2, lx + 4, ly + 4, Ui.textDim());
+        }
+    }
+
+    private void paintViewIcon(GuiGraphics g, Controls.Area a, float hover, boolean grid)
+    {
+        boolean active = Ep2Configs.PRINTER_GRID_VIEW.getBooleanValue() == grid;
+        Ui.round(g, a.x, a.y, a.x + a.w, a.y + a.h, active ? Ui.withAlpha(Ui.theme().accent(), 0x40)
+                                                          : Ui.withAlpha(Ui.theme().cardHover(), (int) (0xC0 * hover)));
+        int c = active ? Ui.accent() : Ui.textDim();
+        int ix = a.x + 5, iy = a.y + 4;
+
+        if (grid)
+        {
+            g.fill(ix, iy, ix + 3, iy + 3, c);
+            g.fill(ix + 5, iy, ix + 8, iy + 3, c);
+            g.fill(ix, iy + 5, ix + 3, iy + 8, c);
+            g.fill(ix + 5, iy + 5, ix + 8, iy + 8, c);
+        }
+        else
+        {
+            g.fill(ix, iy, ix + 8, iy + 1, c);
+            g.fill(ix, iy + 3, ix + 8, iy + 4, c);
+            g.fill(ix, iy + 6, ix + 8, iy + 7, c);
+        }
+    }
+
+    private void renderScrollbar(GuiGraphics g)
+    {
+        if (this.maxScroll <= 0)
+        {
+            return;
+        }
+
+        int top = this.contentTop, bottom = this.contentBottom, view = bottom - top;
+        int h = Math.max(16, view * view / (view + this.maxScroll));
+        int y = top + Math.round((view - h) * (this.scroll / this.maxScroll));
+        g.fill(this.cx1 + 4, top, this.cx1 + 6, bottom, Ui.withAlpha(Ui.theme().sidebar(), 0xFF));
+        g.fill(this.cx1 + 4, y, this.cx1 + 6, y + h, Ui.accent());
     }
 
     // ---------------------------------------------------------------- Eingabe
@@ -499,19 +980,50 @@ public class PrinterScreen extends Screen
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
     {
+        double mx = event.x(), my = event.y();
+
         if (event.button() == 0)
         {
-            for (Controls.Control c : this.allControls())
+            if (this.search != null && !this.isOverSearch(mx, my))
             {
-                if (c.click(event.x(), event.y()))
+                this.search.setFocused(false);
+            }
+
+            for (Controls.Control c : this.sidebar)
+            {
+                if (c.click(mx, my))
                 {
-                    this.dragging = c;
                     return true;
+                }
+            }
+
+            for (Controls.Control c : this.header)
+            {
+                if (c.click(mx, my))
+                {
+                    return true;
+                }
+            }
+
+            if (my >= this.contentTop && my < this.contentBottom)
+            {
+                for (Controls.Control c : new ArrayList<>(this.content))
+                {
+                    if (c.click(mx, my))
+                    {
+                        this.dragging = c;
+                        return true;
+                    }
                 }
             }
         }
 
         return super.mouseClicked(event, doubleClick);
+    }
+
+    private boolean isOverSearch(double mx, double my)
+    {
+        return this.search != null && mx >= this.search.getX() - 18 && mx < this.cx1 && my >= this.headerTop - 2 && my < this.headerTop + 15;
     }
 
     @Override
@@ -543,18 +1055,36 @@ public class PrinterScreen extends Screen
     {
         if (this.maxScroll > 0)
         {
-            this.scroll = Math.max(0, Math.min(this.maxScroll, this.scroll - (int) Math.round(scrollY * 16)));
+            this.scrollTarget = Math.max(0, Math.min(this.maxScroll, this.scrollTarget - (float) scrollY * 24f));
             return true;
         }
 
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
-    private List<Controls.Control> allControls()
+    @Override
+    public boolean keyPressed(KeyEvent event)
     {
-        List<Controls.Control> all = new ArrayList<>(this.controls);
-        all.addAll(this.scrolling);
-        return all;
+        if (this.capturing != null)
+        {
+            int key = event.key();
+
+            if (key == GLFW.GLFW_KEY_DELETE || key == GLFW.GLFW_KEY_BACKSPACE)
+            {
+                this.capturing.getKeybind().clearKeys();
+            }
+            else if (key != GLFW.GLFW_KEY_ESCAPE)
+            {
+                this.capturing.getKeybind().setValueFromString(KeyCodes.getNameForKey(key));
+            }
+
+            InputEventHandler.getKeybindManager().updateUsedKeys();
+            Ep2Configs.saveToFile();
+            this.capturing = null;
+            return true;
+        }
+
+        return super.keyPressed(event);
     }
 
     @Override

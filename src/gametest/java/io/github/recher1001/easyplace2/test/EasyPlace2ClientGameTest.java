@@ -30,6 +30,9 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
 import io.github.recher1001.easyplace2.config.Ep2ConfigTab;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
+import io.github.recher1001.easyplace2.printer.PrinterController;
+import io.github.recher1001.easyplace2.printer.gui.OptionEntry;
+import io.github.recher1001.easyplace2.printer.gui.PrinterScreen;
 
 /**
  * Ende-zu-Ende-Test: echter Vanilla-Dedicated-Server (ohne Litematica und ohne Easy Place 2.0),
@@ -134,7 +137,113 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
 
             context.takeScreenshot("easyplace2-world");
             System.out.println("[EP2-TEST] Alle Platzierungstests bestanden");
+
+            testPrinterMenu(context);
+            testPrinter(context, server);
         }
+    }
+
+    /** Printer-Menue: jede wichtige Seite einmal oeffnen und fotografieren (Liste, Kacheln, Themes). */
+    private static void testPrinterMenu(ClientGameTestContext context)
+    {
+        menuScreenshot(context, OptionEntry.Page.OVERVIEW, false, "easyplace2-printer-menu");
+        menuScreenshot(context, OptionEntry.Page.TURN, false, "easyplace2-printer-options-list");
+        menuScreenshot(context, OptionEntry.Page.TURN, true, "easyplace2-printer-options-grid");
+        menuScreenshot(context, OptionEntry.Page.THEME, false, "easyplace2-printer-themes");
+        menuScreenshot(context, OptionEntry.Page.KEYS, false, "easyplace2-printer-keys");
+        menuScreenshot(context, OptionEntry.Page.INFO, false, "easyplace2-printer-info");
+        context.runOnClient(mc -> Ep2Configs.PRINTER_GRID_VIEW.setBooleanValue(false));
+        System.out.println("[EP2-TEST] Printer-Menue ok");
+    }
+
+    private static void menuScreenshot(ClientGameTestContext context, OptionEntry.Page page, boolean grid, String name)
+    {
+        context.runOnClient(mc -> Ep2Configs.PRINTER_GRID_VIEW.setBooleanValue(grid));
+        context.setScreen(() -> new PrinterScreen(null, page));
+        context.waitForScreen(PrinterScreen.class);
+        context.waitTicks(15);
+        context.takeScreenshot(name);
+        context.setScreen(() -> null);
+        context.waitTicks(2);
+    }
+
+    /**
+     * Printer ohne Baritone (alles in Reichweite): Die Hotbar ist voll mit Erde, die Bausteine liegen
+     * im Inventar. Der Printer muss sie also wie ein Spieler ueber das Inventar holen, sich hindrehen
+     * und normal klicken. Geprueft wird auf dem Vanilla-Server, auch die Richtung der Treppe.
+     */
+    private static void testPrinter(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos stoneA = new BlockPos(-2, Y, -1);
+        BlockPos stoneB = new BlockPos(-2, Y, 0);
+        BlockPos stoneC = new BlockPos(-3, Y, 0);
+        BlockPos stairsWest = new BlockPos(-2, Y, 1);
+        BlockPos min = new BlockPos(-3, Y, -1);
+        BlockPos max = new BlockPos(-2, Y, 1);
+
+        server.runCommand(setblock(stoneA, "cobblestone"));
+        server.runCommand(setblock(stoneB, "cobblestone"));
+        server.runCommand(setblock(stoneC, "cobblestone"));
+        server.runCommand(setblock(stairsWest, "oak_stairs[facing=west,half=bottom]"));
+        context.waitTicks(20);
+
+        context.runOnClient(mc ->
+        {
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(min, max, "printer"), false);
+            area.setExplicitOrigin(min);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "printer", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Printer-Schematic konnte nicht erstellt werden");
+            }
+
+            // Nur noch die Printer-Schematic aktiv lassen
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            SchematicPlacement placement = SchematicPlacement.createFor(schematic, min, "printer", true, true);
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(placement, false);
+        });
+
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        context.waitFor(mc -> mc.level.getBlockState(stoneA).isAir() && mc.level.getBlockState(stairsWest).isAir());
+        context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(stairsWest).is(Blocks.OAK_STAIRS), 200);
+
+        // Spieler zurueck in die Mitte, Blick nach Westen; Hotbar voll Erde, Bausteine nur im Inventar
+        server.runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f 90 30", PLAYER_POS.x, PLAYER_POS.y, PLAYER_POS.z));
+        server.runCommand("clear @a");
+
+        for (int i = 0; i < 9; i++)
+        {
+            server.runCommand("item replace entity @a hotbar." + i + " with dirt 64");
+        }
+
+        server.runCommand("give @a cobblestone 8");
+        server.runCommand("give @a oak_stairs 4");
+        context.waitTicks(20);
+
+        context.runOnClient(mc -> PrinterController.INSTANCE.start());
+        context.waitFor(mc -> !PrinterController.INSTANCE.isRunning() ||
+                              (mc.level.getBlockState(stoneA).is(Blocks.COBBLESTONE) &&
+                               mc.level.getBlockState(stoneB).is(Blocks.COBBLESTONE) &&
+                               mc.level.getBlockState(stoneC).is(Blocks.COBBLESTONE) &&
+                               mc.level.getBlockState(stairsWest).is(Blocks.OAK_STAIRS)), 1200);
+        context.waitTicks(20);
+        context.takeScreenshot("easyplace2-printer-world");
+        context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+
+        assertBlock(server, stoneA, state -> state.is(Blocks.COBBLESTONE), "Printer hat Stein A nicht gesetzt");
+        assertBlock(server, stoneB, state -> state.is(Blocks.COBBLESTONE), "Printer hat Stein B nicht gesetzt");
+        assertBlock(server, stoneC, state -> state.is(Blocks.COBBLESTONE), "Printer hat Stein C nicht gesetzt");
+        assertBlock(server, stairsWest, state -> state.is(Blocks.OAK_STAIRS) && state.getValue(StairBlock.FACING) == Direction.WEST,
+                "Printer hat die Treppe nicht richtig herum gesetzt");
+        System.out.println("[EP2-TEST] Printer ok");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

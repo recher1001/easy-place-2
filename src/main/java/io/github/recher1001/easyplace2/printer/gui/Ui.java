@@ -1,46 +1,134 @@
 package io.github.recher1001.easyplace2.printer.gui;
 
+import java.util.Locale;
+
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
+import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 
 /**
- * Farben und kleine Zeichenhilfen fuer Menue und HUD (alle Farben als ARGB).
+ * Farben (aus dem aktuellen {@link Theme}) und kleine Zeichenhilfen fuer Menue und HUD.
+ * Alle Rueckgabewerte sind ARGB.
  */
 public final class Ui
 {
-    public static final int BACKDROP_TOP = 0xA0050810;
-    public static final int BACKDROP_BOTTOM = 0xC0050810;
-    public static final int PANEL = 0xF2141923;
-    public static final int PANEL_INNER = 0xFF1B2130;
-    public static final int PANEL_HOVER = 0xFF232B3D;
-    public static final int BORDER = 0xFF2C3447;
-    public static final int TEXT = 0xFFE8ECF4;
-    public static final int TEXT_DIM = 0xFF8A93A6;
-    public static final int TEXT_FAINT = 0xFF5D6578;
-    public static final int ACCENT = 0xFF4FC3F7;
-    public static final int ACCENT_2 = 0xFF8C6CFF;
     public static final int GREEN = 0xFF4ADE80;
     public static final int RED = 0xFFF87171;
     public static final int AMBER = 0xFFFBBF24;
-    public static final int TRACK = 0xFF0F131B;
+    public static final int WHITE = 0xFFFFFFFF;
 
     private Ui()
     {
     }
 
-    /** Rechteck mit abgerundeten Ecken (Radius 2 bzw. 3 Pixel). */
-    public static void round(GuiGraphics g, int x1, int y1, int x2, int y2, int color)
+    // ---------------------------------------------------------------- Farben
+
+    public static Theme theme()
     {
-        g.fill(x1 + 2, y1, x2 - 2, y2, color);
-        g.fill(x1 + 1, y1 + 1, x1 + 2, y2 - 1, color);
-        g.fill(x2 - 2, y1 + 1, x2 - 1, y2 - 1, color);
-        g.fill(x1, y1 + 2, x1 + 1, y2 - 2, color);
-        g.fill(x2 - 1, y1 + 2, x2, y2 - 2, color);
+        return Theme.current();
     }
 
-    /** Abgerundeter Rahmen mit Fuellung. */
+    private static boolean glass()
+    {
+        return Ep2Configs.PRINTER_GLASS.getBooleanValue();
+    }
+
+    public static int background()
+    {
+        return withAlpha(theme().background(), glass() ? 0xD8 : 0xFA);
+    }
+
+    public static int sidebar()
+    {
+        return withAlpha(theme().sidebar(), glass() ? 0xC8 : 0xFF);
+    }
+
+    public static int card()
+    {
+        return withAlpha(theme().card(), glass() ? 0xB4 : 0xFF);
+    }
+
+    public static int cardHover()
+    {
+        return withAlpha(theme().cardHover(), glass() ? 0xD0 : 0xFF);
+    }
+
+    public static int border()
+    {
+        return withAlpha(theme().border(), glass() ? 0xA0 : 0xFF);
+    }
+
+    public static int track()
+    {
+        return withAlpha(theme().sidebar(), 0xFF);
+    }
+
+    public static int accent()
+    {
+        return withAlpha(theme().accent(), 0xFF);
+    }
+
+    public static int accent2()
+    {
+        return withAlpha(theme().accent2(), 0xFF);
+    }
+
+    public static int text()
+    {
+        return 0xFFEEF0FA;
+    }
+
+    public static int textDim()
+    {
+        return lerpColor(0xFF9AA0B8, accent(), 0.12f);
+    }
+
+    public static int textFaint()
+    {
+        return lerpColor(0xFF5E6480, accent(), 0.10f);
+    }
+
+    public static int stateColor(PrinterController.State state)
+    {
+        return switch (state)
+        {
+            case OFF -> textFaint();
+            case DONE -> GREEN;
+            case PAUSED, PAUSED_SCREEN, NOTHING_IN_REACH -> AMBER;
+            case MISSING_MATERIAL -> RED;
+            case MOVING -> accent2();
+            default -> accent();
+        };
+    }
+
+    public static Component stateName(PrinterController.State state)
+    {
+        return Component.translatable("easyplace2.printer.state." + state.name().toLowerCase(Locale.ROOT));
+    }
+
+    // ---------------------------------------------------------------- Formen
+
+    /** Rechteck mit abgerundeten Ecken (ca. 3 Pixel Radius). */
+    public static void round(GuiGraphics g, int x1, int y1, int x2, int y2, int color)
+    {
+        if (x2 - x1 < 6 || y2 - y1 < 6)
+        {
+            g.fill(x1, y1, x2, y2, color);
+            return;
+        }
+
+        g.fill(x1 + 3, y1, x2 - 3, y2, color);
+        g.fill(x1 + 1, y1 + 1, x1 + 3, y2 - 1, color);
+        g.fill(x2 - 3, y1 + 1, x2 - 1, y2 - 1, color);
+        g.fill(x1, y1 + 3, x1 + 1, y2 - 3, color);
+        g.fill(x2 - 1, y1 + 3, x2, y2 - 3, color);
+    }
+
+    /** Abgerundete Karte mit 1-px-Rand. */
     public static void card(GuiGraphics g, int x1, int y1, int x2, int y2, int fill, int border)
     {
         round(g, x1, y1, x2, y2, border);
@@ -59,6 +147,75 @@ public final class Ui
         }
     }
 
+    /** Weicher Schatten unter einem Panel. */
+    public static void shadow(GuiGraphics g, int x1, int y1, int x2, int y2)
+    {
+        for (int i = 1; i <= 4; i++)
+        {
+            round(g, x1 - i, y1 - i + 2, x2 + i, y2 + i + 2, withAlpha(0x000000, 0x18));
+        }
+    }
+
+    /** Kleiner Kreis (fuer Statuspunkte und Haken). */
+    public static void dot(GuiGraphics g, int cx, int cy, int r, int color)
+    {
+        for (int dy = -r; dy <= r; dy++)
+        {
+            int dx = (int) Math.round(Math.sqrt(r * r - dy * dy));
+            g.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
+        }
+    }
+
+    // ---------------------------------------------------------------- Text und Icons
+
+    public static void text(GuiGraphics g, Font font, Component text, int x, int y, int color)
+    {
+        g.drawString(font, text, x, y, color, false);
+    }
+
+    public static void text(GuiGraphics g, Font font, String text, int x, int y, int color)
+    {
+        g.drawString(font, text, x, y, color, false);
+    }
+
+    /** Text in anderer Groesse (z. B. 1.5 fuer Ueberschriften, 0.75 fuer kleine Hinweise). */
+    public static void scaledText(GuiGraphics g, Font font, Component text, int x, int y, float scale, int color)
+    {
+        g.pose().pushMatrix();
+        g.pose().translate(x, y);
+        g.pose().scale(scale, scale);
+        g.drawString(font, text, 0, 0, color, false);
+        g.pose().popMatrix();
+    }
+
+    public static int scaledWidth(Font font, Component text, float scale)
+    {
+        return Math.round(font.width(text) * scale);
+    }
+
+    /** Item-Icon in anderer Groesse (16 px * scale). */
+    public static void item(GuiGraphics g, ItemStack stack, int x, int y, float scale)
+    {
+        g.pose().pushMatrix();
+        g.pose().translate(x, y);
+        g.pose().scale(scale, scale);
+        g.renderItem(stack, 0, 0);
+        g.pose().popMatrix();
+    }
+
+    /** Text auf eine Breite kuerzen (mit "…"). */
+    public static String clip(Font font, String text, int width)
+    {
+        if (font.width(text) <= width)
+        {
+            return text;
+        }
+
+        return font.plainSubstrByWidth(text, Math.max(0, width - font.width("…"))) + "…";
+    }
+
+    // ---------------------------------------------------------------- Rechnen
+
     public static int lerpColor(int a, int b, float t)
     {
         t = Math.max(0f, Math.min(1f, t));
@@ -73,22 +230,17 @@ public final class Ui
         return (alpha << 24) | (color & 0xFFFFFF);
     }
 
-    public static int stateColor(PrinterController.State state)
+    /** Weiche Annaeherung pro Bild (unabhaengig von der Bildrate genug fuer UI-Animationen). */
+    public static float approach(float current, float target, float speed)
     {
-        return switch (state)
-        {
-            case OFF -> TEXT_FAINT;
-            case DONE -> GREEN;
-            case PAUSED, PAUSED_SCREEN, NOTHING_IN_REACH -> AMBER;
-            case MISSING_MATERIAL -> RED;
-            case MOVING -> ACCENT_2;
-            default -> ACCENT;
-        };
+        float next = current + (target - current) * speed;
+        return Math.abs(target - next) < 0.001f ? target : next;
     }
 
-    public static Component stateName(PrinterController.State state)
+    public static float easeOut(float t)
     {
-        return Component.translatable("easyplace2.printer.state." + state.name().toLowerCase(java.util.Locale.ROOT));
+        t = Math.max(0f, Math.min(1f, t));
+        return 1f - (1f - t) * (1f - t) * (1f - t);
     }
 
     public static String formatDuration(long seconds)
@@ -99,7 +251,7 @@ public final class Ui
         }
 
         long h = seconds / 3600, m = (seconds / 60) % 60, s = seconds % 60;
-        return h > 0 ? String.format(java.util.Locale.ROOT, "%d:%02d:%02d", h, m, s)
-                     : String.format(java.util.Locale.ROOT, "%d:%02d", m, s);
+        return h > 0 ? String.format(Locale.ROOT, "%d:%02d:%02d", h, m, s)
+                     : String.format(Locale.ROOT, "%d:%02d", m, s);
     }
 }

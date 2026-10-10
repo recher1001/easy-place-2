@@ -14,6 +14,7 @@ import fi.dy.masa.malilib.config.options.ConfigBooleanHotkeyed;
 import fi.dy.masa.malilib.config.options.ConfigDouble;
 import fi.dy.masa.malilib.config.options.ConfigHotkey;
 import fi.dy.masa.malilib.config.options.ConfigInteger;
+import fi.dy.masa.malilib.config.options.ConfigString;
 import fi.dy.masa.malilib.util.FileUtils;
 import fi.dy.masa.malilib.util.JsonUtils;
 
@@ -55,6 +56,10 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigInteger PRINTER_REACTION_MIN = new ConfigInteger("printerReactionMin", 1, 1, 20).apply(KEY);
     public static final ConfigInteger PRINTER_REACTION_MAX = new ConfigInteger("printerReactionMax", 3, 1, 30).apply(KEY);
     public static final ConfigBoolean PRINTER_PAUSE_ON_DAMAGE = new ConfigBoolean("printerPauseOnDamage", true).apply(KEY);
+    // Aussehen des Menues
+    public static final ConfigString  PRINTER_THEME       = new ConfigString("printerTheme", "vault").apply(KEY);
+    public static final ConfigBoolean PRINTER_GLASS       = new ConfigBoolean("printerGlass", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_GRID_VIEW   = new ConfigBoolean("printerGridView", false).apply(KEY);
 
     public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
             EASY_PLACE_2,
@@ -77,7 +82,10 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_FAST_TURN_MAX_ANGLE,
             PRINTER_REACTION_MIN,
             PRINTER_REACTION_MAX,
-            PRINTER_PAUSE_ON_DAMAGE
+            PRINTER_PAUSE_ON_DAMAGE,
+            PRINTER_THEME,
+            PRINTER_GLASS,
+            PRINTER_GRID_VIEW
     );
 
     public static void loadFromFile()
