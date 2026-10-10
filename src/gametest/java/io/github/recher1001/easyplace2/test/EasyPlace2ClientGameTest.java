@@ -230,6 +230,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         context.waitTicks(20);
 
         context.runOnClient(mc -> PrinterController.INSTANCE.start());
+        context.waitTicks(25);
+        context.takeScreenshot("easyplace2-printer-running");
 
         try
         {

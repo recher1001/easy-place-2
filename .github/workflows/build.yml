@@ -1,7 +1,14 @@
 # Baut die Mod bei jedem Push automatisch auf GitHub.
 # Die fertige .jar liegt danach unter "Actions" -> letzter Lauf -> "Artifacts".
 name: build
-on: [push, workflow_dispatch]
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      publish_screenshots:
+        description: 'Screenshots des Spieltests auf den Branch ci-screenshots legen'
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -29,6 +36,8 @@ jobs:
   # Startet Minecraft (ohne Bildschirm) und testet Easy Place 2.0 gegen einen Vanilla-Server
   client_game_test:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
@@ -50,3 +59,14 @@ jobs:
             build/run/clientGameTest/screenshots/
             build/run/clientGameTest/logs/latest.log
           if-no-files-found: ignore
+      # Nur bei manuellem Start mit Haken: Screenshots als eigener Branch, z. B. zum Ansehen ohne Artifact-Download
+      - name: publish screenshots to branch
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.publish_screenshots
+        run: |
+          cd build/run/clientGameTest/screenshots
+          git init -q -b ci-screenshots
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Screenshots aus Lauf ${{ github.run_id }} (${{ github.sha }})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screenshots
