@@ -24,6 +24,7 @@ import fi.dy.masa.litematica.schematic.placement.SubRegionPlacement;
 import fi.dy.masa.litematica.selection.Box;
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
+import io.github.recher1001.easyplace2.EasyPlace2;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
 
@@ -61,6 +62,7 @@ public final class SchematicScanner
     private Set<Long> unloadedChunks = new HashSet<>();
     private int total, done, wrong, unplaceable;
     private String names = "";
+    private int lastLoggedMissing = -1;
 
     @Nullable
     public Snapshot latest()
@@ -116,6 +118,13 @@ public final class SchematicScanner
 
             this.latest = new Snapshot(List.copyOf(this.missing), this.total, this.done, this.wrong, this.unplaceable,
                     unloaded, Map.copyOf(this.needed), this.names);
+
+            if (Ep2Configs.DEBUG.getBooleanValue() && this.latest.missing().size() != this.lastLoggedMissing)
+            {
+                this.lastLoggedMissing = this.latest.missing().size();
+                EasyPlace2.LOGGER.info("[Printer] Scan: {} Bloecke, {} fertig, {} fehlen, {} falsch, {} nicht setzbar, {} Chunks nicht geladen",
+                        this.total, this.done, this.missing.size(), this.wrong, this.unplaceable, unloaded.size());
+            }
         }
     }
 
@@ -162,7 +171,8 @@ public final class SchematicScanner
         int cx = pos.getX() >> 4;
         int cz = pos.getZ() >> 4;
 
-        if (!level.hasChunk(cx, cz) || !schematic.hasChunk(cx, cz))
+        // Nur die echte Welt pruefen: Litematica laedt die Schematic-Chunks selbst passend zu den geladenen Chunks
+        if (!level.hasChunk(cx, cz))
         {
             this.unloadedChunks.add(ChunkPos.asLong(cx, cz));
             return;

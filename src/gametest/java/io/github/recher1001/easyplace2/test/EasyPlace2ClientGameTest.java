@@ -229,11 +229,25 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         context.waitTicks(20);
 
         context.runOnClient(mc -> PrinterController.INSTANCE.start());
-        context.waitFor(mc -> !PrinterController.INSTANCE.isRunning() ||
-                              (mc.level.getBlockState(stoneA).is(Blocks.COBBLESTONE) &&
-                               mc.level.getBlockState(stoneB).is(Blocks.COBBLESTONE) &&
-                               mc.level.getBlockState(stoneC).is(Blocks.COBBLESTONE) &&
-                               mc.level.getBlockState(stairsWest).is(Blocks.OAK_STAIRS)), 1200);
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning() ||
+                                  (mc.level.getBlockState(stoneA).is(Blocks.COBBLESTONE) &&
+                                   mc.level.getBlockState(stoneB).is(Blocks.COBBLESTONE) &&
+                                   mc.level.getBlockState(stoneC).is(Blocks.COBBLESTONE) &&
+                                   mc.level.getBlockState(stairsWest).is(Blocks.OAK_STAIRS)), 1200);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-printer-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Printer haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), platziert " + PrinterController.INSTANCE.getPlaced() +
+                    ", Spieler " + mc.player.position() + " Blick " + mc.player.getYRot() + "/" + mc.player.getXRot() +
+                    ", Fadenkreuz " + mc.hitResult + ", Hand " + mc.player.getMainHandItem()));
+            throw e;
+        }
+
         context.waitTicks(20);
         context.takeScreenshot("easyplace2-printer-world");
         context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));

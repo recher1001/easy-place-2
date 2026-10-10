@@ -29,6 +29,7 @@ import fi.dy.masa.litematica.util.EntityUtils;
 import fi.dy.masa.litematica.util.RayTraceUtils;
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
+import io.github.recher1001.easyplace2.EasyPlace2;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
@@ -494,6 +495,12 @@ public final class PrinterController
         // Nichts in Reichweite: hinlaufen
         if (!this.canWalk())
         {
+            if (this.state != State.NOTHING_IN_REACH)
+            {
+                debug("Kein Klick moeglich: {} offen, {} mit Material, {} in Reichweite geprueft, Auge {}",
+                        open.size(), buildable.size(), tried, eye);
+            }
+
             AimController.INSTANCE.stop();
             this.setState(State.NOTHING_IN_REACH, "");
             return;
@@ -636,6 +643,10 @@ public final class PrinterController
 
         if (!crosshairOk || !ghostOk)
         {
+            debug("Fadenkreuz passt nicht bei {}: Fadenkreuz {} (geplant {} {}), Geisterblock {}", t.pos().toShortString(),
+                    mc.hitResult instanceof BlockHitResult bhr ? bhr.getBlockPos().toShortString() + " " + bhr.getDirection() : String.valueOf(mc.hitResult),
+                    planned.getBlockPos().toShortString(), planned.getDirection(),
+                    trace == null ? "-" : trace.getHitType() + " " + trace.getBlockHitResult().getBlockPos().toShortString());
             this.nextAimPoint(now);
             return;
         }
@@ -707,10 +718,21 @@ public final class PrinterController
         if (this.state != state)
         {
             this.stateTicks = 0;
+            debug("Zustand {} -> {} ({}){}", this.state, state, detail,
+                    this.current != null ? " Ziel " + this.current.pos().toShortString() : "");
         }
 
         this.state = state;
         this.detail = detail;
+    }
+
+    /** Ablauf im Log nachvollziehen (nur mit eingeschalteten Debug-Meldungen). */
+    private static void debug(String format, Object... args)
+    {
+        if (Ep2Configs.DEBUG.getBooleanValue())
+        {
+            EasyPlace2.LOGGER.info("[Printer] " + format, args);
+        }
     }
 
     private static boolean isStillMissing(ClientLevel level, SchematicScanner.Target t)
