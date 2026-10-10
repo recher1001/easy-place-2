@@ -156,6 +156,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         menuScreenshot(context, OptionEntry.Page.THEME, false, "easyplace2-printer-themes");
         menuScreenshot(context, OptionEntry.Page.KEYS, false, "easyplace2-printer-keys");
         menuScreenshot(context, OptionEntry.Page.INFO, false, "easyplace2-printer-info");
+        menuScreenshot(context, OptionEntry.Page.INVSEE, false, "easyplace2-module-invsee");
         context.runOnClient(mc -> Ep2Configs.PRINTER_GRID_VIEW.setBooleanValue(false));
         System.out.println("[EP2-TEST] Printer-Menue ok");
     }

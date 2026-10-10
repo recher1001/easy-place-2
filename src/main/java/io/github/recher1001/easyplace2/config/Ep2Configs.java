@@ -64,6 +64,11 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_SHULKER_REFILL = new ConfigBoolean("printerShulkerRefill", true).apply(KEY);
     public static final ConfigBoolean PRINTER_STORAGE_REFILL = new ConfigBoolean("printerStorageRefill", true).apply(KEY);
     public static final ConfigHotkey  PRINTER_MARK_STORAGE = new ConfigHotkey("printerMarkStorageHotkey", "").apply(KEY);
+    // Module
+    public static final ConfigHotkey  MODULE_INVSEE       = new ConfigHotkey("moduleInvseeHotkey", "").apply(KEY);
+    public static final ConfigDouble  MODULE_INVSEE_ANGLE = new ConfigDouble("moduleInvseeAngle", 45.0, 5.0, 180.0).apply(KEY);
+    public static final ConfigDouble  MODULE_INVSEE_RANGE = new ConfigDouble("moduleInvseeRange", 32.0, 4.0, 128.0).apply(KEY);
+    public static final ConfigString  MODULE_INVSEE_COMMAND = new ConfigString("moduleInvseeCommand", "invsee {name}").apply(KEY);
 
     public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
             EASY_PLACE_2,
@@ -92,7 +97,11 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_GRID_VIEW,
             PRINTER_SHULKER_REFILL,
             PRINTER_STORAGE_REFILL,
-            PRINTER_MARK_STORAGE
+            PRINTER_MARK_STORAGE,
+            MODULE_INVSEE,
+            MODULE_INVSEE_ANGLE,
+            MODULE_INVSEE_RANGE,
+            MODULE_INVSEE_COMMAND
     );
 
     public static void loadFromFile()

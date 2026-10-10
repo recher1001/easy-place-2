@@ -13,6 +13,7 @@ import fi.dy.masa.malilib.hotkeys.KeyCallbackToggleBooleanConfigWithMessage;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.config.Ep2Hotkeys;
+import io.github.recher1001.easyplace2.modules.InvseeModule;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.refill.StorageRegistry;
 import io.github.recher1001.easyplace2.printer.gui.PrinterHud;
@@ -49,6 +50,11 @@ public class EasyPlace2 implements ClientModInitializer
             Ep2Configs.PRINTER_MARK_STORAGE.getKeybind().setCallback((action, key) ->
             {
                 StorageRegistry.toggleLookedAt(Minecraft.getInstance());
+                return true;
+            });
+            Ep2Configs.MODULE_INVSEE.getKeybind().setCallback((action, key) ->
+            {
+                InvseeModule.trigger(Minecraft.getInstance());
                 return true;
             });
         });

@@ -37,7 +37,8 @@ public final class OptionEntry
         LOOK(Section.GENERAL, Items.SPYGLASS),
         THEME(Section.GENERAL, Items.PAINTING),
         KEYS(Section.GENERAL, Items.TRIPWIRE_HOOK),
-        INFO(Section.GENERAL, Items.BOOK);
+        INFO(Section.GENERAL, Items.BOOK),
+        INVSEE(Section.MODULES, Items.ENDER_CHEST);
 
         public final Section section;
         private final net.minecraft.world.item.Item icon;
@@ -70,7 +71,7 @@ public final class OptionEntry
         }
     }
 
-    public enum Section { PRINTER, GENERAL }
+    public enum Section { PRINTER, GENERAL, MODULES }
 
     public enum Kind { BOOL, INT, DOUBLE }
 
@@ -199,6 +200,9 @@ public final class OptionEntry
         bool(Page.LOOK, "hud", Ep2Configs.PRINTER_HUD);
         bool(Page.LOOK, "glass", Ep2Configs.PRINTER_GLASS);
         bool(Page.LOOK, "gridView", Ep2Configs.PRINTER_GRID_VIEW);
+
+        number(Page.INVSEE, "invseeAngle", Ep2Configs.MODULE_INVSEE_ANGLE, 5, 180, 5, v -> String.format(Locale.ROOT, "%.0f°", v));
+        number(Page.INVSEE, "invseeRange", Ep2Configs.MODULE_INVSEE_RANGE, 4, 128, 1, v -> String.format(Locale.ROOT, "%.0f m", v));
     }
 
     public static List<OptionEntry> of(Page page)

@@ -968,8 +968,9 @@ public class PrinterScreen extends Screen
     private void buildKeys()
     {
         int width = this.cx1 - this.cx0;
-        String[] keys = { "menu", "toggle", "easyplace", "storage" };
-        IHotkey[] hotkeys = { Ep2Configs.PRINTER_MENU, Ep2Configs.PRINTER_TOGGLE, Ep2Configs.EASY_PLACE_2, Ep2Configs.PRINTER_MARK_STORAGE };
+        String[] keys = { "menu", "toggle", "easyplace", "storage", "invsee" };
+        IHotkey[] hotkeys = { Ep2Configs.PRINTER_MENU, Ep2Configs.PRINTER_TOGGLE, Ep2Configs.EASY_PLACE_2, Ep2Configs.PRINTER_MARK_STORAGE,
+                              Ep2Configs.MODULE_INVSEE };
         int y = this.contentTop;
 
         for (int i = 0; i < keys.length; i++)
@@ -1211,7 +1212,7 @@ public class PrinterScreen extends Screen
         Ui.item(g, p.icon(), a.x + 5, a.y + (a.h - 12) / 2, 0.75f);
         Ui.text(g, font, p.title(), a.x + 22, ty, selected ? Ui.text() : Ui.lerpColor(Ui.textDim(), Ui.text(), hover));
 
-        int count = p.hasOptions() ? OptionEntry.of(p).size() : p == Page.THEME ? Theme.ALL.size() : p == Page.KEYS ? 4
+        int count = p.hasOptions() ? OptionEntry.of(p).size() : p == Page.THEME ? Theme.ALL.size() : p == Page.KEYS ? 5
                   : p == Page.STORAGE ? StorageRegistry.INSTANCE.entries().size() : 0;
 
         if (count > 0)

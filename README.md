@@ -106,6 +106,16 @@ von deinem Standort aus erreichst.
 - Nutze den Printer nur auf Servern, auf denen das erlaubt ist. Wenn dort ein Anti-Cheat läuft, kann der
   Server-Admin deinen Spieler davon ausnehmen (bei Grim z. B. mit der Berechtigung `grim.exempt`).
 
+## Modul: Invsee
+
+Im Menü unter **Module → Invsee**. Wenn du die Taste drückst (unter **Tasten** belegen), schreibt die Mod
+`/invsee <Name>` für den Spieler, der dir am nächsten steht und höchstens den eingestellten
+**Blickwinkel** neben deiner Blickrichtung ist (Standard 45°, Reichweite 32 Blöcke).
+
+- Verwendet wird nur der echte Spielername, ohne Rang, Präfix oder Farben.
+- Den Befehl stellt der Server bereit (z. B. ein Plugin). Ob er erlaubt ist, entscheidet der Server.
+- Der Befehl selbst steht in `config/easyplace2.json` (`moduleInvseeCommand`, Standard `invsee {name}`).
+
 ## Wo bekomme ich die .jar?
 
 **Automatisch von GitHub (am einfachsten):**
