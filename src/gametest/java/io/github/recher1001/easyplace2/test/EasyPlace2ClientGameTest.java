@@ -12,7 +12,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
@@ -286,8 +288,31 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
 
         if (stairsLeft != 0 || shulkers < 1 || shulkerStanding)
         {
+            String items = server.computeOnServer(s ->
+            {
+                StringBuilder sb = new StringBuilder();
+                ServerPlayer p = s.getPlayerList().getPlayers().get(0);
+                sb.append("Spieler ").append(p.position()).append(" Inventar:");
+
+                for (int i = 0; i < p.getInventory().getContainerSize(); i++)
+                {
+                    if (!p.getInventory().getItem(i).isEmpty())
+                    {
+                        sb.append(' ').append(i).append('=').append(p.getInventory().getItem(i));
+                    }
+                }
+
+                sb.append(" | Items am Boden:");
+
+                for (ItemEntity e : s.overworld().getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(16)))
+                {
+                    sb.append(' ').append(e.getItem()).append('@').append(e.position());
+                }
+
+                return sb.toString();
+            });
             throw new AssertionError("Material holen: Treppen in Truhe " + stairsLeft + ", Shulker im Inventar " + shulkers +
-                                     ", Shulker steht noch " + shulkerStanding);
+                                     ", Shulker steht noch " + shulkerStanding + " | " + items);
         }
 
         System.out.println("[EP2-TEST] ok: Material aus Shulker und Lager geholt, Shulker wieder eingesammelt");

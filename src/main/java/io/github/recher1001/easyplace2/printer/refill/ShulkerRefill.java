@@ -440,6 +440,11 @@ public final class ShulkerRefill implements Refill
 
     private void go(Step next, int delay)
     {
+        if (Ep2Configs.DEBUG.getBooleanValue() && next != this.step)
+        {
+            io.github.recher1001.easyplace2.EasyPlace2.LOGGER.info("[Printer] Shulker: {} -> {} (Platz {})", this.step, next, this.spot.toShortString());
+        }
+
         this.step = next;
         this.wait = delay;
         this.stepTicks = 0;
