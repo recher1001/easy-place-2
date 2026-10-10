@@ -460,7 +460,13 @@ public final class ShulkerRefill implements Refill
     @Override
     public boolean ownsScreen(@Nullable Screen screen)
     {
-        return screen != null && screen == this.ownScreen;
+        // Auch die Kiste, die gerade per Rechtsklick geoeffnet wird (bevor WAIT_SCREEN sie uebernimmt)
+        return screen != null && (screen == this.ownScreen || (this.step == Step.WAIT_SCREEN && isShulkerScreen(screen)));
+    }
+
+    private static boolean isShulkerScreen(Screen screen)
+    {
+        return screen instanceof AbstractContainerScreen<?> container && container.getMenu() instanceof ShulkerBoxMenu;
     }
 
     @Override

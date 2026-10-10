@@ -277,7 +277,9 @@ public final class StorageFetch implements Refill
     @Override
     public boolean ownsScreen(@Nullable Screen screen)
     {
-        return screen != null && screen == this.ownScreen;
+        // Auch der Container, der gerade per Rechtsklick geoeffnet wird (bevor WAIT_SCREEN ihn uebernimmt)
+        return screen != null && (screen == this.ownScreen ||
+               (this.step == Step.WAIT_SCREEN && screen instanceof AbstractContainerScreen<?> && !(screen instanceof InventoryScreen)));
     }
 
     @Override
