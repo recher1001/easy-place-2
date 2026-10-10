@@ -65,6 +65,8 @@ public class PrinterScreen extends Screen
     private int cx0, cx1, headerTop, contentTop, contentBottom;
     private float scroll, scrollTarget;
     private int maxScroll;
+    private final List<Integer> sidebarBaseY = new ArrayList<>();
+    private int sideTop, sideBottom, sideStep = 19, sideScroll, sideMaxScroll;
     private float highlightY = -1f;
     private float shownProgress = -1f;
     private long openedAt;
@@ -99,8 +101,8 @@ public class PrinterScreen extends Screen
         this.y1 = this.y0 + h;
         this.cx0 = this.x0 + 6 + SIDEBAR_W + 12;
         this.cx1 = this.x1 - 14;
-        this.headerTop = this.y0 + 14;
-        this.contentTop = this.y0 + 64;
+        this.headerTop = this.y0 + 12;
+        this.contentTop = this.y0 + 60;
         this.contentBottom = this.y1 - 12;
 
         if (this.openedAt == 0)
@@ -110,7 +112,7 @@ public class PrinterScreen extends Screen
 
         this.buildSidebar();
 
-        int boxW = Math.min(150, (this.cx1 - this.cx0) / 3);
+        int boxW = Math.max(70, Math.min(150, (this.cx1 - this.cx0) / 3));
         this.search = new EditBox(this.font, this.cx1 - boxW + 18, this.headerTop + 3, boxW - 24, 10, Component.empty());
         this.search.setBordered(false);
         this.search.setMaxLength(40);
@@ -134,9 +136,17 @@ public class PrinterScreen extends Screen
     private void buildSidebar()
     {
         this.sidebar.clear();
+        this.sidebarBaseY.clear();
         this.sidebarY.clear();
         int sx = this.x0 + 6;
-        int y = this.y0 + 46;
+        this.sideTop = this.y0 + 38;
+        this.sideBottom = this.y1 - 32;
+
+        // Zeilenhoehe an den Platz anpassen (kleine Fenster / grosse GUI-Skalierung), notfalls scrollen
+        int pages = Page.values().length;
+        int fixed = OptionEntry.Section.values().length * 12 + 6;
+        this.sideStep = Math.max(15, Math.min(19, (this.sideBottom - this.sideTop - fixed) / pages));
+        int y = this.sideTop;
         OptionEntry.Section section = null;
 
         for (Page p : Page.values())
@@ -145,23 +155,32 @@ public class PrinterScreen extends Screen
             {
                 if (section != null)
                 {
-                    y += 8;
+                    y += 6;
                 }
 
                 section = p.section;
                 OptionEntry.Section label = section;
-                this.sidebar.add(new Controls.Area(sx + 10, y, SIDEBAR_W - 20, 10, (g, font, a, hover) ->
+                this.addSidebar(new Controls.Area(sx + 10, y, SIDEBAR_W - 20, 10, (g, font, a, hover) ->
                         Ui.scaledText(g, font, Component.translatable("easyplace2.printer.section." + label.name().toLowerCase(Locale.ROOT)),
                                 a.x + 2, a.y + 2, 0.75f, Ui.textFaint()), null));
-                y += 13;
+                y += 12;
             }
 
             Page target = p;
             this.sidebarY.put(p, y);
-            this.sidebar.add(new Controls.Area(sx + 6, y, SIDEBAR_W - 12, 18, (g, font, a, hover) -> this.paintSidebarItem(g, font, a, hover, target),
-                    () -> this.openPage(target)));
-            y += 19;
+            this.addSidebar(new Controls.Area(sx + 6, y, SIDEBAR_W - 12, this.sideStep - 1,
+                    (g, font, a, hover) -> this.paintSidebarItem(g, font, a, hover, target), () -> this.openPage(target)));
+            y += this.sideStep;
         }
+
+        this.sideMaxScroll = Math.max(0, y + 2 - this.sideBottom);
+        this.sideScroll = Math.min(this.sideScroll, this.sideMaxScroll);
+    }
+
+    private void addSidebar(Controls.Control control)
+    {
+        this.sidebar.add(control);
+        this.sidebarBaseY.add(control.y);
     }
 
     private void openPage(Page target)
@@ -191,6 +210,8 @@ public class PrinterScreen extends Screen
         this.content.clear();
         this.contentBaseY.clear();
         this.contentBottom = page == Page.THEME && !this.searching() ? this.y1 - 22 : this.y1 - 12;
+        // Seiten ohne Zeile fuer Zuruecksetzen/Ansicht ruecken naeher an den Titel
+        this.contentTop = this.searching() || page.hasOptions() ? this.y0 + 60 : this.y0 + 46;
 
         if (this.searching())
         {
@@ -311,30 +332,38 @@ public class PrinterScreen extends Screen
     {
         int right = x + w;
 
+        // Schieberegler rechts unten, der Wert steht rechts oben darueber
+        int sliderW = Math.max(60, Math.min(110, w / 3));
+
         if (e.isBoolean())
         {
             this.add(new Controls.Switch(right - 12 - Controls.Switch.WIDTH, y + (ROW_H - Controls.Switch.HEIGHT) / 2, e::getBoolean, e::setBoolean));
         }
         else
         {
-            this.add(new Controls.Slider(right - 12 - 110, y + 10, 110, e.min, e.max, e.step, e::getNumber, e::setNumber));
+            this.add(new Controls.Slider(right - 12 - sliderW, y + 16, sliderW, e.min, e.max, e.step, e::getNumber, e::setNumber));
         }
 
-        int controlSpace = e.isBoolean() ? 56 : 180;
         this.add(new Controls.Area(x, y, w, ROW_H, (g, font, a, hover) ->
         {
             this.paintCard(g, a, hover);
-            Ui.text(g, font, e.title().copy().withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 6, Ui.text());
-            Ui.text(g, font, Ui.clip(font, e.description().getString(), a.w - 20 - controlSpace), a.x + 10, a.y + 18, Ui.textFaint());
+            Component title = e.title().copy().withStyle(ChatFormatting.BOLD);
 
             if (e.isBoolean())
             {
-                Ui.text(g, font, "›", a.x + a.w - 46, a.y + 10, Ui.lerpColor(Ui.textFaint(), Ui.text(), hover));
+                Ui.text(g, font, Component.literal(Ui.clip(font, title.getString(), a.w - 80)).withStyle(ChatFormatting.BOLD),
+                        a.x + 10, a.y + 6, Ui.text());
+                Ui.text(g, font, Ui.clip(font, e.description().getString(), a.w - 70), a.x + 10, a.y + 18, Ui.textFaint());
+                Ui.text(g, font, "›", a.x + a.w - 46, a.y + 11, Ui.lerpColor(Ui.textFaint(), Ui.text(), hover));
             }
             else
             {
                 String value = e.formattedValue();
-                Ui.text(g, font, value, a.x + a.w - 130 - font.width(value), a.y + 11, Ui.accent());
+                int valueW = font.width(value);
+                Ui.text(g, font, value, a.x + a.w - 12 - valueW, a.y + 5, Ui.accent());
+                Ui.text(g, font, Component.literal(Ui.clip(font, title.getString(), a.w - 30 - valueW)).withStyle(ChatFormatting.BOLD),
+                        a.x + 10, a.y + 6, Ui.text());
+                Ui.text(g, font, Ui.clip(font, e.description().getString(), a.w - 30 - sliderW), a.x + 10, a.y + 18, Ui.textFaint());
             }
         }, e.isBoolean() ? () -> e.setBoolean(!e.getBoolean()) : null));
     }
@@ -390,33 +419,10 @@ public class PrinterScreen extends Screen
         // Fortschritt
         this.add(new Controls.Area(this.cx0, top, width, 50, (g, font, a, hover) -> this.paintProgress(g, font, a), null));
 
-        // Statistik-Kacheln
-        int tileW = (width - 3 * GAP) / 4;
-        String[] keys = { "placed", "rate", "eta", "wrong" };
-
-        for (int i = 0; i < 4; i++)
-        {
-            String key = keys[i];
-            this.add(new Controls.Area(this.cx0 + i * (tileW + GAP), top + 56, tileW, 36, (g, font, a, hover) ->
-            {
-                this.paintCard(g, a, hover);
-                Ui.scaledText(g, font, Component.literal(this.statValue(key)).withStyle(ChatFormatting.BOLD), a.x + 9, a.y + 7, 1.25f, Ui.text());
-                Ui.text(g, font, Component.translatable("easyplace2.printer.stat." + key), a.x + 9, a.y + 23, Ui.textFaint());
-            }, null));
-        }
-
-        // Status und Material
-        int cardsTop = top + 98;
-        int cardsBottom = this.contentBottom - 28;
-        int half = (width - GAP) / 2;
-        this.add(new Controls.Area(this.cx0, cardsTop, half, Math.max(30, cardsBottom - cardsTop),
-                (g, font, a, hover) -> this.paintStatus(g, font, a, printer), null));
-        this.add(new Controls.Area(this.cx0 + half + GAP, cardsTop, width - half - GAP, Math.max(30, cardsBottom - cardsTop),
-                (g, font, a, hover) -> this.paintMaterials(g, font, a, printer), null));
-
-        // Knoepfe
-        int by = this.contentBottom - 20;
-        Controls.Button start = new Controls.Button(this.cx0, by, 116, 20,
+        // Knoepfe direkt darunter, alle gleich breit
+        int by = top + 56;
+        int buttonW = (width - 2 * GAP) / 3;
+        Controls.Button start = new Controls.Button(this.cx0, by, buttonW, 20,
                 () -> Component.translatable(printer.isRunning() ? "easyplace2.printer.button.stop" : "easyplace2.printer.button.start"),
                 () -> printer.isRunning() ? Ui.RED : Ui.accent(), true,
                 () ->
@@ -434,14 +440,39 @@ public class PrinterScreen extends Screen
                 });
         this.add(start);
 
-        Controls.Button pause = new Controls.Button(this.cx0 + 122, by, 96, 20,
+        Controls.Button pause = new Controls.Button(this.cx0 + buttonW + GAP, by, buttonW, 20,
                 () -> Component.translatable(printer.isPaused() ? "easyplace2.printer.button.resume" : "easyplace2.printer.button.pause"),
                 () -> Ui.AMBER, false, () -> printer.setPaused(!printer.isPaused()));
         pause.enabled = printer::isRunning;
         this.add(pause);
 
-        this.add(new Controls.Button(this.cx1 - 80, by, 80, 20, () -> Component.translatable("easyplace2.printer.button.close"),
+        this.add(new Controls.Button(this.cx1 - buttonW, by, buttonW, 20, () -> Component.translatable("easyplace2.printer.button.close"),
                 Ui::textDim, false, this::onClose));
+
+        // Statistik-Kacheln
+        int tilesTop = by + 26;
+        int tileW = (width - 3 * GAP) / 4;
+        String[] keys = { "placed", "rate", "eta", "wrong" };
+
+        for (int i = 0; i < 4; i++)
+        {
+            String key = keys[i];
+            this.add(new Controls.Area(this.cx0 + i * (tileW + GAP), tilesTop, tileW, 34, (g, font, a, hover) ->
+            {
+                this.paintCard(g, a, hover);
+                Ui.scaledText(g, font, Component.literal(this.statValue(key)).withStyle(ChatFormatting.BOLD), a.x + 8, a.y + 6, 1.25f, Ui.text());
+                Ui.text(g, font, Ui.clip(font, Component.translatable("easyplace2.printer.stat." + key).getString(), a.w - 14),
+                        a.x + 8, a.y + 22, Ui.textFaint());
+            }, null));
+        }
+
+        // Status und Material: mindestens so hoch, dass alles lesbar ist, sonst scrollt die Seite
+        int cardsTop = tilesTop + 40;
+        int cardsH = Math.max(92, this.contentBottom - cardsTop);
+        int half = (width - GAP) / 2;
+        this.add(new Controls.Area(this.cx0, cardsTop, half, cardsH, (g, font, a, hover) -> this.paintStatus(g, font, a, printer), null));
+        this.add(new Controls.Area(this.cx0 + half + GAP, cardsTop, width - half - GAP, cardsH,
+                (g, font, a, hover) -> this.paintMaterials(g, font, a, printer), null));
     }
 
     private String statValue(String key)
@@ -694,8 +725,17 @@ public class PrinterScreen extends Screen
             y += ROW_H + GAP;
         }
 
-        this.add(new Controls.Area(this.cx0, y + 4, width, 12, (g, font, a, hover) ->
-                Ui.text(g, font, Component.translatable("easyplace2.printer.key.hint"), a.x + 2, a.y, Ui.textFaint()), null));
+        Component hint = Component.translatable("easyplace2.printer.key.hint");
+        int lines = Math.max(1, this.font.split(hint, width - 4).size());
+        this.add(new Controls.Area(this.cx0, y + 4, width, lines * 10, (g, font, a, hover) ->
+        {
+            List<FormattedCharSequence> split = font.split(hint, a.w - 4);
+
+            for (int i = 0; i < split.size(); i++)
+            {
+                g.drawString(font, split.get(i), a.x + 2, a.y + i * 10, Ui.textFaint(), false);
+            }
+        }, null));
     }
 
     // ---------------------------------------------------------------- Info
@@ -841,19 +881,39 @@ public class PrinterScreen extends Screen
         Ui.text(g, this.font, Component.literal("Printer").withStyle(ChatFormatting.ITALIC), sx + 24 + this.font.width(name), this.y0 + 14, Ui.accent());
         Ui.scaledText(g, this.font, Component.translatable("easyplace2.printer.version", "0.2.0"), sx + 24, this.y0 + 25, 0.75f, Ui.textFaint());
 
+        g.enableScissor(sx + 1, this.sideTop - 2, sx + SIDEBAR_W - 1, this.sideBottom);
+
         // gleitende Markierung des gewaehlten Eintrags
         Integer targetY = this.sidebarY.get(page);
 
         if (targetY != null)
         {
             this.highlightY = this.highlightY < 0 ? targetY : Ui.approach(this.highlightY, targetY, 0.3f);
-            int hy = Math.round(this.highlightY);
-            Ui.round(g, sx + 6, hy, sx + SIDEBAR_W - 6, hy + 18, Ui.lerpColor(Ui.cardHover(), Ui.withAlpha(Ui.theme().accent(), 0xFF), 0.18f));
+            int hy = Math.round(this.highlightY) - this.sideScroll;
+            Ui.round(g, sx + 6, hy, sx + SIDEBAR_W - 6, hy + this.sideStep - 1,
+                    Ui.lerpColor(Ui.cardHover(), Ui.withAlpha(Ui.theme().accent(), 0xFF), 0.18f));
         }
 
-        for (Controls.Control c : this.sidebar)
+        boolean mouseInList = mouseY >= this.sideTop && mouseY < this.sideBottom;
+
+        for (int i = 0; i < this.sidebar.size(); i++)
         {
-            c.render(g, this.font, mouseX, mouseY);
+            Controls.Control c = this.sidebar.get(i);
+            c.y = this.sidebarBaseY.get(i) - this.sideScroll;
+            c.visible = c.y + c.h > this.sideTop - 2 && c.y < this.sideBottom;
+            c.render(g, this.font, mouseX, mouseInList ? mouseY : -1000);
+        }
+
+        g.disableScissor();
+
+        if (this.sideMaxScroll > 0)
+        {
+            // feiner Hinweis, dass die Liste weitergeht
+            int trackX = sx + SIDEBAR_W - 4;
+            int view = this.sideBottom - this.sideTop;
+            int h = Math.max(12, view * view / (view + this.sideMaxScroll));
+            int y = this.sideTop + (view - h) * this.sideScroll / this.sideMaxScroll;
+            g.fill(trackX, y, trackX + 1, y + h, Ui.withAlpha(Ui.theme().accent(), 0xA0));
         }
 
         // Status ganz unten in der Seitenleiste
@@ -875,15 +935,16 @@ public class PrinterScreen extends Screen
             Ui.round(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.withAlpha(Ui.theme().cardHover(), (int) (0xB0 * hover)));
         }
 
-        Ui.item(g, p.icon(), a.x + 5, a.y + 3, 0.75f);
-        Ui.text(g, font, p.title(), a.x + 22, a.y + 5, selected ? Ui.text() : Ui.lerpColor(Ui.textDim(), Ui.text(), hover));
+        int ty = a.y + (a.h - 8) / 2;
+        Ui.item(g, p.icon(), a.x + 5, a.y + (a.h - 12) / 2, 0.75f);
+        Ui.text(g, font, p.title(), a.x + 22, ty, selected ? Ui.text() : Ui.lerpColor(Ui.textDim(), Ui.text(), hover));
 
         int count = p.hasOptions() ? OptionEntry.of(p).size() : p == Page.THEME ? Theme.ALL.size() : p == Page.KEYS ? 3 : 0;
 
         if (count > 0)
         {
             String c = String.valueOf(count);
-            Ui.scaledText(g, font, Component.literal(c), a.x + a.w - 6 - Ui.scaledWidth(font, Component.literal(c), 0.75f), a.y + 6, 0.75f, Ui.textFaint());
+            Ui.scaledText(g, font, Component.literal(c), a.x + a.w - 6 - Ui.scaledWidth(font, Component.literal(c), 0.75f), ty + 1, 0.75f, Ui.textFaint());
         }
     }
 
@@ -989,11 +1050,14 @@ public class PrinterScreen extends Screen
                 this.search.setFocused(false);
             }
 
-            for (Controls.Control c : this.sidebar)
+            if (my >= this.sideTop && my < this.sideBottom)
             {
-                if (c.click(mx, my))
+                for (Controls.Control c : this.sidebar)
                 {
-                    return true;
+                    if (c.click(mx, my))
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -1053,6 +1117,13 @@ public class PrinterScreen extends Screen
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY)
     {
+        // Ueber der Seitenleiste scrollt die Seitenleiste
+        if (mouseX < this.x0 + 6 + SIDEBAR_W && this.sideMaxScroll > 0)
+        {
+            this.sideScroll = Math.max(0, Math.min(this.sideMaxScroll, this.sideScroll - (int) Math.round(scrollY * 19)));
+            return true;
+        }
+
         if (this.maxScroll > 0)
         {
             this.scrollTarget = Math.max(0, Math.min(this.maxScroll, this.scrollTarget - (float) scrollY * 24f));

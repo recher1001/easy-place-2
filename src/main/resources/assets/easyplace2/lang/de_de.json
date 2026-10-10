@@ -81,7 +81,7 @@
 
     "easyplace2.printer.title": "Easy Place 2.0 Printer",
     "easyplace2.printer.version": "LITEMATICA-ADDON %s",
-    "easyplace2.printer.search": "Optionen suchen",
+    "easyplace2.printer.search": "Suchen …",
     "easyplace2.printer.search.none": "Keine passende Option gefunden.",
     "easyplace2.printer.reset": "Zurücksetzen",
     "easyplace2.printer.section.printer": "PRINTER",

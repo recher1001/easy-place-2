@@ -169,8 +169,10 @@ public final class Controls
         protected void draw(GuiGraphics g, Font font, int mx, int my)
         {
             this.knob = Ui.approach(this.knob, this.value.getAsBoolean() ? 1f : 0f, 0.3f);
-            int track = Ui.lerpColor(Ui.withAlpha(Ui.track(), 0xFF), Ui.accent(), this.knob);
-            Ui.round(g, this.x, this.y, this.x + this.w, this.y + this.h, Ui.lerpColor(Ui.border(), Ui.accent(), this.knob));
+            // Aus: sichtbare graue Spur mit Rand, An: Akzentfarbe
+            int off = Ui.withAlpha(Ui.theme().border(), 0xFF);
+            int track = Ui.lerpColor(Ui.lerpColor(off, Ui.textFaint(), 0.15f + this.hover * 0.2f), Ui.accent(), this.knob);
+            Ui.round(g, this.x, this.y, this.x + this.w, this.y + this.h, Ui.lerpColor(Ui.textFaint(), Ui.accent(), this.knob));
             Ui.round(g, this.x + 1, this.y + 1, this.x + this.w - 1, this.y + this.h - 1, track);
             int r = (this.h - 4) / 2;
             int cx = this.x + 2 + r + Math.round((this.w - 4 - 2 * r) * this.knob);
