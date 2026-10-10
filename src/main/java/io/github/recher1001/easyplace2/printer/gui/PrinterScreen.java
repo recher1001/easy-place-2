@@ -682,13 +682,33 @@ public class PrinterScreen extends Screen
             Ui.text(g, font, Component.translatable("easyplace2.printer.material.col.item"), a.x + 28, a.y + 2, Ui.textFaint());
             String[] cols = { "need", "inventory", "shulker", "storage", "status" };
 
+            // Passen die Woerter nicht in die Spalten, gibt es kleine Icons (Truhe = Inventar, Shulker, Fass = Lager)
+            ItemStack[] icons = { ItemStack.EMPTY, new ItemStack(Items.CHEST), new ItemStack(Items.SHULKER_BOX), new ItemStack(Items.BARREL), ItemStack.EMPTY };
+            String[] shortText = { "#", "", "", "", "✔" };
+            boolean fits = true;
+
+            for (String col : cols)
+            {
+                fits &= font.width(Component.translatable("easyplace2.printer.material.col." + col)) + 6 <= materialColumnWidth(a);
+            }
+
             for (int i = 0; i < cols.length; i++)
             {
-                // Kopf hoechstens so breit wie die Spalte, damit sich nichts ueberlappt
-                String c = Ui.clip(font, Component.translatable("easyplace2.printer.material.col." + cols[i]).getString(),
-                        materialColumnWidth(a) - 6);
                 int cx = materialColumn(a, i);
-                Ui.text(g, font, Component.literal(c), cx - font.width(c), a.y + 2, Ui.textFaint());
+
+                if (fits)
+                {
+                    Component c = Component.translatable("easyplace2.printer.material.col." + cols[i]);
+                    Ui.text(g, font, c, cx - font.width(c), a.y + 2, Ui.textFaint());
+                }
+                else if (!icons[i].isEmpty())
+                {
+                    Ui.item(g, icons[i], cx - 10, a.y, 0.625f);
+                }
+                else
+                {
+                    Ui.text(g, font, shortText[i], cx - font.width(shortText[i]), a.y + 2, Ui.textFaint());
+                }
             }
         }, null));
         y += 14;
