@@ -18,9 +18,11 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
@@ -54,6 +56,9 @@ public final class RefillUtil
         List<BlockHitResult> list = new ArrayList<>();
         Vec3 eye = player.getEyePosition();
         double max = maxDistance(player);
+        // Echte Form des Blocks (eine Truhe ist schmaler und niedriger als ein ganzer Block)
+        VoxelShape shape = level.getBlockState(pos).getShape(level, pos);
+        AABB box = shape.isEmpty() ? new AABB(0, 0, 0, 1, 1, 1) : shape.bounds();
 
         for (Direction dir : Direction.values())
         {
@@ -66,7 +71,7 @@ public final class RefillUtil
             {
                 for (double v : OFFSETS)
                 {
-                    Vec3 point = facePoint(pos, dir, u, v);
+                    Vec3 point = facePoint(pos, box, dir, u, v);
 
                     if (point.distanceTo(eye) > max)
                     {
@@ -122,15 +127,16 @@ public final class RefillUtil
         return ghost.getType() == HitResult.Type.BLOCK && !ghost.getBlockPos().equals(target);
     }
 
-    private static Vec3 facePoint(BlockPos pos, Direction dir, double u, double v)
+    private static Vec3 facePoint(BlockPos pos, AABB box, Direction dir, double u, double v)
     {
-        double x = pos.getX(), y = pos.getY(), z = pos.getZ();
+        double x0 = pos.getX() + box.minX, y0 = pos.getY() + box.minY, z0 = pos.getZ() + box.minZ;
+        double dx = box.maxX - box.minX, dy = box.maxY - box.minY, dz = box.maxZ - box.minZ;
 
         return switch (dir.getAxis())
         {
-            case X -> new Vec3(x + (dir == Direction.EAST ? 1.0 : 0.0), y + v, z + u);
-            case Y -> new Vec3(x + u, y + (dir == Direction.UP ? 1.0 : 0.0), z + v);
-            case Z -> new Vec3(x + u, y + v, z + (dir == Direction.SOUTH ? 1.0 : 0.0));
+            case X -> new Vec3(dir == Direction.EAST ? x0 + dx : x0, y0 + v * dy, z0 + u * dz);
+            case Y -> new Vec3(x0 + u * dx, dir == Direction.UP ? y0 + dy : y0, z0 + v * dz);
+            case Z -> new Vec3(x0 + u * dx, y0 + v * dy, dir == Direction.SOUTH ? z0 + dz : z0);
         };
     }
 
