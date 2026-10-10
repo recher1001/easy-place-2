@@ -106,6 +106,37 @@ von deinem Standort aus erreichst.
 - Nutze den Printer nur auf Servern, auf denen das erlaubt ist. Wenn dort ein Anti-Cheat läuft, kann der
   Server-Admin deinen Spieler davon ausnehmen (bei Grim z. B. mit der Berechtigung `grim.exempt`).
 
+## Gerüst und Festhängen
+
+**Gerüst (Menü → Laufen → „Gerüst setzen“, standardmäßig an):** Kommt der Printer an einen Block vom Boden
+aus nicht heran, darf Baritone Füllblöcke setzen, um hoch oder über eine Lücke zu kommen, auch mitten in
+der Schematic.
+
+- Verbaut werden nur die Blöcke aus `printerScaffoldItems` (Standard: Erde, Bruchstein, Netherrack,
+  Bruchtiefenschiefer), und davon nie etwas, das die Schematic selbst braucht.
+- Abbauen darf Baritone nie etwas. Der Printer merkt sich jeden Gerüst-Block (auch über einen Neustart
+  hinweg, in `config/easyplace2_scaffold.json`) und baut ihn selbst wieder ab:
+  - Gerüst auf einem Platz der Schematic wird abgebaut und durch den richtigen Block ersetzt, sobald diese
+    Schicht dran ist. Höheres Gerüst bleibt so lange stehen, damit er sich den Weg nach oben nicht abbaut.
+  - Alles andere Gerüst wird abgebaut, bevor der Printer „Fertig“ meldet.
+  - Immer von oben nach unten, nie der Block unter den eigenen Füßen (außer beim Turm-Abstieg ohne
+    Fallschaden). Was nicht erreichbar ist, wird angelaufen, sonst eine Weile übersprungen und später neu
+    versucht.
+- Fremde Blöcke fasst der Printer nie an, nur das eigene Gerüst.
+
+**Nie endlos im Kreis:** Ein Aufpasser prüft die ganze Zeit, ob es vorangeht.
+
+- Steckt der Spieler beim Laufen fest (mehrere Sekunden kein Stück weiter), nimmt der Printer ein anderes
+  Ziel. Findet Baritone keinen Weg, zählt das als Fehlversuch, und nach ein paar Versuchen wird der Block
+  übersprungen.
+- Wird eine Zeit lang (Menü → Laufen → „Feststecken nach“, Standard 90 s) weder ein Block gesetzt noch Gerüst
+  abgebaut, greift er stufenweise ein:
+  1. alles Übersprungene neu versuchen,
+  2. aus der Lage herauslaufen,
+  3. Gerüst in der Nähe abbauen.
+- Hilft das alles nicht, pausiert er und schreibt in den Chat, was los ist. Mit **Weiter** im Menü geht es weiter.
+- Wartet der Printer bewusst (Material fehlt, oder nichts in Reichweite und kein Baritone), läuft diese Uhr nicht.
+
 ## Modul: Invsee
 
 Im Menü unter **Module → Invsee**. Wenn du die Taste drückst (unter **Tasten** belegen), schreibt die Mod

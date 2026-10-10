@@ -27,6 +27,7 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import io.github.recher1001.easyplace2.EasyPlace2;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
+import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 
 /**
  * Vergleicht alle aktiven Litematica-Placements mit der echten Welt.
@@ -41,7 +42,8 @@ public final class SchematicScanner
     public record Target(BlockPos pos, BlockState state, Item item) {}
 
     public record Snapshot(List<Target> missing, int total, int done, int wrong, int unplaceable,
-                           List<BlockPos> unloaded, Map<Item, Integer> neededItems, String names)
+                           List<BlockPos> unloaded, Map<Item, Integer> neededItems, String names,
+                           List<BlockPos> scaffold)
     {
         public double progress()
         {
@@ -59,6 +61,8 @@ public final class SchematicScanner
     @Nullable private BlockPos.MutableBlockPos cursor;
     private List<Target> missing = new ArrayList<>();
     private Map<Item, Integer> needed = new HashMap<>();
+    /** Geruest-Bloecke, die auf einer Position der Schematic stehen und dort ersetzt werden muessen. */
+    private List<BlockPos> scaffold = new ArrayList<>();
     private Set<Long> unloadedChunks = new HashSet<>();
     private int total, done, wrong, unplaceable;
     private String names = "";
@@ -92,17 +96,18 @@ public final class SchematicScanner
 
             if (this.regions.isEmpty())
             {
-                this.latest = new Snapshot(List.of(), 0, 0, 0, 0, List.of(), Map.of(), "");
+                this.latest = new Snapshot(List.of(), 0, 0, 0, 0, List.of(), Map.of(), "", List.of());
                 return;
             }
         }
 
         boolean useLayers = Ep2Configs.PRINTER_LAYER_RANGE.getBooleanValue();
+        Set<BlockPos> scaffoldBlocks = ScaffoldTracker.INSTANCE.positions();
         int budget = BLOCKS_PER_TICK;
 
         while (budget-- > 0 && this.cursor != null)
         {
-            this.visit(level, schematic, this.cursor, useLayers);
+            this.visit(level, schematic, this.cursor, useLayers, scaffoldBlocks);
             this.advance();
         }
 
@@ -117,7 +122,7 @@ public final class SchematicScanner
             }
 
             this.latest = new Snapshot(List.copyOf(this.missing), this.total, this.done, this.wrong, this.unplaceable,
-                    unloaded, Map.copyOf(this.needed), this.names);
+                    unloaded, Map.copyOf(this.needed), this.names, List.copyOf(this.scaffold));
 
             if (Ep2Configs.DEBUG.getBooleanValue() && this.latest.missing().size() != this.lastLoggedMissing)
             {
@@ -161,12 +166,13 @@ public final class SchematicScanner
         this.cursor = list.isEmpty() ? null : list.get(0).min().mutable();
         this.missing = new ArrayList<>();
         this.needed = new HashMap<>();
+        this.scaffold = new ArrayList<>();
         this.unloadedChunks = new HashSet<>();
         this.total = this.done = this.wrong = this.unplaceable = 0;
         this.names = String.join(", ", placementNames);
     }
 
-    private void visit(ClientLevel level, Level schematic, BlockPos pos, boolean useLayers)
+    private void visit(ClientLevel level, Level schematic, BlockPos pos, boolean useLayers, Set<BlockPos> scaffoldBlocks)
     {
         int cx = pos.getX() >> 4;
         int cz = pos.getZ() >> 4;
@@ -199,10 +205,18 @@ public final class SchematicScanner
             return;
         }
 
-        // Falsche Bloecke werden nie abgebaut, nur gezaehlt
+        // Falsche Bloecke werden nie abgebaut, nur gezaehlt. Ausnahme: eigenes Geruest, das wird ersetzt.
         if (!current.canBeReplaced() && current.getBlock() != wanted.getBlock())
         {
-            this.wrong++;
+            if (!scaffoldBlocks.isEmpty() && scaffoldBlocks.contains(pos))
+            {
+                this.scaffold.add(pos.immutable());
+            }
+            else
+            {
+                this.wrong++;
+            }
+
             return;
         }
 

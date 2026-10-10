@@ -2,17 +2,20 @@ package io.github.recher1001.easyplace2.printer;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.Item;
 
 import io.github.recher1001.easyplace2.EasyPlace2;
 
 /**
- * Duenne Bruecke zu Baritone. Baritone wird nur zum Laufen benutzt, nie zum Bauen oder Abbauen.
+ * Duenne Bruecke zu Baritone. Baritone wird nur zum Laufen benutzt und baut nie etwas ab. Setzen darf es
+ * hoechstens Geruest-Bloecke, die der Printer sich merkt und danach wieder abbaut.
  * <p>
  * Die Aufrufe gehen per Reflection ueber die stabile {@code baritone.api}-Schnittstelle. So braucht
  * Easy Place 2.0 Baritone nicht zum Kompilieren und laeuft mit jeder Baritone-Version fuer 1.21.11
@@ -21,7 +24,7 @@ import io.github.recher1001.easyplace2.EasyPlace2;
 public final class BaritoneBridge
 {
     /** Baritone-Einstellungen, die waehrend des Druckens fest gesetzt werden (danach wieder zurueck). */
-    private static final String[] FORCED_SETTINGS = { "allowBreak", "allowPlace", "freeLook", "allowSprint" };
+    private static final String[] FORCED_SETTINGS = { "allowBreak", "allowPlace", "freeLook", "allowSprint", "allowParkourPlace" };
 
     private static Boolean available;
     private static final Map<String, Object> savedSettings = new HashMap<>();
@@ -145,7 +148,8 @@ public final class BaritoneBridge
     }
 
     /**
-     * Baritone darf nichts abbauen oder setzen, und die Kamera dreht sich sichtbar mit (kein freeLook).
+     * Baritone darf nichts abbauen und (bis {@link #setScaffold}) nichts setzen, und die Kamera dreht sich
+     * sichtbar mit (kein freeLook).
      */
     public static void applySettings(boolean sprint)
     {
@@ -154,7 +158,8 @@ public final class BaritoneBridge
             return;
         }
 
-        Map<String, Boolean> wanted = Map.of("allowBreak", false, "allowPlace", false, "freeLook", false, "allowSprint", sprint);
+        Map<String, Boolean> wanted = Map.of("allowBreak", false, "allowPlace", false, "freeLook", false, "allowSprint", sprint,
+                                             "allowParkourPlace", false);
 
         for (String name : FORCED_SETTINGS)
         {
@@ -173,6 +178,42 @@ public final class BaritoneBridge
                     EasyPlace2.LOGGER.warn("Baritone-Einstellung '{}' nicht gesetzt", name, t);
                 }
             }
+        }
+    }
+
+    /**
+     * Darf Baritone beim Laufen Geruest setzen (zum Hochkommen oder ueber Luecken)? Verbaut werden nur
+     * die angegebenen Items. Abbauen darf Baritone nie, das Geruest baut der Printer selbst wieder ab.
+     */
+    public static void setScaffold(boolean allowed, List<Item> items)
+    {
+        if (!isAvailable())
+        {
+            return;
+        }
+
+        set("acceptableThrowawayItems", new ArrayList<>(items));
+        set("allowPlace", allowed && !items.isEmpty());
+    }
+
+    private static void set(String name, Object newValue)
+    {
+        Object setting = setting(name);
+
+        if (setting == null)
+        {
+            return;
+        }
+
+        try
+        {
+            Field value = setting.getClass().getField("value");
+            savedSettings.putIfAbsent(name, value.get(setting));
+            value.set(setting, newValue);
+        }
+        catch (Throwable t)
+        {
+            EasyPlace2.LOGGER.warn("Baritone-Einstellung '{}' nicht gesetzt", name, t);
         }
     }
 

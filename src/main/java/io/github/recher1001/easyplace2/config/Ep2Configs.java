@@ -64,6 +64,11 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_SHULKER_REFILL = new ConfigBoolean("printerShulkerRefill", true).apply(KEY);
     public static final ConfigBoolean PRINTER_STORAGE_REFILL = new ConfigBoolean("printerStorageRefill", true).apply(KEY);
     public static final ConfigHotkey  PRINTER_MARK_STORAGE = new ConfigHotkey("printerMarkStorageHotkey", "").apply(KEY);
+    // Geruest und Festhaengen
+    public static final ConfigBoolean PRINTER_SCAFFOLD    = new ConfigBoolean("printerScaffold", true).apply(KEY);
+    public static final ConfigString  PRINTER_SCAFFOLD_ITEMS = new ConfigString("printerScaffoldItems",
+            "minecraft:dirt,minecraft:cobblestone,minecraft:netherrack,minecraft:cobbled_deepslate").apply(KEY);
+    public static final ConfigInteger PRINTER_STUCK_SECONDS = new ConfigInteger("printerStuckSeconds", 90, 20, 600).apply(KEY);
     // Module
     public static final ConfigHotkey  MODULE_INVSEE       = new ConfigHotkey("moduleInvseeHotkey", "").apply(KEY);
     public static final ConfigDouble  MODULE_INVSEE_ANGLE = new ConfigDouble("moduleInvseeAngle", 45.0, 5.0, 180.0).apply(KEY);
@@ -98,6 +103,9 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_SHULKER_REFILL,
             PRINTER_STORAGE_REFILL,
             PRINTER_MARK_STORAGE,
+            PRINTER_SCAFFOLD,
+            PRINTER_SCAFFOLD_ITEMS,
+            PRINTER_STUCK_SECONDS,
             MODULE_INVSEE,
             MODULE_INVSEE_ANGLE,
             MODULE_INVSEE_RANGE,

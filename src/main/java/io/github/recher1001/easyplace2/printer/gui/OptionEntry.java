@@ -188,6 +188,9 @@ public final class OptionEntry
         bool(Page.WALK, "useBaritone", Ep2Configs.PRINTER_USE_BARITONE);
         bool(Page.WALK, "sprint", Ep2Configs.PRINTER_SPRINT);
         number(Page.WALK, "reachMargin", Ep2Configs.PRINTER_REACH_MARGIN, 0, 2.5, 0.1, v -> String.format(Locale.ROOT, "%.1f", v));
+        bool(Page.WALK, "scaffold", Ep2Configs.PRINTER_SCAFFOLD);
+        ALL.add(new OptionEntry(Page.WALK, "stuckSeconds", Kind.INT, Ep2Configs.PRINTER_STUCK_SECONDS, 20, 600, 10,
+                v -> String.format(Locale.ROOT, "%d s", Math.round(v))));
 
         integer(Page.INVENTORY, "invDelayMin", Ep2Configs.PRINTER_INV_DELAY_MIN, 1, 40);
         integer(Page.INVENTORY, "invDelayMax", Ep2Configs.PRINTER_INV_DELAY_MAX, 1, 60);

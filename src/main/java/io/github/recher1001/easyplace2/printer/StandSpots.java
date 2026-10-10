@@ -19,6 +19,8 @@ public final class StandSpots
     private static final int MAX_SPOTS = 8;
     /** So viele Stellen werden hoechstens genau durchgerechnet (Sichtlinie und Ausrichtung). */
     private static final int MAX_CHECKED = 48;
+    /** So hoch darf Baritone sich hoechstens mit Geruest hochbauen. */
+    private static final int MAX_SCAFFOLD_HEIGHT = 24;
 
     private StandSpots()
     {
@@ -30,6 +32,16 @@ public final class StandSpots
      */
     public static List<BlockPos> find(Level level, Level schematic, BlockPos target, double reach, Vec3 playerPos,
                                Predicate<BlockPos> canPlaceFrom)
+    {
+        return find(level, schematic, target, reach, playerPos, false, canPlaceFrom);
+    }
+
+    /**
+     * @param scaffold darf Baritone Geruest setzen, gelten auch Stellen in der Luft (Baritone baut sich hoch
+     *                 oder hinueber); sie kommen aber erst nach echten Stehplaetzen dran
+     */
+    public static List<BlockPos> find(Level level, Level schematic, BlockPos target, double reach, Vec3 playerPos,
+                               boolean scaffold, Predicate<BlockPos> canPlaceFrom)
     {
         record Spot(BlockPos pos, double score) {}
 
@@ -46,9 +58,21 @@ public final class StandSpots
                     BlockPos feet = target.offset(dx, dy, dz);
                     BlockPos head = feet.above();
 
-                    if (feet.equals(target) || head.equals(target) || !canStand(level, feet))
+                    if (feet.equals(target) || head.equals(target))
                     {
                         continue;
+                    }
+
+                    int airBelow = 0;
+
+                    if (!canStand(level, feet))
+                    {
+                        airBelow = scaffold ? airColumn(level, feet) : -1;
+
+                        if (airBelow <= 0)
+                        {
+                            continue;
+                        }
                     }
 
                     Vec3 eye = new Vec3(feet.getX() + 0.5, feet.getY() + EYE_HEIGHT, feet.getZ() + 0.5);
@@ -65,6 +89,8 @@ public final class StandSpots
                     score += schematic.getBlockState(head).isAir() ? 0 : 6;
                     score += playerPos.distanceTo(Vec3.atBottomCenterOf(feet)) * 0.3;
                     score += Math.abs(eye.y - center.y) * 0.25;
+                    // Geruest kostet Zeit und muss wieder weg: nur, wenn es nicht anders geht
+                    score += airBelow > 0 ? 20 + airBelow * 3 : 0;
                     spots.add(new Spot(feet, score));
                 }
             }
@@ -82,6 +108,42 @@ public final class StandSpots
         }
 
         return result;
+    }
+
+    /**
+     * Platz in der Luft, zu dem Baritone sich mit Geruest hochbauen kann: Fuesse und Kopf frei, darunter
+     * eine freie Saeule bis zum Boden (hoechstens {@link #MAX_SCAFFOLD_HEIGHT} Bloecke, kein Wasser/Lava).
+     *
+     * @return wie viele Bloecke Luft unter den Fuessen sind, oder -1 wenn es nicht geht
+     */
+    private static int airColumn(Level level, BlockPos feet)
+    {
+        if (!free(level, feet) || !free(level, feet.above()))
+        {
+            return -1;
+        }
+
+        for (int i = 1; i <= MAX_SCAFFOLD_HEIGHT; i++)
+        {
+            BlockPos p = feet.below(i);
+
+            if (!level.getFluidState(p).isEmpty())
+            {
+                return -1;
+            }
+
+            if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty())
+            {
+                return i - 1;
+            }
+        }
+
+        return -1;
+    }
+
+    private static boolean free(Level level, BlockPos pos)
+    {
+        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty() && level.getFluidState(pos).isEmpty();
     }
 
     private static boolean canStand(Level level, BlockPos feet)

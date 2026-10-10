@@ -36,6 +36,8 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import io.github.recher1001.easyplace2.config.Ep2ConfigTab;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.printer.PrinterController;
+import io.github.recher1001.easyplace2.printer.Watchdog;
+import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 import io.github.recher1001.easyplace2.printer.gui.OptionEntry;
 import io.github.recher1001.easyplace2.printer.gui.PrinterScreen;
 import io.github.recher1001.easyplace2.printer.refill.StorageRegistry;
@@ -146,6 +148,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
 
             testPrinterMenu(context);
             testPrinter(context, server);
+            testScaffold(context, server);
+            testWatchdog(context);
         }
     }
 
@@ -319,6 +323,131 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         menuScreenshot(context, OptionEntry.Page.MATERIALS, false, "easyplace2-printer-materials");
         menuScreenshot(context, OptionEntry.Page.STORAGE, false, "easyplace2-printer-storage");
         System.out.println("[EP2-TEST] Printer ok");
+    }
+
+    /**
+     * Geruest: Ein Geruest-Block steht genau dort, wo die Schematic Bruchstein will, ein zweiter daneben.
+     * Der Printer muss den ersten abbauen und durch Bruchstein ersetzen, den zweiten abbauen und erst
+     * danach "fertig" melden.
+     */
+    private static void testScaffold(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos inSchematic = new BlockPos(0, Y, -2);
+        BlockPos outside = new BlockPos(1, Y, 2);
+
+        server.runCommand(setblock(inSchematic, "cobblestone"));
+        context.waitFor(mc -> mc.level.getBlockState(inSchematic).is(Blocks.COBBLESTONE));
+
+        context.runOnClient(mc ->
+        {
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(inSchematic, inSchematic, "scaffold"), false);
+            area.setExplicitOrigin(inSchematic);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "scaffold", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Geruest-Schematic konnte nicht erstellt werden");
+            }
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(
+                    SchematicPlacement.createFor(schematic, inSchematic, "scaffold", true, true), false);
+        });
+
+        // Wie von Baritone gesetzt: Erde an beiden Stellen, beide als Geruest gemerkt
+        server.runCommand(setblock(inSchematic, "dirt"));
+        server.runCommand(setblock(outside, "dirt"));
+        server.runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f 180 30", PLAYER_POS.x, PLAYER_POS.y, PLAYER_POS.z));
+        server.runCommand("clear @a");
+        server.runCommand("give @a cobblestone 4");
+        context.waitFor(mc -> mc.level.getBlockState(inSchematic).is(Blocks.DIRT) && mc.level.getBlockState(outside).is(Blocks.DIRT));
+        context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(inSchematic).is(Blocks.COBBLESTONE), 200);
+        context.runOnClient(mc ->
+        {
+            ScaffoldTracker.INSTANCE.add(inSchematic);
+            ScaffoldTracker.INSTANCE.add(outside);
+            PrinterController.INSTANCE.start();
+        });
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 1200);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-scaffold-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Geruest haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Geruest " + ScaffoldTracker.INSTANCE.positions() +
+                    ", Spieler " + mc.player.position() + ", Hand " + mc.player.getMainHandItem()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        assertBlock(server, inSchematic, state -> state.is(Blocks.COBBLESTONE), "Geruest in der Schematic wurde nicht ersetzt");
+        assertBlock(server, outside, BlockState::isAir, "Geruest neben der Schematic wurde nicht abgebaut");
+        int left = context.computeOnClient(mc -> ScaffoldTracker.INSTANCE.count());
+
+        if (left != 0)
+        {
+            throw new AssertionError("Geruest-Liste ist nicht leer: " + left);
+        }
+
+        System.out.println("[EP2-TEST] Geruest ok");
+    }
+
+    /** Watchdog: ohne Fortschritt kommen die Stufen in der richtigen Reihenfolge und Zeit, danach nichts mehr. */
+    private static void testWatchdog(ClientGameTestContext context)
+    {
+        String result = context.computeOnClient(mc ->
+        {
+            int before = Ep2Configs.PRINTER_STUCK_SECONDS.getIntegerValue();
+            Ep2Configs.PRINTER_STUCK_SECONDS.setIntegerValue(20);
+
+            try
+            {
+                Watchdog dog = new Watchdog();
+                StringBuilder sb = new StringBuilder();
+
+                for (int tick = 1; tick <= 20 * 200; tick++)
+                {
+                    Watchdog.Level level = dog.tick();
+
+                    if (level != null)
+                    {
+                        sb.append(level).append('@').append(tick).append(' ');
+                    }
+
+                    // Fortschritt setzt alles zurueck
+                    if (tick == 20 * 100)
+                    {
+                        dog.progress();
+                        sb.append("| ");
+                    }
+                }
+
+                return sb.toString().trim();
+            }
+            finally
+            {
+                Ep2Configs.PRINTER_STUCK_SECONDS.setIntegerValue(before);
+            }
+        });
+
+        String expected = "RETRY@400 ESCAPE@600 CLEAR_SCAFFOLD@800 GIVE_UP@1000 | RETRY@2400 ESCAPE@2600 CLEAR_SCAFFOLD@2800 GIVE_UP@3000";
+
+        if (!expected.equals(result))
+        {
+            throw new AssertionError("Watchdog-Stufen falsch: " + result);
+        }
+
+        System.out.println("[EP2-TEST] Watchdog ok: " + result);
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

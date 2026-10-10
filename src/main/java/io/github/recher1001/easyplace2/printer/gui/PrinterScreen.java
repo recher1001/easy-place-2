@@ -582,7 +582,7 @@ public class PrinterScreen extends Screen
     {
         String detail = printer.getDetail();
 
-        if ("skipped".equals(detail) || "damage".equals(detail))
+        if ("skipped".equals(detail) || "damage".equals(detail) || "stuck".equals(detail) || "escape".equals(detail))
         {
             return Component.translatable("easyplace2.printer.detail." + detail).getString();
         }

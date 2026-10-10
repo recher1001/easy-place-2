@@ -243,7 +243,8 @@ public final class StorageRegistry
     // ---------------------------------------------------------------- Datei
 
     /** Schluessel fuer Server/Welt + Dimension. */
-    private static String worldKey()
+    /** Schluessel fuer die aktuelle Welt: Server bzw. Einzelspielerwelt plus Dimension. */
+    public static String worldKey()
     {
         Minecraft mc = Minecraft.getInstance();
         String world;

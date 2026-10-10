@@ -16,6 +16,7 @@ import io.github.recher1001.easyplace2.config.Ep2Hotkeys;
 import io.github.recher1001.easyplace2.modules.InvseeModule;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.refill.StorageRegistry;
+import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 import io.github.recher1001.easyplace2.printer.gui.PrinterHud;
 import io.github.recher1001.easyplace2.printer.gui.PrinterScreen;
 
@@ -61,6 +62,7 @@ public class EasyPlace2 implements ClientModInitializer
 
         PrinterController.INSTANCE.register();
         StorageRegistry.INSTANCE.register();
+        ScaffoldTracker.INSTANCE.register();
         PrinterHud.register();
     }
 }

@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -36,6 +37,8 @@ import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
 import io.github.recher1001.easyplace2.printer.refill.RefillManager;
+import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldCleaner;
+import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 
 /**
  * Der Printer: baut die aktiven Litematica-Schematics automatisch.
@@ -51,7 +54,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, MOVING, AIMING, CLICKING, WAITING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, MOVING, AIMING, CLICKING, WAITING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -61,10 +64,17 @@ public final class PrinterController
     private static final int MOVE_TIMEOUT_TICKS = 20 * 60;
     private static final int AIM_TIMEOUT_TICKS = 20 * 3;
     private static final int CANDIDATES_PER_TICK = 24;
+    private static final int MAX_UNLOADED_ATTEMPTS = 3;
+    /** Im Notfall: so weit (Bloecke) wird aus einer verfahrenen Lage herausgelaufen. */
+    private static final int ESCAPE_DISTANCE = 10;
+    /** Im Notfall: Geruest in diesem Umkreis wird abgebaut. */
+    private static final double CLEAR_RADIUS = 6.0;
 
     private final SchematicScanner scanner = new SchematicScanner();
     private final InventoryManager inventory = new InventoryManager();
     private final RefillManager refill = new RefillManager();
+    private final ScaffoldCleaner cleaner = new ScaffoldCleaner();
+    private final Watchdog watchdog = new Watchdog();
     private final Random random = new Random();
 
     private boolean running;
@@ -83,6 +93,8 @@ public final class PrinterController
 
     @Nullable private BlockPos moveTarget;
     private long moveStartTick;
+    private Vec3 moveStartPos = Vec3.ZERO;
+    private final Map<BlockPos, Integer> unloadedAttempts = new HashMap<>();
     private final Map<BlockPos, Integer> moveAttempts = new HashMap<>();
     private final Map<BlockPos, Integer> failures = new HashMap<>();
     private final Map<BlockPos, Long> blacklist = new HashMap<>();
@@ -147,9 +159,13 @@ public final class PrinterController
         if (Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue())
         {
             BaritoneBridge.applySettings(Ep2Configs.PRINTER_SPRINT.getBooleanValue());
+            BaritoneBridge.setScaffold(false, List.of());
         }
 
         this.scanner.reset();
+        this.cleaner.reset();
+        this.watchdog.reset();
+        this.unloadedAttempts.clear();
         this.failures.clear();
         this.blacklist.clear();
         this.moveAttempts.clear();
@@ -176,6 +192,7 @@ public final class PrinterController
         this.moveTarget = null;
         AimController.INSTANCE.stop();
         this.refill.cancel(mc);
+        this.cleaner.cancel(mc);
         this.inventory.cancel(mc);
         BaritoneBridge.cancel();
         BaritoneBridge.restoreSettings();
@@ -198,13 +215,12 @@ public final class PrinterController
 
         if (paused)
         {
-            AimController.INSTANCE.stop();
-            this.refill.cancel(Minecraft.getInstance());
-            BaritoneBridge.cancel();
+            this.interrupt(Minecraft.getInstance());
             this.setState(State.PAUSED, "");
         }
         else
         {
+            this.watchdog.progress();
             this.setState(State.SELECTING, "");
         }
     }
@@ -302,10 +318,7 @@ public final class PrinterController
         {
             if (this.state != State.PAUSED_SCREEN)
             {
-                AimController.INSTANCE.stop();
-                BaritoneBridge.cancel();
-                this.refill.cancel(mc);
-                this.inventory.cancel(mc);
+                this.interrupt(mc);
                 this.setState(State.PAUSED_SCREEN, "");
             }
 
@@ -334,10 +347,7 @@ public final class PrinterController
         {
             if (this.state != State.PAUSED)
             {
-                AimController.INSTANCE.stop();
-                BaritoneBridge.cancel();
-                this.refill.cancel(mc);
-                this.inventory.cancel(mc);
+                this.interrupt(mc);
                 this.setState(State.PAUSED, "damage");
             }
 
@@ -365,6 +375,18 @@ public final class PrinterController
 
         this.stateTicks++;
 
+        // Nie endlos im Kreis: geht nichts mehr voran, wird stufenweise eingegriffen
+        if (this.watchdogCounts())
+        {
+            Watchdog.Level level0 = this.watchdog.tick();
+
+            if (level0 != null)
+            {
+                this.escalate(mc, player, level, schematic, level0, now);
+                return;
+            }
+        }
+
         switch (this.state)
         {
             case SCANNING, SELECTING, MISSING_MATERIAL, NOTHING_IN_REACH, FETCHING_ITEM ->
@@ -385,7 +407,25 @@ public final class PrinterController
                     this.detail = this.refill.detail();
                 }
             }
-            case MOVING -> this.tickMoving(now);
+            case CLEANING ->
+            {
+                int before = this.cleaner.broken();
+
+                if (this.cleaner.tick(mc, now, this.canWalk()))
+                {
+                    if (this.cleaner.broken() > before)
+                    {
+                        this.watchdog.progress();
+                        // Neu scannen: an der Stelle fehlt jetzt evtl. ein Block der Schematic
+                        this.scanner.reset();
+                    }
+
+                    // Kurz durchatmen (z. B. nach dem Runterfallen beim Turm-Abstieg), dann neu planen
+                    this.setState(State.SELECTING, "");
+                    this.stateTicks = -(3 + this.random.nextInt(4));
+                }
+            }
+            case MOVING -> this.tickMoving(player, now);
             case AIMING -> this.tickAiming(level);
             case CLICKING -> this.tickClicking(mc, player, level, now);
             case WAITING -> this.tickWaiting(level);
@@ -418,6 +458,7 @@ public final class PrinterController
             return;
         }
 
+        this.updateScaffoldItems(player, snap);
         List<SchematicScanner.Target> open = new ArrayList<>();
 
         for (SchematicScanner.Target t : snap.missing())
@@ -428,16 +469,46 @@ public final class PrinterController
             }
         }
 
+        // Geruest, das auf einem Platz der Schematic steht, wird ersetzt, sobald diese Schicht dran ist.
+        // Hoeher liegendes bleibt vorerst stehen, damit sich der Printer nicht den Weg nach oben abbaut.
+        if (!snap.scaffold().isEmpty())
+        {
+            int lowestOpen = open.stream().mapToInt(t -> t.pos().getY()).min().orElse(Integer.MAX_VALUE - 1);
+            Set<BlockPos> blocking = new HashSet<>(snap.scaffold());
+
+            if (this.cleaner.start(player, level, schematic, p -> blocking.contains(p) && p.getY() <= lowestOpen + 1, now))
+            {
+                AimController.INSTANCE.stop();
+                this.setState(State.CLEANING, this.cleaner.detail());
+                return;
+            }
+        }
+
         if (open.isEmpty())
         {
+            // Hier ist alles gebaut: erst alles Geruest wieder abbauen, dann fertig (oder zum naechsten Teil laufen)
+            if (snap.missing().isEmpty() && this.cleaner.start(player, level, schematic, p -> true, now))
+            {
+                AimController.INSTANCE.stop();
+                this.setState(State.CLEANING, this.cleaner.detail());
+                return;
+            }
+
             if (!snap.unloaded().isEmpty() && this.canWalk())
             {
                 this.walkToUnloaded(player, snap.unloaded(), now);
             }
-            else if (snap.missing().isEmpty() && snap.unloaded().isEmpty())
+            else if (snap.missing().isEmpty() && snap.unloaded().isEmpty() && this.cleaner.skippedCount(now) == 0)
             {
+                // Uebersprungenes Geruest wird vorher noch einmal versucht (der Watchdog sorgt dafuer, dass das endet)
+                int left = (int) ScaffoldTracker.INSTANCE.positions().stream().filter(level::hasChunkAt).count();
                 this.setState(State.DONE, "");
                 this.stop(Component.translatable("easyplace2.printer.msg.done", snap.done(), snap.total(), snap.wrong()).withStyle(ChatFormatting.GREEN));
+
+                if (left > 0)
+                {
+                    message(Component.translatable("easyplace2.printer.msg.scaffold_left", left).withStyle(ChatFormatting.GOLD));
+                }
             }
             else
             {
@@ -563,6 +634,21 @@ public final class PrinterController
         double maxDist = reach - Ep2Configs.PRINTER_REACH_MARGIN.getDoubleValue();
         int planned = 0;
 
+        // Darf Baritone Geruest setzen? Dann muss ein Stapel davon in der Hotbar liegen (Baritone nimmt nur von dort)
+        List<Item> usable = ScaffoldTracker.INSTANCE.usable();
+        boolean scaffold = Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue() && !usable.isEmpty();
+
+        if (scaffold && usable.stream().noneMatch(item -> InventoryManager.isInHotbar(player, item)))
+        {
+            if (this.inventory.request(player, usable.get(0), snap.neededItems().keySet()))
+            {
+                this.setState(State.FETCHING_ITEM, new ItemStack(usable.get(0)).getHoverName().getString());
+                return;
+            }
+
+            scaffold = false;
+        }
+
         for (SchematicScanner.Target t : layer)
         {
             // Stehplaetze genau durchrechnen ist teuer, deshalb nur wenige Bloecke pro Tick
@@ -574,7 +660,7 @@ public final class PrinterController
 
             ItemStack stack = new ItemStack(t.item());
             BlockItem item = (BlockItem) t.item();
-            List<BlockPos> spots = StandSpots.find(level, schematic, t.pos(), maxDist, player.position(),
+            List<BlockPos> spots = StandSpots.find(level, schematic, t.pos(), maxDist, player.position(), scaffold,
                     feet -> AimPlanner.canPlaceFrom(player, feet, level, schematic, t.pos(), t.state(), stack, item, maxDist));
             int attempts = this.moveAttempts.merge(t.pos(), 1, Integer::sum);
 
@@ -585,11 +671,15 @@ public final class PrinterController
                 continue;
             }
 
+            BaritoneBridge.setScaffold(scaffold, usable);
+
             if (BaritoneBridge.goToAny(spots))
             {
                 AimController.INSTANCE.stop();
                 this.moveTarget = t.pos();
                 this.moveStartTick = now;
+                this.moveStartPos = player.position();
+                this.watchdog.startMoving(player.position());
                 this.setState(State.MOVING, blockName(t.state()));
             }
 
@@ -602,27 +692,51 @@ public final class PrinterController
     private void walkToUnloaded(LocalPlayer player, List<BlockPos> unloaded, long now)
     {
         Vec3 pos = player.position();
+        // Jedes Ziel nur ein paar Mal versuchen, sonst laeuft der Printer endlos hin und her
         BlockPos nearest = unloaded.stream()
+                .filter(p -> this.unloadedAttempts.getOrDefault(p, 0) < MAX_UNLOADED_ATTEMPTS)
                 .min(Comparator.comparingDouble(p -> Math.pow(p.getX() + 0.5 - pos.x, 2) + Math.pow(p.getZ() + 0.5 - pos.z, 2)))
-                .orElseThrow();
+                .orElse(null);
+
+        if (nearest == null)
+        {
+            this.setState(State.SELECTING, "skipped");
+            return;
+        }
+
+        this.unloadedAttempts.merge(nearest, 1, Integer::sum);
+        List<Item> usable = ScaffoldTracker.INSTANCE.usable();
+        BaritoneBridge.setScaffold(Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue(), usable);
 
         if (BaritoneBridge.goToXZ(nearest.getX(), nearest.getZ()))
         {
             AimController.INSTANCE.stop();
             this.moveTarget = null;
             this.moveStartTick = now;
+            this.moveStartPos = player.position();
+            this.watchdog.startMoving(player.position());
             this.setState(State.MOVING, nearest.getX() + ", " + nearest.getZ());
+        }
+        else
+        {
+            this.setState(State.SELECTING, "skipped");
         }
     }
 
-    private void tickMoving(long now)
+    private void tickMoving(LocalPlayer player, long now)
     {
         // Baritone braucht einen Moment, bis der Weg berechnet ist
         if (this.stateTicks < 10 || BaritoneBridge.isBusy())
         {
-            if (now - this.moveStartTick > MOVE_TIMEOUT_TICKS)
+            // Zu lange unterwegs oder seit Sekunden kein Stueck weitergekommen: anderes Ziel nehmen
+            boolean stuck = this.stateTicks >= 10 && this.watchdog.stuckWhileMoving(player.position());
+
+            if (now - this.moveStartTick > MOVE_TIMEOUT_TICKS || stuck)
             {
+                debug("Laufen abgebrochen ({}), Ziel {}", stuck ? "steckt fest" : "dauert zu lange",
+                        this.moveTarget != null ? this.moveTarget.toShortString() : "-");
                 BaritoneBridge.cancel();
+                BaritoneBridge.setScaffold(false, List.of());
 
                 if (this.moveTarget != null)
                 {
@@ -633,6 +747,14 @@ public final class PrinterController
             }
 
             return;
+        }
+
+        BaritoneBridge.setScaffold(false, List.of());
+
+        // Kein Weg gefunden (kaum vom Fleck gekommen): zaehlt als Fehlversuch fuer diesen Block
+        if (this.moveTarget != null && player.position().distanceTo(this.moveStartPos) < 1.0)
+        {
+            this.moveAttempts.merge(this.moveTarget, 1, Integer::sum);
         }
 
         // Angekommen: kurz "umschauen", dann neu planen
@@ -723,6 +845,7 @@ public final class PrinterController
         if (StateMatcher.isComplete(level.getBlockState(t.pos()), t.state()))
         {
             this.placed++;
+            this.watchdog.progress();
             this.failures.remove(t.pos());
             this.moveAttempts.remove(t.pos());
         }
@@ -760,6 +883,107 @@ public final class PrinterController
             this.failures.remove(pos);
             this.blacklist.put(pos, now + BLACKLIST_TICKS);
         }
+    }
+
+    /** Alles loslassen: Drehen, Laufen, Material holen, Geruest abbauen, Inventar. */
+    private void interrupt(Minecraft mc)
+    {
+        AimController.INSTANCE.stop();
+        BaritoneBridge.cancel();
+        BaritoneBridge.setScaffold(false, List.of());
+        this.refill.cancel(mc);
+        this.cleaner.cancel(mc);
+        this.inventory.cancel(mc);
+    }
+
+    /** Zaehlt die Zeit ohne Fortschritt? Nicht, wenn der Printer bewusst wartet (Material fehlt, kein Baritone). */
+    private boolean watchdogCounts()
+    {
+        return switch (this.state)
+        {
+            case OFF, DONE, PAUSED, PAUSED_SCREEN, MISSING_MATERIAL -> false;
+            case NOTHING_IN_REACH -> this.canWalk();
+            default -> true;
+        };
+    }
+
+    /** Geht nichts voran: stufenweise einen Ausweg suchen, zuletzt anhalten und melden. */
+    private void escalate(Minecraft mc, LocalPlayer player, ClientLevel level, Level schematic, Watchdog.Level step, long now)
+    {
+        debug("Kein Fortschritt seit {} s: {}", this.watchdog.idleSeconds(), step);
+
+        switch (step)
+        {
+            case RETRY ->
+            {
+                // Alles Gesperrte noch einmal versuchen
+                this.blacklist.clear();
+                this.moveAttempts.clear();
+                this.failures.clear();
+                this.unloadedAttempts.clear();
+                this.cleaner.clearSkipped();
+            }
+            case ESCAPE ->
+            {
+                if (this.canWalk())
+                {
+                    this.interrupt(mc);
+                    double angle = this.random.nextDouble() * Math.PI * 2;
+                    int x = (int) Math.floor(player.getX() + Math.cos(angle) * ESCAPE_DISTANCE);
+                    int z = (int) Math.floor(player.getZ() + Math.sin(angle) * ESCAPE_DISTANCE);
+                    BaritoneBridge.setScaffold(Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue(), ScaffoldTracker.INSTANCE.usable());
+
+                    if (BaritoneBridge.goToXZ(x, z))
+                    {
+                        this.current = null;
+                        this.moveTarget = null;
+                        this.moveStartTick = now;
+                        this.moveStartPos = player.position();
+                        this.watchdog.startMoving(player.position());
+                        this.setState(State.MOVING, "escape");
+                    }
+                }
+            }
+            case CLEAR_SCAFFOLD ->
+            {
+                Vec3 pos = player.position();
+                this.interrupt(mc);
+                this.cleaner.clearSkipped();
+
+                if (this.cleaner.start(player, level, schematic, p -> Vec3.atCenterOf(p).distanceTo(pos) <= CLEAR_RADIUS, now))
+                {
+                    this.current = null;
+                    this.setState(State.CLEANING, this.cleaner.detail());
+                }
+            }
+            case GIVE_UP ->
+            {
+                this.interrupt(mc);
+                this.current = null;
+                this.userPaused = true;
+                this.setState(State.PAUSED, "stuck");
+                SchematicScanner.Snapshot snap = this.scanner.latest();
+                int open = snap != null ? snap.missing().size() : 0;
+                message(Component.translatable("easyplace2.printer.msg.stuck", this.watchdog.idleSeconds(), open, this.blacklist.size())
+                        .withStyle(ChatFormatting.GOLD));
+            }
+        }
+    }
+
+    /** Welche Geruest-Items Baritone verbauen darf: im Inventar und nicht als Baumaterial gebraucht. */
+    private void updateScaffoldItems(LocalPlayer player, SchematicScanner.Snapshot snap)
+    {
+        List<Item> usable = new ArrayList<>();
+
+        for (Item item : ScaffoldTracker.INSTANCE.items())
+        {
+            if (!snap.neededItems().containsKey(item) && InventoryManager.countItem(player, item) > 0)
+            {
+                usable.add(item);
+            }
+        }
+
+        ScaffoldTracker.INSTANCE.setUsable(usable);
     }
 
     private boolean canWalk()
