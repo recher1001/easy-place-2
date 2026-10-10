@@ -12,7 +12,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -33,6 +36,7 @@ import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.gui.OptionEntry;
 import io.github.recher1001.easyplace2.printer.gui.PrinterScreen;
+import io.github.recher1001.easyplace2.printer.refill.StorageRegistry;
 
 /**
  * Ende-zu-Ende-Test: echter Vanilla-Dedicated-Server (ohne Litematica und ohne Easy Place 2.0),
@@ -225,9 +229,12 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             server.runCommand("item replace entity @a hotbar." + i + " with dirt 64");
         }
 
-        server.runCommand("give @a cobblestone 8");
-        server.runCommand("give @a oak_stairs 4");
+        // Bruchstein nur in einer Shulker im Inventar, Treppen nur in einer markierten Lager-Truhe
+        BlockPos chest = new BlockPos(2, Y, 1);
+        server.runCommand("give @a minecraft:shulker_box[minecraft:container=[{slot:0,item:{id:\"minecraft:cobblestone\",count:8}}]] 1");
+        server.runCommand(setblock(chest, "chest{Items:[{Slot:0b,id:\"minecraft:oak_stairs\",count:4}]}"));
         context.waitTicks(20);
+        context.runOnClient(mc -> StorageRegistry.INSTANCE.toggle(chest));
 
         context.runOnClient(mc -> PrinterController.INSTANCE.start());
         context.waitTicks(25);
@@ -239,7 +246,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
                                   (mc.level.getBlockState(stoneA).is(Blocks.COBBLESTONE) &&
                                    mc.level.getBlockState(stoneB).is(Blocks.COBBLESTONE) &&
                                    mc.level.getBlockState(stoneC).is(Blocks.COBBLESTONE) &&
-                                   mc.level.getBlockState(stairsWest).is(Blocks.OAK_STAIRS)), 1200);
+                                   mc.level.getBlockState(stairsWest).is(Blocks.OAK_STAIRS)), 2400);
         }
         catch (AssertionError e)
         {
@@ -260,6 +267,31 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         assertBlock(server, stoneC, state -> state.is(Blocks.COBBLESTONE), "Printer hat Stein C nicht gesetzt");
         assertBlock(server, stairsWest, state -> state.is(Blocks.OAK_STAIRS) && state.getValue(StairBlock.FACING) == Direction.WEST,
                 "Printer hat die Treppe nicht richtig herum gesetzt");
+        // Material kam aus Shulker und Truhe; die Shulker ist wieder eingesammelt, nichts steht mehr herum
+        int stairsLeft = server.computeOnServer(s -> ((Container) s.overworld().getBlockEntity(chest)).countItem(Items.OAK_STAIRS));
+        int shulkers = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getInventory().countItem(Items.SHULKER_BOX));
+        boolean shulkerStanding = server.computeOnServer(s ->
+        {
+            for (BlockPos p : BlockPos.betweenClosed(-2, Y, -2, 2, Y + 1, 2))
+            {
+                if (s.overworld().getBlockState(p).getBlock() instanceof ShulkerBoxBlock)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        if (stairsLeft != 0 || shulkers < 1 || shulkerStanding)
+        {
+            throw new AssertionError("Material holen: Treppen in Truhe " + stairsLeft + ", Shulker im Inventar " + shulkers +
+                                     ", Shulker steht noch " + shulkerStanding);
+        }
+
+        System.out.println("[EP2-TEST] ok: Material aus Shulker und Lager geholt, Shulker wieder eingesammelt");
+        menuScreenshot(context, OptionEntry.Page.MATERIALS, false, "easyplace2-printer-materials");
+        menuScreenshot(context, OptionEntry.Page.STORAGE, false, "easyplace2-printer-storage");
         System.out.println("[EP2-TEST] Printer ok");
     }
 

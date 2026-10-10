@@ -36,7 +36,9 @@ import io.github.recher1001.easyplace2.printer.BaritoneBridge;
 import io.github.recher1001.easyplace2.printer.InventoryManager;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.SchematicScanner;
+import io.github.recher1001.easyplace2.printer.ShulkerContents;
 import io.github.recher1001.easyplace2.printer.gui.OptionEntry.Page;
+import io.github.recher1001.easyplace2.printer.refill.StorageRegistry;
 
 /**
  * Das Printer-Menue: Seitenleiste mit Kategorien, rechts Uebersicht, Optionen als Karten
@@ -224,6 +226,8 @@ public class PrinterScreen extends Screen
             switch (page)
             {
                 case OVERVIEW -> this.buildOverview();
+                case MATERIALS -> this.buildMaterials();
+                case STORAGE -> this.buildStorage();
                 case THEME -> this.buildThemes();
                 case KEYS -> this.buildKeys();
                 case INFO -> this.buildInfo();
@@ -639,6 +643,274 @@ public class PrinterScreen extends Screen
         return n >= 10000 ? (n / 1000) + "k" : n >= 1000 ? String.format(Locale.ROOT, "%.1fk", n / 1000.0) : String.valueOf(n);
     }
 
+    // ---------------------------------------------------------------- Materialliste
+
+    private void buildMaterials()
+    {
+        Minecraft mc = Minecraft.getInstance();
+        SchematicScanner.Snapshot snap = PrinterController.INSTANCE.getSnapshot();
+        int width = this.cx1 - this.cx0;
+        int y = this.contentTop;
+
+        if (snap == null || mc.player == null)
+        {
+            this.add(new Controls.Area(this.cx0, y, width, 20, (g, font, a, hover) ->
+                    Ui.text(g, font, Component.translatable("easyplace2.printer.material.none"), a.x + 4, a.y + 6, Ui.textDim()), null));
+            return;
+        }
+
+        // Fehlendes zuerst, dann nach Menge
+        List<Map.Entry<Item, Integer>> entries = new ArrayList<>(snap.neededItems().entrySet());
+        entries.sort(Comparator.<Map.Entry<Item, Integer>>comparingInt(e -> InventoryManager.countItem(mc.player, e.getKey()) >= e.getValue() ? 1 : 0)
+                .thenComparing(Map.Entry.<Item, Integer>comparingByValue(Comparator.reverseOrder())));
+
+        // Spaltenkoepfe
+        this.add(new Controls.Area(this.cx0, y, width, 12, (g, font, a, hover) ->
+        {
+            Ui.text(g, font, Component.translatable("easyplace2.printer.material.col.item"), a.x + 28, a.y + 2, Ui.textFaint());
+            String[] cols = { "need", "inventory", "shulker", "storage", "status" };
+
+            for (int i = 0; i < cols.length; i++)
+            {
+                Component c = Component.translatable("easyplace2.printer.material.col." + cols[i]);
+                int cx = materialColumn(a, i);
+                Ui.text(g, font, c, cx - font.width(c), a.y + 2, Ui.textFaint());
+            }
+        }, null));
+        y += 14;
+
+        if (entries.isEmpty())
+        {
+            this.add(new Controls.Area(this.cx0, y, width, 20, (g, font, a, hover) ->
+                    Ui.text(g, font, Component.translatable("easyplace2.printer.label.nothing_needed"), a.x + 4, a.y + 6, Ui.GREEN), null));
+            y += 24;
+        }
+
+        for (Map.Entry<Item, Integer> entry : entries)
+        {
+            Item item = entry.getKey();
+            this.add(new Controls.Area(this.cx0, y, width, 22, (g, font, a, hover) -> this.paintMaterialRow(g, font, a, hover, item), null));
+            y += 24;
+        }
+
+        // Shulker im Inventar
+        List<Integer> shulkers = ShulkerContents.shulkerSlots(mc.player);
+        y += 6;
+        int labelY = y;
+        this.add(new Controls.Area(this.cx0, labelY, width, 12, (g, font, a, hover) ->
+                Ui.text(g, font, Component.translatable("easyplace2.printer.material.shulkers", shulkers.size()).copy().withStyle(ChatFormatting.BOLD),
+                        a.x + 2, a.y + 2, Ui.text()), null));
+        y += 16;
+        int cardW = (width - GAP) / 2;
+
+        for (int i = 0; i < shulkers.size(); i++)
+        {
+            int slot = shulkers.get(i);
+            int x = this.cx0 + (i % 2) * (cardW + GAP);
+            int cy = y + (i / 2) * 36;
+            this.add(new Controls.Area(x, cy, cardW, 32, (g, font, a, hover) -> this.paintShulkerCard(g, font, a, hover, slot), null));
+        }
+    }
+
+    /** Rechte Kante der Zahlenspalte {@code i} in der Materialliste. */
+    private static int materialColumn(Controls.Area a, int i)
+    {
+        int colW = Math.max(36, Math.min(56, (a.w - 130) / 5));
+        return a.x + a.w - 10 - (4 - i) * colW;
+    }
+
+    private void paintMaterialRow(GuiGraphics g, Font font, Controls.Area a, float hover, Item item)
+    {
+        Minecraft mc = Minecraft.getInstance();
+        SchematicScanner.Snapshot snap = PrinterController.INSTANCE.getSnapshot();
+
+        if (mc.player == null || snap == null)
+        {
+            return;
+        }
+
+        int need = snap.neededItems().getOrDefault(item, 0);
+        int inv = InventoryManager.countItem(mc.player, item);
+        int shulk = ShulkerContents.countInInventoryShulkers(mc.player, item);
+        int stored = StorageRegistry.INSTANCE.total(item);
+
+        this.paintCard(g, a, hover);
+        ItemStack stack = new ItemStack(item);
+        Ui.item(g, stack, a.x + 6, a.y + 3, 1.0f);
+        int nameRight = materialColumn(a, 0) - 46;
+        Ui.text(g, font, Ui.clip(font, stack.getHoverName().getString(), Math.max(20, nameRight - a.x - 28)), a.x + 28, a.y + 7, Ui.text());
+
+        int[] values = { need, inv, shulk, stored };
+
+        for (int i = 0; i < values.length; i++)
+        {
+            String v = compact(values[i]);
+            int color = i == 0 ? Ui.text() : values[i] > 0 ? Ui.textDim() : Ui.textFaint();
+            Ui.text(g, font, v, materialColumn(a, i) - font.width(v), a.y + 7, color);
+        }
+
+        // Status: genug dabei / kann geholt werden / fehlt wirklich
+        String status;
+        int color;
+
+        if (inv >= need)
+        {
+            status = "✔";
+            color = Ui.GREEN;
+        }
+        else if (inv + shulk + stored >= need)
+        {
+            status = Component.translatable("easyplace2.printer.material.fetch").getString();
+            color = Ui.AMBER;
+        }
+        else
+        {
+            status = "-" + compact(need - inv - shulk - stored);
+            color = Ui.RED;
+        }
+
+        Ui.text(g, font, status, materialColumn(a, 4) - font.width(status), a.y + 7, color);
+    }
+
+    private void paintShulkerCard(GuiGraphics g, Font font, Controls.Area a, float hover, int slot)
+    {
+        Minecraft mc = Minecraft.getInstance();
+
+        if (mc.player == null)
+        {
+            return;
+        }
+
+        ItemStack shulker = mc.player.getInventory().getItem(slot);
+        this.paintCard(g, a, hover);
+
+        if (!ShulkerContents.isShulker(shulker))
+        {
+            return;
+        }
+
+        Ui.item(g, shulker, a.x + 6, a.y + 8, 1.0f);
+        Map<Item, Integer> summary = ShulkerContents.summary(shulker);
+        Ui.text(g, font, Ui.clip(font, shulker.getHoverName().getString(), a.w - 34), a.x + 28, a.y + 4, Ui.text());
+
+        if (summary.isEmpty())
+        {
+            Ui.text(g, font, Component.translatable("easyplace2.printer.material.empty"), a.x + 28, a.y + 17, Ui.textFaint());
+            return;
+        }
+
+        int x = a.x + 28;
+
+        for (Map.Entry<Item, Integer> e : summary.entrySet())
+        {
+            if (x + 14 > a.x + a.w - 6)
+            {
+                break;
+            }
+
+            ItemStack icon = new ItemStack(e.getKey());
+            Ui.item(g, icon, x, a.y + 15, 0.75f);
+            String c = compact(e.getValue());
+            Ui.scaledText(g, font, Component.literal(c), x + 12 - Ui.scaledWidth(font, Component.literal(c), 0.75f) + 2, a.y + 23, 0.75f, Ui.text());
+            x += 18;
+        }
+    }
+
+    // ---------------------------------------------------------------- Lager
+
+    private void buildStorage()
+    {
+        int width = this.cx1 - this.cx0;
+        int y = this.contentTop;
+
+        Controls.Button add = new Controls.Button(this.cx0, y, Math.min(width, 220), 20,
+                () -> Component.translatable("easyplace2.printer.storage.add"), Ui::accent, true, () ->
+                {
+                    StorageRegistry.toggleLookedAt(Minecraft.getInstance());
+                    this.rebuildContent();
+                });
+        this.add(add);
+        y += 26;
+
+        List<StorageRegistry.Entry> entries = StorageRegistry.INSTANCE.entries();
+
+        if (entries.isEmpty())
+        {
+            Component hint = Component.translatable("easyplace2.printer.storage.empty");
+            int lines = Math.max(1, this.font.split(hint, width - 8).size());
+            this.add(new Controls.Area(this.cx0, y, width, lines * 10 + 4, (g, font, a, hover) ->
+            {
+                List<FormattedCharSequence> split = font.split(hint, a.w - 8);
+
+                for (int i = 0; i < split.size(); i++)
+                {
+                    g.drawString(font, split.get(i), a.x + 4, a.y + 2 + i * 10, Ui.textDim(), false);
+                }
+            }, null));
+            return;
+        }
+
+        for (StorageRegistry.Entry entry : List.copyOf(entries))
+        {
+            // Entfernen-Knopf zuerst, damit er den Klick vor der Zeile bekommt
+            this.add(new Controls.Area(this.cx1 - 22, y + 7, 16, 16, (g, font, a, hover) ->
+            {
+                Ui.round(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.withAlpha(Ui.RED, (int) (0x30 + 0x50 * hover)));
+                Ui.text(g, font, "✕", a.x + 5, a.y + 4, Ui.lerpColor(Ui.textDim(), Ui.RED, hover));
+            }, () ->
+            {
+                StorageRegistry.INSTANCE.remove(entry);
+                this.rebuildContent();
+            }));
+            this.add(new Controls.Area(this.cx0, y, width, 30, (g, font, a, hover) -> this.paintStorageRow(g, font, a, hover, entry), null));
+            y += 34;
+        }
+    }
+
+    private void paintStorageRow(GuiGraphics g, Font font, Controls.Area a, float hover, StorageRegistry.Entry entry)
+    {
+        Minecraft mc = Minecraft.getInstance();
+        this.paintCard(g, a, hover);
+
+        Item blockItem = mc.level != null ? mc.level.getBlockState(entry.pos).getBlock().asItem() : Items.CHEST;
+        Ui.item(g, new ItemStack(blockItem == Items.AIR ? Items.BARRIER : blockItem), a.x + 6, a.y + 7, 1.0f);
+        String dist = mc.player != null ? String.format(Locale.ROOT, "%.0f m", Math.sqrt(entry.pos.distToCenterSqr(mc.player.position()))) : "";
+        Ui.text(g, font, Component.literal(entry.pos.toShortString()).withStyle(ChatFormatting.BOLD), a.x + 28, a.y + 5, Ui.text());
+        Ui.text(g, font, dist, a.x + 28 + font.width(Component.literal(entry.pos.toShortString()).withStyle(ChatFormatting.BOLD)) + 8, a.y + 5, Ui.textFaint());
+
+        if (!entry.known)
+        {
+            Ui.text(g, font, Ui.clip(font, Component.translatable("easyplace2.printer.storage.unknown").getString(), a.w - 60),
+                    a.x + 28, a.y + 17, Ui.textFaint());
+            return;
+        }
+
+        // Inhalt als kleine Icons (inklusive Inhalt von Shulkern darin)
+        Map<Item, Integer> merged = new java.util.LinkedHashMap<>(entry.direct);
+        entry.inShulkers.forEach((item, count) -> merged.merge(item, count, Integer::sum));
+        merged.keySet().removeIf(ShulkerContents::isShulkerItem);
+        List<Map.Entry<Item, Integer>> list = new ArrayList<>(merged.entrySet());
+        list.sort(Map.Entry.<Item, Integer>comparingByValue(Comparator.reverseOrder()));
+        int x = a.x + 28;
+
+        if (list.isEmpty())
+        {
+            Ui.text(g, font, Component.translatable("easyplace2.printer.material.empty"), x, a.y + 17, Ui.textFaint());
+        }
+
+        for (Map.Entry<Item, Integer> e : list)
+        {
+            if (x + 30 > a.x + a.w - 28)
+            {
+                break;
+            }
+
+            Ui.item(g, new ItemStack(e.getKey()), x, a.y + 16, 0.6f);
+            Ui.scaledText(g, font, Component.literal(compact(e.getValue())), x + 11, a.y + 18, 0.75f, Ui.textDim());
+            x += 32;
+        }
+    }
+
     // ---------------------------------------------------------------- Themes
 
     private void buildThemes()
@@ -696,8 +968,8 @@ public class PrinterScreen extends Screen
     private void buildKeys()
     {
         int width = this.cx1 - this.cx0;
-        String[] keys = { "menu", "toggle", "easyplace" };
-        IHotkey[] hotkeys = { Ep2Configs.PRINTER_MENU, Ep2Configs.PRINTER_TOGGLE, Ep2Configs.EASY_PLACE_2 };
+        String[] keys = { "menu", "toggle", "easyplace", "storage" };
+        IHotkey[] hotkeys = { Ep2Configs.PRINTER_MENU, Ep2Configs.PRINTER_TOGGLE, Ep2Configs.EASY_PLACE_2, Ep2Configs.PRINTER_MARK_STORAGE };
         int y = this.contentTop;
 
         for (int i = 0; i < keys.length; i++)
@@ -939,7 +1211,8 @@ public class PrinterScreen extends Screen
         Ui.item(g, p.icon(), a.x + 5, a.y + (a.h - 12) / 2, 0.75f);
         Ui.text(g, font, p.title(), a.x + 22, ty, selected ? Ui.text() : Ui.lerpColor(Ui.textDim(), Ui.text(), hover));
 
-        int count = p.hasOptions() ? OptionEntry.of(p).size() : p == Page.THEME ? Theme.ALL.size() : p == Page.KEYS ? 3 : 0;
+        int count = p.hasOptions() ? OptionEntry.of(p).size() : p == Page.THEME ? Theme.ALL.size() : p == Page.KEYS ? 4
+                  : p == Page.STORAGE ? StorageRegistry.INSTANCE.entries().size() : 0;
 
         if (count > 0)
         {

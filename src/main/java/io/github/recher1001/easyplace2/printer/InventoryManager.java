@@ -106,6 +106,36 @@ public final class InventoryManager
         return true;
     }
 
+    /**
+     * Wie {@link #request}, aber fuer genau einen Inventarplatz (z. B. eine bestimmte Shulker-Kiste,
+     * denn gleichfarbige Shulker sind als Item nicht zu unterscheiden).
+     */
+    public boolean requestSlot(LocalPlayer player, int slot, Set<Item> keep)
+    {
+        if (slot < 0 || slot >= MAIN_END)
+        {
+            return false;
+        }
+
+        if (slot < HOTBAR_SIZE)
+        {
+            this.hotbarSlot = slot;
+            this.go(Step.SELECT, this.shortDelay());
+            return true;
+        }
+
+        this.sourceSlot = slot;
+        this.hotbarSlot = this.chooseHotbarSlot(player.getInventory(), keep);
+        this.go(Step.OPEN, this.shortDelay());
+        return true;
+    }
+
+    /** Der Hotbar-Platz, in den zuletzt ein Item gelegt wurde. */
+    public int lastHotbarSlot()
+    {
+        return this.hotbarSlot;
+    }
+
     public void cancel(Minecraft mc)
     {
         if (this.ownScreen != null && mc.screen == this.ownScreen && mc.player != null)
@@ -220,7 +250,7 @@ public final class InventoryManager
         this.wait = delay;
     }
 
-    private int humanDelay()
+    public int humanDelay()
     {
         int min = Ep2Configs.PRINTER_INV_DELAY_MIN.getIntegerValue();
         int max = Math.max(min, Ep2Configs.PRINTER_INV_DELAY_MAX.getIntegerValue());

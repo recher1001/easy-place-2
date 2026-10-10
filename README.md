@@ -82,6 +82,19 @@ von deinem Standort aus erreichst.
 5. Er prüft, dass das echte Fadenkreuz genau auf dieser Fläche liegt und Litematica den Geisterblock davor sieht.
    Dann folgt ein normaler Rechtsklick und eine Kontrolle, ob der Block wirklich steht.
 
+**Material besorgen (Shulker und Lager):**
+- **Materialliste** (Menü → Material): zeigt pro Item, wie viel die Schematic noch braucht und wie viel du im
+  Inventar, in Shulkern im Inventar und im Lager hast. Darunter siehst du jede Shulker im Inventar mit ihrem Inhalt.
+- **Shulker aus dem Inventar:** Fehlt Material, stellt der Printer eine passende Shulker neben sich auf den Boden,
+  öffnet sie, nimmt das Material per Shift-Klick, schließt sie, baut sie wieder ab (mit Spitzhacke, falls in der
+  Hotbar) und sammelt sie ein. Alles mit normalen Klicks und Pausen. Eine aufgestellte Shulker wird nie stehen gelassen.
+- **Lager:** Truhen, Fässer oder Shulker an einem festen Platz markierst du im Menü unter **Lager**
+  („+ Container im Fadenkreuz“) oder mit der Taste „Lager markieren“. Öffnest du einen markierten Container, merkt
+  sich der Printer den Inhalt. Hat keine Shulker im Inventar das Material, läuft er mit Baritone zum Lager, öffnet den
+  Container, nimmt das Material (oder Shulker, in denen es liegt) und baut dann weiter.
+- Beides lässt sich unter **Inventar** einzeln abschalten. Die Lager-Liste liegt in `config/easyplace2_storage.json`,
+  getrennt nach Server/Welt und Dimension.
+
 **Gut zu wissen:**
 - Fehlt Material, zeigt das Menü die fehlenden Items an. Der Printer baut erst andere Blöcke weiter und wartet
   dann. Sobald das Item wieder im Inventar ist, geht es automatisch weiter.

@@ -13,7 +13,7 @@ import net.minecraft.world.phys.Vec3;
  * Sucht Stellen, an denen der Spieler stehen kann, um einen Block zu erreichen.
  * Baritone bekommt mehrere davon und nimmt die, zu der der Weg am guenstigsten ist.
  */
-final class StandSpots
+public final class StandSpots
 {
     private static final double EYE_HEIGHT = 1.62;
     private static final int MAX_SPOTS = 8;
@@ -28,7 +28,7 @@ final class StandSpots
      * @param canPlaceFrom prueft, ob Vanilla den Block von dieser Stelle aus richtig herum setzen wuerde
      *                     (z. B. Treppen: man muss auf der passenden Seite stehen)
      */
-    static List<BlockPos> find(Level level, Level schematic, BlockPos target, double reach, Vec3 playerPos,
+    public static List<BlockPos> find(Level level, Level schematic, BlockPos target, double reach, Vec3 playerPos,
                                Predicate<BlockPos> canPlaceFrom)
     {
         record Spot(BlockPos pos, double score) {}

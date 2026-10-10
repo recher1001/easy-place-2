@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import io.github.recher1001.easyplace2.EasyPlace2;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
+import io.github.recher1001.easyplace2.printer.refill.RefillManager;
 
 /**
  * Der Printer: baut die aktiven Litematica-Schematics automatisch.
@@ -49,7 +51,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, MOVING, AIMING, CLICKING, WAITING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, MOVING, AIMING, CLICKING, WAITING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -62,6 +64,7 @@ public final class PrinterController
 
     private final SchematicScanner scanner = new SchematicScanner();
     private final InventoryManager inventory = new InventoryManager();
+    private final RefillManager refill = new RefillManager();
     private final Random random = new Random();
 
     private boolean running;
@@ -172,6 +175,7 @@ public final class PrinterController
         this.current = null;
         this.moveTarget = null;
         AimController.INSTANCE.stop();
+        this.refill.cancel(mc);
         this.inventory.cancel(mc);
         BaritoneBridge.cancel();
         BaritoneBridge.restoreSettings();
@@ -195,6 +199,7 @@ public final class PrinterController
         if (paused)
         {
             AimController.INSTANCE.stop();
+            this.refill.cancel(Minecraft.getInstance());
             BaritoneBridge.cancel();
             this.setState(State.PAUSED, "");
         }
@@ -293,12 +298,13 @@ public final class PrinterController
         this.scanner.tick(level);
 
         // Ein Spieler kann mit offenem Menue nicht klicken. Ausnahme: das Inventar, das der Printer selbst oeffnet.
-        if (mc.screen != null && !this.inventory.ownsScreen(mc.screen))
+        if (mc.screen != null && !this.inventory.ownsScreen(mc.screen) && !this.refill.ownsScreen(mc.screen))
         {
             if (this.state != State.PAUSED_SCREEN)
             {
                 AimController.INSTANCE.stop();
                 BaritoneBridge.cancel();
+                this.refill.cancel(mc);
                 this.inventory.cancel(mc);
                 this.setState(State.PAUSED_SCREEN, "");
             }
@@ -330,6 +336,7 @@ public final class PrinterController
             {
                 AimController.INSTANCE.stop();
                 BaritoneBridge.cancel();
+                this.refill.cancel(mc);
                 this.inventory.cancel(mc);
                 this.setState(State.PAUSED, "damage");
             }
@@ -342,7 +349,8 @@ public final class PrinterController
             this.setState(State.SELECTING, "");
         }
 
-        if (this.inventory.isBusy())
+        // Beim Material-Holen steuert der Vorgang das Inventar selbst
+        if (this.state != State.REFILLING && this.inventory.isBusy())
         {
             this.inventory.tick(mc);
 
@@ -364,6 +372,17 @@ public final class PrinterController
                 if (this.stateTicks > 0)
                 {
                     this.select(mc, player, level, schematic, now);
+                }
+            }
+            case REFILLING ->
+            {
+                if (this.refill.tick(mc, now))
+                {
+                    this.setState(State.SELECTING, "");
+                }
+                else
+                {
+                    this.detail = this.refill.detail();
                 }
             }
             case MOVING -> this.tickMoving(now);
@@ -391,6 +410,13 @@ public final class PrinterController
         }
 
         this.blacklist.values().removeIf(until -> until <= now);
+
+        // Steht noch eine Shulker vom Material-Holen herum, wird sie zuerst wieder eingesammelt
+        if (this.refill.resumeLeftover())
+        {
+            this.setState(State.REFILLING, this.refill.detail());
+            return;
+        }
 
         List<SchematicScanner.Target> open = new ArrayList<>();
 
@@ -441,6 +467,14 @@ public final class PrinterController
         if (buildable.isEmpty())
         {
             AimController.INSTANCE.stop();
+
+            // Material besorgen: Shulker im Inventar, sonst Lager
+            if (this.refill.tryStart(player, level, schematic, new HashSet<>(this.missingMaterials.keySet()), this.inventory, now))
+            {
+                this.setState(State.REFILLING, this.refill.detail());
+                return;
+            }
+
             this.setState(State.MISSING_MATERIAL, "");
             return;
         }

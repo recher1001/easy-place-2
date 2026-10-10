@@ -26,6 +26,8 @@ public final class OptionEntry
     public enum Page
     {
         OVERVIEW(Section.PRINTER, Items.COMPASS),
+        MATERIALS(Section.PRINTER, Items.SHULKER_BOX),
+        STORAGE(Section.PRINTER, Items.BARREL),
         PLACE(Section.PRINTER, Items.GRASS_BLOCK),
         TURN(Section.PRINTER, Items.ENDER_EYE),
         TIMING(Section.PRINTER, Items.CLOCK),
@@ -64,7 +66,7 @@ public final class OptionEntry
         /** Seiten mit Optionskarten (Rest hat eigene Inhalte). */
         public boolean hasOptions()
         {
-            return this != OVERVIEW && this != THEME && this != KEYS && this != INFO;
+            return this != OVERVIEW && this != MATERIALS && this != STORAGE && this != THEME && this != KEYS && this != INFO;
         }
     }
 
@@ -188,6 +190,8 @@ public final class OptionEntry
 
         integer(Page.INVENTORY, "invDelayMin", Ep2Configs.PRINTER_INV_DELAY_MIN, 1, 40);
         integer(Page.INVENTORY, "invDelayMax", Ep2Configs.PRINTER_INV_DELAY_MAX, 1, 60);
+        bool(Page.INVENTORY, "shulkerRefill", Ep2Configs.PRINTER_SHULKER_REFILL);
+        bool(Page.INVENTORY, "storageRefill", Ep2Configs.PRINTER_STORAGE_REFILL);
 
         bool(Page.BEHAVIOUR, "layerRange", Ep2Configs.PRINTER_LAYER_RANGE);
         bool(Page.BEHAVIOUR, "pauseOnDamage", Ep2Configs.PRINTER_PAUSE_ON_DAMAGE);

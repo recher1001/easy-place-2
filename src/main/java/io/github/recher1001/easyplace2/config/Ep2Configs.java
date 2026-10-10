@@ -60,6 +60,10 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigString  PRINTER_THEME       = new ConfigString("printerTheme", "vault").apply(KEY);
     public static final ConfigBoolean PRINTER_GLASS       = new ConfigBoolean("printerGlass", true).apply(KEY);
     public static final ConfigBoolean PRINTER_GRID_VIEW   = new ConfigBoolean("printerGridView", false).apply(KEY);
+    // Material besorgen
+    public static final ConfigBoolean PRINTER_SHULKER_REFILL = new ConfigBoolean("printerShulkerRefill", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_STORAGE_REFILL = new ConfigBoolean("printerStorageRefill", true).apply(KEY);
+    public static final ConfigHotkey  PRINTER_MARK_STORAGE = new ConfigHotkey("printerMarkStorageHotkey", "").apply(KEY);
 
     public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
             EASY_PLACE_2,
@@ -85,7 +89,10 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_PAUSE_ON_DAMAGE,
             PRINTER_THEME,
             PRINTER_GLASS,
-            PRINTER_GRID_VIEW
+            PRINTER_GRID_VIEW,
+            PRINTER_SHULKER_REFILL,
+            PRINTER_STORAGE_REFILL,
+            PRINTER_MARK_STORAGE
     );
 
     public static void loadFromFile()
