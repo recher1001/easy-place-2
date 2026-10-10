@@ -177,6 +177,18 @@ public class PrinterScreen extends Screen
 
         this.sideMaxScroll = Math.max(0, y + 2 - this.sideBottom);
         this.sideScroll = Math.min(this.sideScroll, this.sideMaxScroll);
+
+        // Die offene Seite soll in der Leiste sichtbar sein
+        int selY = this.sidebarY.getOrDefault(page, this.sideTop);
+
+        if (selY - this.sideScroll + this.sideStep > this.sideBottom)
+        {
+            this.sideScroll = Math.min(this.sideMaxScroll, selY + this.sideStep + 4 - this.sideBottom);
+        }
+        else if (selY - this.sideScroll < this.sideTop)
+        {
+            this.sideScroll = Math.max(0, selY - this.sideTop - 14);
+        }
     }
 
     private void addSidebar(Controls.Control control)
@@ -672,9 +684,11 @@ public class PrinterScreen extends Screen
 
             for (int i = 0; i < cols.length; i++)
             {
-                Component c = Component.translatable("easyplace2.printer.material.col." + cols[i]);
+                // Kopf hoechstens so breit wie die Spalte, damit sich nichts ueberlappt
+                String c = Ui.clip(font, Component.translatable("easyplace2.printer.material.col." + cols[i]).getString(),
+                        materialColumnWidth(a) - 6);
                 int cx = materialColumn(a, i);
-                Ui.text(g, font, c, cx - font.width(c), a.y + 2, Ui.textFaint());
+                Ui.text(g, font, Component.literal(c), cx - font.width(c), a.y + 2, Ui.textFaint());
             }
         }, null));
         y += 14;
@@ -713,9 +727,14 @@ public class PrinterScreen extends Screen
     }
 
     /** Rechte Kante der Zahlenspalte {@code i} in der Materialliste. */
+    private static int materialColumnWidth(Controls.Area a)
+    {
+        return Math.max(36, Math.min(64, (a.w - 130) / 5));
+    }
+
     private static int materialColumn(Controls.Area a, int i)
     {
-        int colW = Math.max(36, Math.min(56, (a.w - 130) / 5));
+        int colW = materialColumnWidth(a);
         return a.x + a.w - 10 - (4 - i) * colW;
     }
 
@@ -1242,8 +1261,10 @@ public class PrinterScreen extends Screen
             if (page.hasOptions())
             {
                 List<OptionEntry> entries = OptionEntry.of(page);
+                long switches = entries.stream().filter(OptionEntry::isBoolean).count();
                 long enabled = entries.stream().filter(e -> e.isBoolean() && e.getBoolean()).count();
-                subtitle = Component.translatable("easyplace2.printer.head.options.sub", entries.size(), enabled);
+                subtitle = switches > 0 ? Component.translatable("easyplace2.printer.head.options.sub", entries.size(), enabled)
+                                        : Component.translatable("easyplace2.printer.head.options.count", entries.size());
             }
             else
             {
@@ -1254,9 +1275,19 @@ public class PrinterScreen extends Screen
         // Grosser Titel: Akzentwort kursiv, Rest fett
         Component a = Component.translatable(keyA).withStyle(ChatFormatting.ITALIC);
         Component b = Component.translatable(keyB).withStyle(ChatFormatting.BOLD);
-        Ui.scaledText(g, this.font, a, this.cx0, this.headerTop, 1.5f, Ui.accent());
-        Ui.scaledText(g, this.font, b, this.cx0 + Ui.scaledWidth(this.font, a, 1.5f) + 6, this.headerTop, 1.5f, Ui.text());
-        Ui.text(g, this.font, subtitle, this.cx0, this.headerTop + 16, Ui.textFaint());
+        // Titel kleiner, wenn er sonst unter das Suchfeld laufen wuerde
+        int titleRoom = (this.search != null ? this.search.getX() - 24 : this.cx1) - this.cx0;
+        float scale = 1.5f;
+
+        while (scale > 1.0f && Ui.scaledWidth(this.font, a, scale) + 6 + Ui.scaledWidth(this.font, b, scale) > titleRoom)
+        {
+            scale -= 0.1f;
+        }
+
+        Ui.scaledText(g, this.font, a, this.cx0, this.headerTop, scale, Ui.accent());
+        Ui.scaledText(g, this.font, b, this.cx0 + Ui.scaledWidth(this.font, a, scale) + 6, this.headerTop, scale, Ui.text());
+        Ui.text(g, this.font, Component.literal(Ui.clip(this.font, subtitle.getString(), this.cx1 - this.cx0)),
+                this.cx0, this.headerTop + 16, Ui.textFaint());
 
         // Suchfeld oben rechts
         if (this.search != null)

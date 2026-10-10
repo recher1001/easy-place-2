@@ -126,6 +126,7 @@
     "easyplace2.printer.head.info.b": "& Hilfe",
     "easyplace2.printer.head.info.sub": "Voraussetzungen und Ablauf",
     "easyplace2.printer.head.options.sub": "%s Optionen · %s aktiv",
+    "easyplace2.printer.head.options.count": "%s Optionen",
     "easyplace2.printer.head.search.a": "Suche",
     "easyplace2.printer.head.search.b": "Ergebnisse",
     "easyplace2.printer.head.search.sub": "%s Treffer für „%s“",
