@@ -12,7 +12,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.ItemTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -20,6 +22,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
@@ -42,12 +45,13 @@ import io.github.recher1001.easyplace2.printer.ShulkerContents;
  */
 public final class ShulkerRefill implements Refill
 {
-    private enum Step { FETCH, AIM_PLACE, WAIT_PLACED, AIM_OPEN, WAIT_SCREEN, TAKE, CLOSE, AIM_BREAK, BREAK, PICKUP, WALK_PICKUP, DONE }
+    private enum Step { FETCH, AIM_PLACE, WAIT_PLACED, AIM_OPEN, WAIT_SCREEN, TAKE, CLOSE, AIM_BREAK, BREAK, PICKUP, STEP_TO_DROP, WALK_PICKUP, DONE }
 
     private static final int PLACE_TIMEOUT = 30;
     private static final int SCREEN_TIMEOUT = 50;
     private static final int BREAK_TIMEOUT = 20 * 15;
-    private static final int PICKUP_TIMEOUT = 50;
+    private static final int PICKUP_TIMEOUT = 30;
+    private static final int STEP_TIMEOUT = 60;
     private static final int AIM_TIMEOUT = 20 * 4;
 
     private final Random random = new Random();
@@ -55,6 +59,8 @@ public final class ShulkerRefill implements Refill
     private final Set<Item> wanted;
     private final int shulkerSlot;
     private final int shulkersBefore;
+    /** Abgebaut, aber noch nicht wieder im Inventar. */
+    private boolean pendingPickup;
     private final BlockPos spot;
     private final String label;
 
@@ -378,33 +384,55 @@ public final class ShulkerRefill implements Refill
             }
             case PICKUP ->
             {
+                this.pendingPickup = true;
+
                 if (ShulkerContents.shulkerSlots(player).size() >= this.shulkersBefore)
                 {
                     this.go(Step.DONE, 0);
                 }
                 else if (this.stepTicks > PICKUP_TIMEOUT)
                 {
-                    // Die Kiste liegt noch am Boden: hingehen, wenn Baritone da ist
+                    // Die Kiste liegt noch am Boden: mit Baritone hingehen, sonst die paar Schritte selbst laufen
                     if (BaritoneBridge.isAvailable() && BaritoneBridge.goToAny(List.of(this.spot)))
                     {
                         this.go(Step.WALK_PICKUP, 0);
                     }
                     else
                     {
-                        this.go(Step.DONE, 0);
+                        this.go(findDrop(level, this.spot) != null ? Step.STEP_TO_DROP : Step.DONE, 0);
                     }
                 }
+            }
+            case STEP_TO_DROP ->
+            {
+                ItemEntity drop = findDrop(level, this.spot);
+
+                if (ShulkerContents.shulkerSlots(player).size() >= this.shulkersBefore || drop == null || this.stepTicks > STEP_TIMEOUT)
+                {
+                    mc.options.keyUp.setDown(false);
+                    this.go(Step.DONE, 0);
+                    return false;
+                }
+
+                // Wie ein Spieler: zum Item drehen und vorwaerts laufen
+                AimController.INSTANCE.aimAt(drop.position(), Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+                Vec3 flat = drop.position().subtract(player.position());
+                double yawWanted = Math.toDegrees(Math.atan2(-flat.x, flat.z));
+                mc.options.keyUp.setDown(Math.abs(Mth.wrapDegrees(yawWanted - player.getYRot())) < 25);
             }
             case WALK_PICKUP ->
             {
                 if (ShulkerContents.shulkerSlots(player).size() >= this.shulkersBefore ||
                     (this.stepTicks > 10 && !BaritoneBridge.isBusy()) || this.stepTicks > 20 * 20)
                 {
-                    this.go(Step.DONE, 0);
+                    BaritoneBridge.cancel();
+                    this.go(findDrop(level, this.spot) != null && ShulkerContents.shulkerSlots(player).size() < this.shulkersBefore
+                            ? Step.STEP_TO_DROP : Step.DONE, 0);
                 }
             }
             case DONE ->
             {
+                this.pendingPickup = false;
                 AimController.INSTANCE.stop();
                 return true;
             }
@@ -457,9 +485,19 @@ public final class ShulkerRefill implements Refill
     }
 
     /** Steht die Kiste noch und muss beim naechsten Mal zuerst abgebaut werden? */
+    /** Steht die Kiste noch oder liegt sie abgebaut am Boden? Dann muss sie noch zurueck ins Inventar. */
     public boolean isPlaced()
     {
-        return this.placed;
+        return this.placed || this.pendingPickup || this.step == Step.PICKUP;
+    }
+
+    /** Die abgebaute Shulker, die noch am Boden liegt. */
+    @Nullable
+    private static ItemEntity findDrop(Level level, BlockPos spot)
+    {
+        List<ItemEntity> drops = level.getEntitiesOfClass(ItemEntity.class, new AABB(spot).inflate(3.0),
+                e -> e.isAlive() && ShulkerContents.isShulker(e.getItem()));
+        return drops.isEmpty() ? null : drops.get(0);
     }
 
     @Override
@@ -486,8 +524,18 @@ public final class ShulkerRefill implements Refill
         AimController.INSTANCE.stop();
         this.inventory.cancel(mc);
 
-        // Steht die Kiste schon, geht es beim naechsten Mal direkt mit dem Abbauen weiter
-        this.go(this.placed ? Step.AIM_BREAK : Step.DONE, 0);
+        if (this.step == Step.STEP_TO_DROP)
+        {
+            mc.options.keyUp.setDown(false);
+        }
+
+        if (this.step == Step.WALK_PICKUP)
+        {
+            BaritoneBridge.cancel();
+        }
+
+        // Steht die Kiste schon, geht es beim naechsten Mal direkt mit dem Abbauen weiter, sonst mit dem Einsammeln
+        this.go(this.placed ? Step.AIM_BREAK : this.pendingPickup || this.step == Step.PICKUP ? Step.PICKUP : Step.DONE, 0);
     }
 
     @Override
