@@ -9,9 +9,11 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -80,6 +82,15 @@ public final class AimPlanner
                 Vec3 beyond = eye.add(point.subtract(eye).scale(1.001));
 
                 if (point.distanceTo(eye) > maxDist || ghost.isEmpty() || ghost.clip(eye, beyond, target) == null)
+                {
+                    continue;
+                }
+
+                // Litematica nimmt den ersten Geisterblock auf dem Strahl: liegt ein anderer davor,
+                // wuerde der Klick diesem zugeordnet
+                BlockHitResult firstGhost = schematic.clip(new ClipContext(eye, beyond, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+
+                if (firstGhost.getType() != HitResult.Type.BLOCK || !firstGhost.getBlockPos().equals(target))
                 {
                     continue;
                 }

@@ -174,12 +174,13 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
      */
     private static void testPrinter(ClientGameTestContext context, TestDedicatedServerContext server)
     {
-        BlockPos stoneA = new BlockPos(-2, Y, -1);
-        BlockPos stoneB = new BlockPos(-2, Y, 0);
-        BlockPos stoneC = new BlockPos(-3, Y, 0);
-        BlockPos stairsWest = new BlockPos(-2, Y, 1);
-        BlockPos min = new BlockPos(-3, Y, -1);
-        BlockPos max = new BlockPos(-2, Y, 1);
+        // So verteilt, dass kein Blick auf einen Block durch einen anderen (Geister-)Block geht
+        BlockPos stoneA = new BlockPos(-2, Y, -2);
+        BlockPos stoneB = new BlockPos(-2, Y, 2);
+        BlockPos stoneC = new BlockPos(1, Y, -2);
+        BlockPos stairsWest = new BlockPos(-2, Y, 0);
+        BlockPos min = new BlockPos(-2, Y, -2);
+        BlockPos max = new BlockPos(1, Y, 2);
 
         server.runCommand(setblock(stoneA, "cobblestone"));
         server.runCommand(setblock(stoneB, "cobblestone"));
