@@ -1,6 +1,7 @@
 package io.github.recher1001.easyplace2.printer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -75,6 +76,7 @@ public final class PrinterController
     private int settleTicks;
     private long nextClickTick;
     private long damagePauseUntil;
+    private int selectRound;
 
     @Nullable private BlockPos moveTarget;
     private long moveStartTick;
@@ -452,12 +454,30 @@ public final class PrinterController
         double reach = player.blockInteractionRange();
         int tried = 0;
 
+        // In Reichweite von hinten nach vorne bauen: erst die entfernten Bloecke, sonst verdecken
+        // die nahen spaeter die Flaechen, die man fuer die hinteren anklicken muesste
+        List<SchematicScanner.Target> reachable = new ArrayList<>();
+
         for (SchematicScanner.Target t : layer)
         {
-            if (Vec3.atCenterOf(t.pos()).distanceTo(eye) > reach + 1.0 || tried++ >= CANDIDATES_PER_TICK)
+            if (Vec3.atCenterOf(t.pos()).distanceTo(eye) > reach + 1.0)
             {
                 break;
             }
+
+            reachable.add(t);
+        }
+
+        Collections.reverse(reachable);
+
+        // Pro Tick nur ein Teil; bei sehr vielen Kandidaten jedes Mal ein Stueck weiter vorne anfangen
+        int count = Math.min(reachable.size(), CANDIDATES_PER_TICK);
+        int start = reachable.size() > CANDIDATES_PER_TICK ? (this.selectRound++ * CANDIDATES_PER_TICK) % reachable.size() : 0;
+
+        for (int i = 0; i < count; i++)
+        {
+            SchematicScanner.Target t = reachable.get((start + i) % reachable.size());
+            tried++;
 
             ItemStack stack = new ItemStack(t.item());
             List<BlockHitResult> hits = AimPlanner.find(player, level, schematic, t.pos(), t.state(), stack, (BlockItem) t.item(),
