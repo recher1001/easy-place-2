@@ -32,6 +32,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import fi.dy.masa.malilib.util.FileUtils;
@@ -170,7 +171,7 @@ public final class ScaffoldTracker
     /** Bloecke vergessen, die dort nicht mehr stehen (abgebaut oder ersetzt). Nur in geladenen Chunks. */
     public void forgetGone(Level level)
     {
-        if (this.positions().removeIf(p -> level.hasChunkAt(p) && !this.isScaffoldBlock(level.getBlockState(p))))
+        if (this.positions().removeIf(p -> level.hasChunkAt(p) && !this.isStillScaffold(level.getBlockState(p))))
         {
             this.save();
         }
@@ -224,6 +225,21 @@ public final class ScaffoldTracker
     public boolean isScaffoldItem(ItemStack stack)
     {
         return !stack.isEmpty() && this.items().contains(stack.getItem());
+    }
+
+    /**
+     * Steht an einer gemerkten Stelle noch das Geruest? Erde kann von selbst zu Gras, Myzel oder Podsol
+     * werden, das ist trotzdem noch das eigene Geruest und muss weg.
+     */
+    public boolean isStillScaffold(BlockState state)
+    {
+        if (this.isScaffoldBlock(state))
+        {
+            return true;
+        }
+
+        return this.items().contains(Items.DIRT) &&
+               (state.is(Blocks.GRASS_BLOCK) || state.is(Blocks.MYCELIUM) || state.is(Blocks.PODZOL));
     }
 
     public boolean isScaffoldBlock(BlockState state)

@@ -178,7 +178,7 @@ public final class ScaffoldCleaner
         {
             case CHECK ->
             {
-                if (!ScaffoldTracker.INSTANCE.isScaffoldBlock(level.getBlockState(this.target)))
+                if (!ScaffoldTracker.INSTANCE.isStillScaffold(level.getBlockState(this.target)))
                 {
                     ScaffoldTracker.INSTANCE.remove(this.target);
                     this.finish();
