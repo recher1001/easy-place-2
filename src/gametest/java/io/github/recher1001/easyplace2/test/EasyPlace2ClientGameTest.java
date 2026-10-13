@@ -361,13 +361,14 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
                     SchematicPlacement.createFor(schematic, inSchematic, "scaffold", true, true), false);
         });
 
-        // Wie von Baritone gesetzt: Erde an beiden Stellen, beide als Geruest gemerkt
+        // Wie von Baritone gesetzt: Erde an beiden Stellen, beide als Geruest gemerkt. Neben der Schematic ist
+        // die Erde schon zu Gras geworden (passiert von selbst), das muss trotzdem als Geruest gelten.
         server.runCommand(setblock(inSchematic, "dirt"));
-        server.runCommand(setblock(outside, "dirt"));
+        server.runCommand(setblock(outside, "grass_block"));
         server.runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f 180 30", PLAYER_POS.x, PLAYER_POS.y, PLAYER_POS.z));
         server.runCommand("clear @a");
         server.runCommand("give @a cobblestone 4");
-        context.waitFor(mc -> mc.level.getBlockState(inSchematic).is(Blocks.DIRT) && mc.level.getBlockState(outside).is(Blocks.DIRT));
+        context.waitFor(mc -> mc.level.getBlockState(inSchematic).is(Blocks.DIRT) && mc.level.getBlockState(outside).is(Blocks.GRASS_BLOCK));
         context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
                               SchematicWorldHandler.getSchematicWorld().getBlockState(inSchematic).is(Blocks.COBBLESTONE), 200);
         context.runOnClient(mc ->
