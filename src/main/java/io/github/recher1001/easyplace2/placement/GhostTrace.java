@@ -87,10 +87,11 @@ public final class GhostTrace
 
             BlockState state = world.getBlockState(pos);
 
+            // pos ist ein veraenderliches Objekt, das beim Weiterlaufen ueberschrieben wird: immer kopieren
             if (!state.isAir())
             {
                 VoxelShape shape = state.getShape(world, pos);
-                BlockHitResult hit = shape.isEmpty() ? null : shape.clip(from, until, pos);
+                BlockHitResult hit = shape.isEmpty() ? null : shape.clip(from, until, pos.immutable());
 
                 if (hit != null && hit.getLocation().distanceTo(from) < maxDist)
                 {
@@ -131,7 +132,7 @@ public final class GhostTrace
             }
 
             VoxelShape shape = state.getShape(world, pos);
-            return shape.isEmpty() ? null : shape.clip(from, to, pos);
+            return shape.isEmpty() ? null : shape.clip(from, to, pos.immutable());
         }, world -> null);
     }
 
