@@ -9,10 +9,16 @@ on:
         description: 'Screenshots des Spieltests auf den Branch ci-screenshots legen'
         type: boolean
         default: false
+      publish_jar:
+        description: 'Die fertige .jar auf den Branch ci-build legen'
+        type: boolean
+        default: false
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
@@ -32,6 +38,18 @@ jobs:
         with:
           name: easy-place-2
           path: build/libs/
+      # Nur bei manuellem Start mit Haken: die .jar als eigener Branch, z. B. zum Herunterladen ohne Artifact
+      - name: publish jar to branch
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_jar
+        run: |
+          mkdir -p ci-build && cp build/libs/*.jar ci-build/
+          cd ci-build
+          git init -q -b ci-build
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Build aus Lauf ${{ github.run_id }} (${{ github.sha }})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-build
 
   # Startet Minecraft (ohne Bildschirm) und testet Easy Place 2.0 gegen einen Vanilla-Server
   client_game_test:
