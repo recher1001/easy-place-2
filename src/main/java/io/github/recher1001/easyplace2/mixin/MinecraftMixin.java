@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 
 import io.github.recher1001.easyplace2.placement.EasyPlace2Handler;
 import io.github.recher1001.easyplace2.printer.AimController;
+import io.github.recher1001.easyplace2.printer.BlockBreaker;
 
 @Mixin(Minecraft.class)
 public abstract class MinecraftMixin
@@ -21,6 +22,19 @@ public abstract class MinecraftMixin
     private void easyplace2$onStartUseItem(CallbackInfo ci)
     {
         if (EasyPlace2Handler.onUseItem((Minecraft) (Object) this))
+        {
+            ci.cancel();
+        }
+    }
+
+    /**
+     * Ohne gedrueckte Maustaste bricht Vanilla hier jeden Tick das Abbauen ab. Baut der Printer gerade ab
+     * (er "haelt" die Maustaste), darf das nicht passieren, sonst geht der Fortschritt immer wieder verloren.
+     */
+    @Inject(method = "continueAttack", at = @At("HEAD"), cancellable = true)
+    private void easyplace2$onContinueAttack(boolean leftClick, CallbackInfo ci)
+    {
+        if (!leftClick && BlockBreaker.isMining(((Minecraft) (Object) this).level))
         {
             ci.cancel();
         }

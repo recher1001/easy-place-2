@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
 
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -583,8 +584,12 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         {
             Ep2Configs.PRINTER_EXCAVATE.setBooleanValue(true);
             Ep2Configs.PRINTER_REPLACE_WRONG.setBooleanValue(true);
+            Ep2Configs.PRINTER_RUN_IN_MENUS.setBooleanValue(true);
             PrinterController.INSTANCE.start();
         });
+
+        // Der Spieler drueckt ESC: der Printer soll hinter dem Pause-Menue weiterarbeiten
+        context.setScreen(() -> new PauseScreen(true));
 
         try
         {
@@ -603,10 +608,18 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             context.runOnClient(mc -> Ep2Configs.PRINTER_REPLACE_WRONG.setBooleanValue(false));
         }
 
+        boolean menuStillOpen = context.computeOnClient(mc -> mc.screen instanceof PauseScreen);
+        context.setScreen(() -> null);
+
+        if (!menuStillOpen)
+        {
+            throw new AssertionError("Das Pause-Menue wurde vom Printer geschlossen");
+        }
+
         assertBlock(server, airHigh, BlockState::isAir, "Aushoehlen: oberer Block wurde nicht abgebaut");
         assertBlock(server, airLow, BlockState::isAir, "Aushoehlen: unterer Block wurde nicht abgebaut");
         assertBlock(server, build, state -> state.is(Blocks.COBBLESTONE), "Falscher Block wurde nicht ersetzt");
-        System.out.println("[EP2-TEST] Aushoehlen und falsche Bloecke ersetzen ok");
+        System.out.println("[EP2-TEST] Aushoehlen und falsche Bloecke ersetzen (hinter dem Pause-Menue) ok");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

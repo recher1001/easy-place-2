@@ -56,6 +56,7 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigDouble  PRINTER_FAST_TURN_MAX_ANGLE = new ConfigDouble("printerFastTurnMaxAngle", 75.0, 5.0, 180.0).apply(KEY);
     public static final ConfigInteger PRINTER_REACTION_MIN = new ConfigInteger("printerReactionMin", 1, 1, 20).apply(KEY);
     public static final ConfigInteger PRINTER_REACTION_MAX = new ConfigInteger("printerReactionMax", 3, 1, 30).apply(KEY);
+    public static final ConfigBoolean PRINTER_RUN_IN_MENUS = new ConfigBoolean("printerRunInMenus", true).apply(KEY);
     public static final ConfigBoolean PRINTER_PAUSE_ON_DAMAGE = new ConfigBoolean("printerPauseOnDamage", true).apply(KEY);
     // Aussehen des Menues
     public static final ConfigString  PRINTER_THEME       = new ConfigString("printerTheme", "vault").apply(KEY);
@@ -102,6 +103,7 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_REACTION_MIN,
             PRINTER_REACTION_MAX,
             PRINTER_PAUSE_ON_DAMAGE,
+            PRINTER_RUN_IN_MENUS,
             PRINTER_THEME,
             PRINTER_GLASS,
             PRINTER_GRID_VIEW,

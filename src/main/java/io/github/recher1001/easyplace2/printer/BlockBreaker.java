@@ -23,6 +23,9 @@ public final class BlockBreaker
     public enum Result { RUNNING, DONE, FAILED }
 
     private static final int TIMEOUT = 20 * 20;
+
+    /** Spielzeit, zu der der Printer zuletzt abgebaut hat (siehe {@link #isMining}). */
+    private static long lastMiningTick = Long.MIN_VALUE;
     private static final int NOT_VISIBLE_GRACE = 20;
 
     private final BlockPos pos;
@@ -104,6 +107,7 @@ public final class BlockBreaker
                 mc.gameMode.continueDestroyBlock(this.pos, bhr.getDirection());
             }
 
+            markMining(level);
             player.swing(InteractionHand.MAIN_HAND);
         }
         else if (this.destroying)
@@ -124,6 +128,21 @@ public final class BlockBreaker
 
         this.destroying = false;
         AimController.INSTANCE.stop();
+    }
+
+    /**
+     * Der Printer baut gerade ab (wie mit gehaltener linker Maustaste). Vanilla bricht sonst in jedem Tick
+     * ohne gedrueckte Maustaste das Abbauen ab und man finge immer wieder bei null an.
+     */
+    public static void markMining(Level level)
+    {
+        lastMiningTick = level.getGameTime();
+    }
+
+    /** Hat der Printer in diesem oder dem letzten Tick abgebaut? */
+    public static boolean isMining(@org.jetbrains.annotations.Nullable Level level)
+    {
+        return level != null && level.getGameTime() - lastMiningTick <= 1;
     }
 
     /** Wie ein Spieler mit dem Mausrad: das schnellste Werkzeug aus der Hotbar nehmen. */

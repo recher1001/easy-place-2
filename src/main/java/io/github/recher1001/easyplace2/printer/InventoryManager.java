@@ -165,6 +165,13 @@ public final class InventoryManager
         {
             case OPEN ->
             {
+                // Ist gerade ein anderes Menue offen (ESC, Chat ...), wird es nicht ersetzt: warten
+                if (mc.screen != null)
+                {
+                    this.wait = 10;
+                    return;
+                }
+
                 // Wie die Inventartaste: in Survival oeffnet der Client das eigene Inventar selbst
                 InventoryScreen screen = new InventoryScreen(player);
                 mc.setScreen(screen);

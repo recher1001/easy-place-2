@@ -132,15 +132,16 @@ public final class BlockDigger
 
         BlockPos feet = player.blockPosition();
         BlockPos support = feet.below();
-        int top = list.get(0).getY();
+        java.util.Set<BlockPos> all = new java.util.HashSet<>(list);
         BlockPos chosen = null;
+        BlockPos unsafe = null;
 
         for (BlockPos p : list)
         {
-            // Von oben nach unten: nur die oberste Lage
-            if (p.getY() < top)
+            // Von oben nach unten: was darueber noch weg muss, kommt zuerst
+            if (all.contains(p.above()))
             {
-                break;
+                continue;
             }
 
             if (p.equals(feet) || p.equals(feet.above()))
@@ -152,6 +153,7 @@ public final class BlockDigger
 
             if (p.equals(support) && !safeToDropFrom(level, support))
             {
+                unsafe = p;
                 continue;
             }
 
@@ -161,9 +163,12 @@ public final class BlockDigger
 
         if (chosen == null)
         {
-            // Die oberste Lage geht gerade nicht (z. B. nur der Block unter den Fuessen ueber einem Abgrund)
-            BlockPos skip = list.get(0);
-            this.skipped.put(skip, now + SKIP_TICKS);
+            // Geht gerade nicht (z. B. nur der Block unter den Fuessen ueber einem Abgrund): eine Weile auslassen
+            if (unsafe != null)
+            {
+                this.skipped.put(unsafe, now + SKIP_TICKS);
+            }
+
             return false;
         }
 
@@ -289,10 +294,13 @@ public final class BlockDigger
             }
         }
 
-        // Hoechster zuerst, dann der naechste
-        Vec3 center = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.position() : Vec3.ZERO;
-        list.sort(Comparator.<BlockPos>comparingInt(p -> -p.getY())
-                .thenComparingDouble(p -> Vec3.atCenterOf(p).distanceToSqr(center)));
+        // Erst alles in Reichweite (ohne Laufen), dabei der hoechste zuerst; danach der naechste weiter weg
+        LocalPlayer player = Minecraft.getInstance().player;
+        Vec3 eye = player != null ? player.getEyePosition() : Vec3.ZERO;
+        double reach = player != null ? RefillUtil.maxDistance(player) + 0.5 : 4.5;
+        list.sort(Comparator.<BlockPos>comparingInt(p -> Vec3.atCenterOf(p).distanceTo(eye) <= reach ? 0 : 1)
+                .thenComparingInt(p -> -p.getY())
+                .thenComparingDouble(p -> Vec3.atCenterOf(p).distanceToSqr(eye)));
         return list;
     }
 

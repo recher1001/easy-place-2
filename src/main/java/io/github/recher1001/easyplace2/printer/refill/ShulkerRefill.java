@@ -30,6 +30,7 @@ import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.placement.InteractiveBlocks;
 import io.github.recher1001.easyplace2.printer.AimController;
 import io.github.recher1001.easyplace2.printer.BaritoneBridge;
+import io.github.recher1001.easyplace2.printer.BlockBreaker;
 import io.github.recher1001.easyplace2.printer.InventoryManager;
 import io.github.recher1001.easyplace2.printer.ShulkerContents;
 
@@ -353,6 +354,7 @@ public final class ShulkerRefill implements Refill
                 {
                     this.breakFace = bhr.getDirection();
                     mc.gameMode.startDestroyBlock(this.spot, this.breakFace);
+                    BlockBreaker.markMining(level);
                     player.swing(InteractionHand.MAIN_HAND);
                     this.go(Step.BREAK, 0);
                 }
@@ -370,6 +372,7 @@ public final class ShulkerRefill implements Refill
                 if (RefillUtil.crosshairOn(mc, this.spot, null) && mc.hitResult instanceof BlockHitResult bhr)
                 {
                     mc.gameMode.continueDestroyBlock(this.spot, bhr.getDirection());
+                    BlockBreaker.markMining(level);
                     player.swing(InteractionHand.MAIN_HAND);
                 }
                 else

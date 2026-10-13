@@ -89,8 +89,10 @@ public final class AimController
 
         LocalPlayer player = mc.player;
 
-        // Nur drehen, wenn auch ein Spieler die Maus im Spiel bewegen koennte
-        if (this.target == null || player == null || mc.screen != null || mc.isPaused() || dt <= 0)
+        // Nur drehen, wenn auch ein Spieler die Maus im Spiel bewegen koennte (oder der Printer bewusst
+        // hinter dem Pause-Menue oder Chat weiterarbeitet)
+        if (this.target == null || player == null || mc.isPaused() || dt <= 0 ||
+            (mc.screen != null && !PrinterController.INSTANCE.worksBehind(mc.screen)))
         {
             return;
         }

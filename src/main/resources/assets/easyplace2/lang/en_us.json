@@ -366,5 +366,10 @@
     "easyplace2.config.comment.printerExcavate": "Breaks blocks inside the schematic area where the schematic wants air (e.g. when building into a hill). Top to bottom, never below your own feet. Chests and other blocks with contents and blocks next to water or lava are left alone.",
     "easyplace2.config.name.printerReplaceWrong": "printerReplaceWrong",
     "easyplace2.config.prettyName.printerReplaceWrong": "Printer: replace wrong blocks",
-    "easyplace2.config.comment.printerReplaceWrong": "If a different block stands at a schematic position, it is broken and the right one is placed. Chests and other blocks with contents are left alone."
+    "easyplace2.config.comment.printerReplaceWrong": "If a different block stands at a schematic position, it is broken and the right one is placed. Chests and other blocks with contents are left alone.",
+    "easyplace2.printer.opt.runInMenus": "Keep building behind menus",
+    "easyplace2.printer.opt.runInMenus.desc": "Keep building with ESC, chat or this menu open (not chests)",
+    "easyplace2.config.name.printerRunInMenus": "printerRunInMenus",
+    "easyplace2.config.prettyName.printerRunInMenus": "Printer: keep building behind menus",
+    "easyplace2.config.comment.printerRunInMenus": "If on: when you press ESC, type in chat or have the printer menu open, the printer keeps building (on servers; in singleplayer ESC pauses the whole game). It waits while inventories and chests are open. Behind a menu it only uses blocks that are already in the hotbar."
 }

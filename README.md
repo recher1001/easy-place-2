@@ -113,6 +113,16 @@ von deinem Standort aus erreichst.
 - Nutze den Printer nur auf Servern, auf denen das erlaubt ist. Wenn dort ein Anti-Cheat läuft, kann der
   Server-Admin deinen Spieler davon ausnehmen (bei Grim z. B. mit der Berechtigung `grim.exempt`).
 
+## Weiterbauen hinter Menüs
+
+Drückst du **ESC**, schreibst im **Chat** oder hast das **Printer-Menü** offen, baut der Printer weiter
+(Menü → Verhalten → „Hinter Menüs weiterbauen“, standardmäßig an).
+
+- Das funktioniert auf Servern. Im Einzelspieler hält ESC das ganze Spiel an.
+- Hinter einem Menü nimmt er nur Blöcke, die schon in der Hotbar liegen, weil er dein Menü nicht durch das
+  Inventar ersetzt. Material aus Shulkern oder dem Lager holt er erst, wenn das Menü wieder zu ist.
+- Bei Inventaren und Kisten wartet er, damit sich die Klicks nicht in die Quere kommen.
+
 ## Aushöhlen und falsche Blöcke
 
 - **Aushöhlen** (Menü → Verhalten, standardmäßig an): Der Printer baut Blöcke ab, die im Bereich der

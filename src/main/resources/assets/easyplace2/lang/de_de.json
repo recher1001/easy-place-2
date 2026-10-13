@@ -366,5 +366,10 @@
     "easyplace2.config.comment.printerExcavate": "Baut Blöcke ab, die im Bereich der Schematic stehen, wo laut Schematic Luft sein soll (z. B. beim Bauen in einen Berg). Von oben nach unten, nie unter den eigenen Füßen. Kisten und andere Blöcke mit Inhalt sowie Blöcke neben Wasser oder Lava bleiben stehen.",
     "easyplace2.config.name.printerReplaceWrong": "printerReplaceWrong",
     "easyplace2.config.prettyName.printerReplaceWrong": "Printer: Falsche Blöcke ersetzen",
-    "easyplace2.config.comment.printerReplaceWrong": "Steht an einer Stelle der Schematic ein anderer Block, wird er abgebaut und der richtige gesetzt. Kisten und andere Blöcke mit Inhalt bleiben stehen."
+    "easyplace2.config.comment.printerReplaceWrong": "Steht an einer Stelle der Schematic ein anderer Block, wird er abgebaut und der richtige gesetzt. Kisten und andere Blöcke mit Inhalt bleiben stehen.",
+    "easyplace2.printer.opt.runInMenus": "Hinter Menüs weiterbauen",
+    "easyplace2.printer.opt.runInMenus.desc": "Bei ESC, Chat oder diesem Menü weiterbauen (nicht bei Kisten)",
+    "easyplace2.config.name.printerRunInMenus": "printerRunInMenus",
+    "easyplace2.config.prettyName.printerRunInMenus": "Printer: hinter Menüs weiterbauen",
+    "easyplace2.config.comment.printerRunInMenus": "Wenn an: Drückst du ESC, schreibst im Chat oder hast das Printer-Menü offen, baut der Printer weiter (auf Servern; im Einzelspieler hält ESC das ganze Spiel an). Bei Inventaren und Kisten wartet er. Hinter einem Menü nimmt er nur Blöcke, die schon in der Hotbar liegen."
 }

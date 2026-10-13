@@ -16,6 +16,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -77,6 +79,8 @@ public final class PrinterController
     private final Excavation excavation = new Excavation();
     private final BlockDigger excavator = new BlockDigger(this.excavation);
     private final Watchdog watchdog = new Watchdog();
+    /** Ist gerade ein Menue offen, hinter dem der Printer weiterbaut (ESC, Chat ...)? */
+    private boolean behindScreen;
     private final Random random = new Random();
 
     private boolean running;
@@ -317,8 +321,19 @@ public final class PrinterController
 
         this.scanner.tick(level);
 
-        // Ein Spieler kann mit offenem Menue nicht klicken. Ausnahme: das Inventar, das der Printer selbst oeffnet.
-        if (mc.screen != null && !this.inventory.ownsScreen(mc.screen) && !this.refill.ownsScreen(mc.screen))
+        // Bei Kisten und Inventaren wartet der Printer (sonst kaemen sich die Klicks in die Quere). Hinter dem
+        // Pause-Menue (ESC), dem Chat oder dem Printer-Menue baut er auf Wunsch weiter.
+        boolean foreignScreen = mc.screen != null && !this.inventory.ownsScreen(mc.screen) && !this.refill.ownsScreen(mc.screen);
+        this.behindScreen = foreignScreen && this.worksBehind(mc.screen);
+
+        if (this.behindScreen && this.state == State.REFILLING)
+        {
+            // Material holen braucht Kisten-Menues: abbrechen, nach dem Menue geht es weiter
+            this.refill.cancel(mc);
+            this.setState(State.SELECTING, "");
+        }
+
+        if (foreignScreen && !this.behindScreen)
         {
             if (this.state != State.PAUSED_SCREEN)
             {
@@ -418,16 +433,29 @@ public final class PrinterController
 
                 if (digger.tick(mc, now, this.canWalk()))
                 {
-                    if (digger.broken() > before)
+                    boolean broke = digger.broken() > before;
+
+                    if (broke)
                     {
                         this.watchdog.progress();
+                    }
+
+                    // Aushoehlen: gleich mit dem naechsten Block weitermachen, ohne Pause und ohne neuen Scan
+                    if (broke && digger == this.excavator && this.excavator.start(player, level, schematic, p -> true, now))
+                    {
+                        this.detail = this.excavator.detail();
+                        return;
+                    }
+
+                    if (broke && digger == this.cleaner)
+                    {
                         // Neu scannen: an der Stelle fehlt jetzt evtl. ein Block der Schematic
                         this.scanner.reset();
                     }
 
                     // Kurz durchatmen (z. B. nach dem Runterfallen beim Turm-Abstieg), dann neu planen
                     this.setState(State.SELECTING, "");
-                    this.stateTicks = -(3 + this.random.nextInt(4));
+                    this.stateTicks = broke && digger == this.cleaner ? -(3 + this.random.nextInt(4)) : 0;
                 }
             }
             case MOVING -> this.tickMoving(player, now);
@@ -457,7 +485,7 @@ public final class PrinterController
         this.blacklist.values().removeIf(until -> until <= now);
 
         // Steht noch eine Shulker vom Material-Holen herum, wird sie zuerst wieder eingesammelt
-        if (this.refill.resumeLeftover())
+        if (!this.behindScreen && this.refill.resumeLeftover())
         {
             this.setState(State.REFILLING, this.refill.detail());
             return;
@@ -555,8 +583,8 @@ public final class PrinterController
         {
             AimController.INSTANCE.stop();
 
-            // Material besorgen: Shulker im Inventar, sonst Lager
-            if (this.refill.tryStart(player, level, schematic, new HashSet<>(this.missingMaterials.keySet()), this.inventory, now))
+            // Material besorgen: Shulker im Inventar, sonst Lager (geht nicht hinter einem Menue)
+            if (!this.behindScreen && this.refill.tryStart(player, level, schematic, new HashSet<>(this.missingMaterials.keySet()), this.inventory, now))
             {
                 this.setState(State.REFILLING, this.refill.detail());
                 return;
@@ -613,6 +641,12 @@ public final class PrinterController
             this.aimHits = hits;
             this.aimIndex = 0;
 
+            // Hinter einem Menue kann das Inventar nicht geoeffnet werden: nur, was schon in der Hotbar liegt
+            if (this.behindScreen && EntityUtils.getUsedHandForItem(player, stack) == null && !InventoryManager.isInHotbar(player, t.item()))
+            {
+                continue;
+            }
+
             // Erst das Item wie ein Spieler holen, danach wird neu geplant (die Position kann sich nicht aendern)
             if (EntityUtils.getUsedHandForItem(player, stack) == null)
             {
@@ -653,6 +687,11 @@ public final class PrinterController
         // Darf Baritone Geruest setzen? Dann muss ein Stapel davon in der Hotbar liegen (Baritone nimmt nur von dort)
         List<Item> usable = ScaffoldTracker.INSTANCE.usable();
         boolean scaffold = Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue() && !usable.isEmpty();
+
+        if (scaffold && this.behindScreen && usable.stream().noneMatch(item -> InventoryManager.isInHotbar(player, item)))
+        {
+            scaffold = false;
+        }
 
         if (scaffold && usable.stream().noneMatch(item -> InventoryManager.isInHotbar(player, item)))
         {
@@ -902,6 +941,16 @@ public final class PrinterController
         }
     }
 
+    /**
+     * Baut der Printer hinter diesem Menue weiter? Ja beim Pause-Menue (ESC), Chat, Printer-Menue usw.,
+     * nein bei Inventaren und Kisten (dort wuerden sich Klicks in die Quere kommen).
+     */
+    public boolean worksBehind(@Nullable Screen screen)
+    {
+        return this.running && !this.userPaused && screen != null && Ep2Configs.PRINTER_RUN_IN_MENUS.getBooleanValue() &&
+               !(screen instanceof AbstractContainerScreen<?>);
+    }
+
     /** Alles loslassen: Drehen, Laufen, Material holen, Geruest abbauen, Inventar. */
     private void interrupt(Minecraft mc)
     {
@@ -917,6 +966,11 @@ public final class PrinterController
     /** Zaehlt die Zeit ohne Fortschritt? Nicht, wenn der Printer bewusst wartet (Material fehlt, kein Baritone). */
     private boolean watchdogCounts()
     {
+        if (this.behindScreen)
+        {
+            return false;
+        }
+
         return switch (this.state)
         {
             case OFF, DONE, PAUSED, PAUSED_SCREEN, MISSING_MATERIAL -> false;
