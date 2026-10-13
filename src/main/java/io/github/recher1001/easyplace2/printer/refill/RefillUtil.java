@@ -26,6 +26,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
+import io.github.recher1001.easyplace2.placement.EasyPlace2Handler;
+import io.github.recher1001.easyplace2.placement.GhostTrace;
 import io.github.recher1001.easyplace2.printer.ShulkerContents;
 
 /**
@@ -123,8 +125,9 @@ public final class RefillUtil
     public static boolean ghostInFront(LocalPlayer player, Level schematic, Vec3 eye, Vec3 point, BlockPos target)
     {
         Vec3 beyond = eye.add(point.subtract(eye).scale(1.002));
-        BlockHitResult ghost = schematic.clip(new ClipContext(eye, beyond, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
-        return ghost.getType() == HitResult.Type.BLOCK && !ghost.getBlockPos().equals(target);
+        // Bloecke, in denen der Spieler selbst steht, zaehlen nicht (die sieht Easy Place 2.0 auch nicht)
+        BlockHitResult ghost = GhostTrace.firstGhost(schematic, player, eye, beyond);
+        return ghost != null && !ghost.getBlockPos().equals(target);
     }
 
     private static Vec3 facePoint(BlockPos pos, AABB box, Direction dir, double u, double v)
@@ -150,7 +153,8 @@ public final class RefillUtil
     /** Ein ganz normaler Rechtsklick, wie mit der Maus. */
     public static void rightClick(Minecraft mc)
     {
-        ((MinecraftAccessor) mc).easyplace2$startUseItem();
+        // Eigene Klicks des Printers (Shulker abstellen, Kiste oeffnen) sperrt Easy Place 2.0 nicht
+        EasyPlace2Handler.runUnrestricted(((MinecraftAccessor) mc)::easyplace2$startUseItem);
     }
 
     /** Anzahl Slots, die zum Container gehoeren (der Rest des Menues ist das Spielerinventar). */

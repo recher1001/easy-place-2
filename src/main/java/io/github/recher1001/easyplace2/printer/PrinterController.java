@@ -29,12 +29,12 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 import fi.dy.masa.litematica.util.EntityUtils;
-import fi.dy.masa.litematica.util.RayTraceUtils;
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
 import io.github.recher1001.easyplace2.EasyPlace2;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
+import io.github.recher1001.easyplace2.placement.GhostTrace;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
 import io.github.recher1001.easyplace2.printer.refill.RefillManager;
 import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldCleaner;
@@ -813,16 +813,17 @@ public final class PrinterController
         boolean crosshairOk = mc.hitResult instanceof BlockHitResult bhr &&
                               bhr.getBlockPos().equals(planned.getBlockPos()) &&
                               bhr.getDirection() == planned.getDirection();
-        RayTraceUtils.RayTraceWrapper trace = RayTraceUtils.getGenericTrace(level, player, player.blockInteractionRange());
-        boolean ghostOk = trace != null && trace.getHitType() == RayTraceUtils.RayTraceWrapper.HitType.SCHEMATIC_BLOCK &&
-                          trace.getBlockHitResult().getBlockPos().equals(t.pos());
+        Level schematicWorld = SchematicWorldHandler.getSchematicWorld();
+        BlockHitResult trace = schematicWorld != null ?
+                GhostTrace.target(level, schematicWorld, player, player, player.blockInteractionRange()) : null;
+        boolean ghostOk = trace != null && trace.getBlockPos().equals(t.pos());
 
         if (!crosshairOk || !ghostOk)
         {
             debug("Fadenkreuz passt nicht bei {}: Fadenkreuz {} (geplant {} {}), Geisterblock {}", t.pos().toShortString(),
                     mc.hitResult instanceof BlockHitResult bhr ? bhr.getBlockPos().toShortString() + " " + bhr.getDirection() : String.valueOf(mc.hitResult),
                     planned.getBlockPos().toShortString(), planned.getDirection(),
-                    trace == null ? "-" : trace.getHitType() + " " + trace.getBlockHitResult().getBlockPos().toShortString());
+                    trace == null ? "-" : trace.getBlockPos().toShortString());
             this.nextAimPoint(now);
             return;
         }

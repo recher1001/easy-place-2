@@ -9,14 +9,13 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+import io.github.recher1001.easyplace2.placement.GhostTrace;
 import io.github.recher1001.easyplace2.placement.PlacementPlanner;
 
 /**
@@ -88,9 +87,10 @@ public final class AimPlanner
 
                 // Litematica nimmt den ersten Geisterblock auf dem Strahl: liegt ein anderer davor,
                 // wuerde der Klick diesem zugeordnet
-                BlockHitResult firstGhost = schematic.clip(new ClipContext(eye, beyond, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+                // (Bloecke, in denen der Spieler selbst steht, ueberspringt Easy Place 2.0 dabei)
+                BlockHitResult firstGhost = GhostTrace.firstGhost(schematic, player, eye, beyond);
 
-                if (firstGhost.getType() != HitResult.Type.BLOCK || !firstGhost.getBlockPos().equals(target))
+                if (firstGhost == null || !firstGhost.getBlockPos().equals(target))
                 {
                     continue;
                 }

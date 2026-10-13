@@ -150,6 +150,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testPrinter(context, server);
             testScaffold(context, server);
             testWatchdog(context);
+            testStandingInSchematic(context, server);
         }
     }
 
@@ -448,6 +449,78 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         }
 
         System.out.println("[EP2-TEST] Watchdog ok: " + result);
+    }
+
+    /**
+     * Der Spieler steht selbst in der Schematic (an seinem Kopf fehlt ein Block). Easy Place 2.0 muss
+     * trotzdem den Block setzen, auf den er schaut, und nicht den an seinem Kopf. Danach: Ausserhalb der
+     * Schematic laesst sich mit Easy Place 2.0 kein Block setzen, ausser die Sperre ist aus.
+     */
+    private static void testStandingInSchematic(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos head = new BlockPos(0, Y + 1, 0);
+        BlockPos target = new BlockPos(0, Y, 2);
+        BlockPos min = new BlockPos(0, Y, 0);
+        BlockPos max = new BlockPos(0, Y + 1, 2);
+        BlockPos elsewhere = new BlockPos(-1, Y, -1);
+
+        server.runCommand(setblock(head, "stone"));
+        server.runCommand(setblock(target, "cobblestone"));
+        context.waitFor(mc -> mc.level.getBlockState(head).is(Blocks.STONE) && mc.level.getBlockState(target).is(Blocks.COBBLESTONE));
+
+        context.runOnClient(mc ->
+        {
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(min, max, "inside"), false);
+            area.setExplicitOrigin(min);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "inside", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Schematic konnte nicht erstellt werden");
+            }
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, min, "inside", true, true), false);
+        });
+
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand("clear @a");
+        server.runCommand("give @a cobblestone 4");
+        context.waitFor(mc -> mc.level.getBlockState(head).isAir() && mc.level.getBlockState(target).isAir());
+        context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(head).is(Blocks.STONE), 200);
+        context.runOnClient(mc ->
+        {
+            Ep2Configs.EASY_PLACE_2.setBooleanValue(true);
+            Ep2Configs.STRICT_CROSSHAIR.setBooleanValue(true);
+            Ep2Configs.RESTRICT_PLACEMENT.setBooleanValue(true);
+        });
+
+        // Der Kopf steckt im Geisterblock "Stein"; geschaut wird auf den Boden unter dem Ziel
+        lookAndClick(context, server, new Vec3(0.5, Y, 2.5));
+        assertBlock(server, target, state -> state.is(Blocks.COBBLESTONE), "Block im Blick wurde nicht gesetzt, obwohl der Kopf in der Schematic steckt");
+        assertBlock(server, head, BlockState::isAir, "Easy Place 2.0 hat am eigenen Kopf gebaut");
+
+        // Ausserhalb der Schematic: mit Sperre kein Block, ohne Sperre ganz normal
+        server.runCommand("item replace entity @a hotbar.0 with dirt 4");
+        context.waitTicks(5);
+        context.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        lookAndClick(context, server, new Vec3(-0.5, Y, -0.5));
+        assertBlock(server, elsewhere, BlockState::isAir, "Sperre: Block wurde ausserhalb der Schematic gesetzt");
+
+        context.runOnClient(mc -> Ep2Configs.RESTRICT_PLACEMENT.setBooleanValue(false));
+        lookAndClick(context, server, new Vec3(-0.5, Y, -0.5));
+        assertBlock(server, elsewhere, state -> state.is(Blocks.DIRT), "Ohne Sperre muss ein normaler Klick einen Block setzen");
+        context.runOnClient(mc -> Ep2Configs.RESTRICT_PLACEMENT.setBooleanValue(true));
+        server.runCommand(setblock(elsewhere, "air"));
+
+        System.out.println("[EP2-TEST] In der Schematic stehen und Sperre ok");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

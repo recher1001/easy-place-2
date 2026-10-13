@@ -349,5 +349,11 @@
     "easyplace2.config.comment.printerScaffoldItems": "Which blocks may be used as scaffold, comma separated. Anything the schematic itself needs is never used as scaffold.",
     "easyplace2.config.name.printerStuckSeconds": "printerStuckSeconds",
     "easyplace2.config.prettyName.printerStuckSeconds": "Printer: stuck after (s)",
-    "easyplace2.config.comment.printerStuckSeconds": "If nothing progresses for this many seconds, the printer tries in turn: retry everything, walk out, remove nearby scaffold. If nothing helps it pauses and tells you."
+    "easyplace2.config.comment.printerStuckSeconds": "If nothing progresses for this many seconds, the printer tries in turn: retry everything, walk out, remove nearby scaffold. If nothing helps it pauses and tells you.",
+    "easyplace2.config.name.easyPlace2RestrictPlacement": "easyPlace2RestrictPlacement",
+    "easyplace2.config.prettyName.easyPlace2RestrictPlacement": "Only place at schematic positions",
+    "easyplace2.config.comment.easyPlace2RestrictPlacement": "If on: while Easy Place 2.0 is on, blocks can only be placed at the right spot of the schematic.\nClicks that would place a block anywhere else are blocked.\nUsing chests, doors etc. and items like food or buckets still works normally.",
+    "easyplace2.printer.opt.restrict": "Only at schematic spots",
+    "easyplace2.printer.opt.restrict.desc": "Place blocks only at the right spot, nowhere else",
+    "easyplace2.message.restricted": "Easy Place 2.0: no missing schematic block here"
 }

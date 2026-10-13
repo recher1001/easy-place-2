@@ -26,7 +26,6 @@ import fi.dy.masa.litematica.tool.ToolMode;
 import fi.dy.masa.litematica.util.EasyPlaceUtils;
 import fi.dy.masa.litematica.util.EntityUtils;
 import fi.dy.masa.litematica.util.InventoryUtils;
-import fi.dy.masa.litematica.util.RayTraceUtils;
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
 import io.github.recher1001.easyplace2.EasyPlace2;
@@ -70,23 +69,24 @@ public class EasyPlace2Handler
             return false;
         }
 
-        RayTraceUtils.RayTraceWrapper trace = RayTraceUtils.getGenericTrace(level, camera, player.blockInteractionRange());
+        // Geisterbloecke, in denen der Spieler selbst steht (Kopf/Fuesse), zaehlen nicht
+        BlockHitResult ghostHit = GhostTrace.target(level, schematicWorld, camera, player, player.blockInteractionRange());
 
-        // Fadenkreuz zeigt nicht auf einen Geisterblock -> normaler Rechtsklick
-        if (trace == null || trace.getHitType() != RayTraceUtils.RayTraceWrapper.HitType.SCHEMATIC_BLOCK)
+        // Fadenkreuz zeigt nicht auf einen Geisterblock -> normaler Rechtsklick (ausser Bloecke setzen ist gesperrt)
+        if (ghostHit == null)
         {
-            return false;
+            return restrictPlacement(mc, player, level);
         }
 
-        BlockPos target = trace.getBlockHitResult().getBlockPos();
+        BlockPos target = ghostHit.getBlockPos();
         BlockState stateSchematic = schematicWorld.getBlockState(target);
         BlockState stateClient = level.getBlockState(target);
 
-        // Schon richtig, oder dort steht ein anderer fester Block -> normaler Rechtsklick
+        // Schon richtig, oder dort steht ein anderer fester Block -> normaler Rechtsklick (ausser gesperrt)
         if (stateSchematic.isAir() || StateMatcher.isComplete(stateClient, stateSchematic) ||
             (!stateClient.canBeReplaced() && stateClient.getBlock() != stateSchematic.getBlock()))
         {
-            return false;
+            return restrictPlacement(mc, player, level);
         }
 
         // Ab hier gehoert der Klick Easy Place 2.0, auch wenn am Ende nichts platziert wird.
@@ -149,6 +149,65 @@ public class EasyPlace2Handler
         RECENTLY_PLACED.put(target.immutable(), System.currentTimeMillis());
 
         return true;
+    }
+
+    /**
+     * Mit Easy Place 2.0 lassen sich Bloecke nur an der richtigen Stelle der Schematic setzen. Ein Klick,
+     * der einen Block woanders hinsetzen wuerde, wird geschluckt. Benutzen bleibt erlaubt: Kisten, Tueren,
+     * Werkbaenke usw. (ohne Schleichen) und alle Items, die keine Bloecke sind (Essen, Bogen, Eimer ...).
+     *
+     * @return true wenn der Klick gesperrt wurde
+     */
+    private static boolean restrictPlacement(Minecraft mc, LocalPlayer player, ClientLevel level)
+    {
+        if (!Ep2Configs.RESTRICT_PLACEMENT.getBooleanValue() || bypass ||
+            !(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK)
+        {
+            return false;
+        }
+
+        // Vanilla versucht erst die Haupthand, dann die Nebenhand: beide zaehlen
+        if (!(player.getMainHandItem().getItem() instanceof BlockItem) && !(player.getOffhandItem().getItem() instanceof BlockItem))
+        {
+            return false;
+        }
+
+        BlockState clicked = level.getBlockState(hit.getBlockPos());
+
+        if (!player.isSecondaryUseActive() && InteractiveBlocks.isInteractive(clicked.getBlock()))
+        {
+            return false;
+        }
+
+        ((MinecraftAccessor) mc).easyplace2$setRightClickDelay(Ep2Configs.DELAY_TICKS.getIntegerValue());
+        long now = System.currentTimeMillis();
+
+        if (now - lastRestrictMessage > 1500)
+        {
+            lastRestrictMessage = now;
+            InfoUtils.printActionbarMessage("easyplace2.message.restricted");
+        }
+
+        return true;
+    }
+
+    /** Vom Printer selbst ausgeloeste Klicks (z. B. eine Shulker zum Ausraeumen abstellen) nicht sperren. */
+    private static boolean bypass;
+    private static long lastRestrictMessage;
+
+    public static void runUnrestricted(Runnable click)
+    {
+        boolean before = bypass;
+        bypass = true;
+
+        try
+        {
+            click.run();
+        }
+        finally
+        {
+            bypass = before;
+        }
     }
 
     /**

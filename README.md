@@ -34,12 +34,17 @@ bleibt unverändert und wird nicht gebraucht.
    - **Verzögerung (Ticks)**: Wartezeit beim Gedrückthalten der rechten Maustaste. 4 = Vanilla-Tempo, höher = langsamer.
    - **Strenges Fadenkreuz**: Wenn an, wird nur die Fläche angeklickt, die dein Fadenkreuz wirklich trifft
      (der Block hinter dem Geisterblock), genau wie ein normaler Rechtsklick.
+   - **Nur an Schematic-Plätzen setzen** (Standard an): Solange Easy Place 2.0 an ist, kannst du Blöcke nur an
+     der richtigen Stelle der Schematic setzen. Ein Klick, der einen Block woanders hinsetzen würde, wird gesperrt.
    - **Debug-Meldungen**: Zeigt in der Aktionsleiste (und im Log), warum ein Block übersprungen wurde.
 3. Das **alte Easy Place** von Litematica (Reiter „Generic“ → *Easy Place Mode*) bitte **aus** lassen.
 4. Schematic laden, auf einen Geisterblock schauen, rechtsklicken.
 
 Gut zu wissen:
-- Schaust du **nicht** auf einen Geisterblock, ist der Rechtsklick ganz normal (Kisten öffnen, essen …).
+- Schaust du **nicht** auf einen Geisterblock, ist der Rechtsklick ganz normal (Kisten öffnen, essen …). Nur
+  Blöcke setzen geht dann nicht, solange „Nur an Schematic-Plätzen setzen“ an ist.
+- Stehst du selbst in der Schematic, zählen die Geisterblöcke an deinem Kopf und deinen Füßen nicht. Gebaut wird
+  der Block, auf den du schaust.
 - Blöcke wie Treppen, Öfen oder Trichter bekommen ihre Richtung wie in Vanilla von deiner Blickrichtung
   bzw. von der angeklickten Fläche. Passt das nicht, dreh dich passend hin. Die Debug-Meldung sagt dir, was nicht passt.
 - Auf Kisten, Türen usw. wird nicht geklickt, weil Vanilla sie sonst öffnen würde. Wenn du selbst schleichst, geht es.

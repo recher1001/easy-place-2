@@ -349,5 +349,11 @@
     "easyplace2.config.comment.printerScaffoldItems": "Welche Blöcke als Gerüst verbaut werden dürfen, mit Komma getrennt. Was die Schematic selbst braucht, wird nie als Gerüst benutzt.",
     "easyplace2.config.name.printerStuckSeconds": "printerStuckSeconds",
     "easyplace2.config.prettyName.printerStuckSeconds": "Printer: Feststecken nach (s)",
-    "easyplace2.config.comment.printerStuckSeconds": "Geht so viele Sekunden nichts voran, versucht der Printer der Reihe nach: alles neu, herauslaufen, Gerüst in der Nähe abbauen. Hilft nichts, pausiert er und meldet sich."
+    "easyplace2.config.comment.printerStuckSeconds": "Geht so viele Sekunden nichts voran, versucht der Printer der Reihe nach: alles neu, herauslaufen, Gerüst in der Nähe abbauen. Hilft nichts, pausiert er und meldet sich.",
+    "easyplace2.config.name.easyPlace2RestrictPlacement": "easyPlace2RestrictPlacement",
+    "easyplace2.config.prettyName.easyPlace2RestrictPlacement": "Nur an Schematic-Plätzen setzen",
+    "easyplace2.config.comment.easyPlace2RestrictPlacement": "Wenn an: Solange Easy Place 2.0 an ist, kannst du Blöcke nur an der richtigen Stelle der Schematic setzen.\nKlicks, die einen Block woanders hinsetzen würden, werden gesperrt.\nKisten, Türen usw. benutzen und Items wie Essen oder Eimer gehen weiter normal.",
+    "easyplace2.printer.opt.restrict": "Nur an Schematic-Plätzen",
+    "easyplace2.printer.opt.restrict.desc": "Blöcke nur an der richtigen Stelle setzen, sonst nirgends",
+    "easyplace2.message.restricted": "Easy Place 2.0: Hier ist kein fehlender Block der Schematic"
 }
