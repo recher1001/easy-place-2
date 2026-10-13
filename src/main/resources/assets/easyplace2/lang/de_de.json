@@ -355,5 +355,16 @@
     "easyplace2.config.comment.easyPlace2RestrictPlacement": "Wenn an: Solange Easy Place 2.0 an ist, kannst du Blöcke nur an der richtigen Stelle der Schematic setzen.\nKlicks, die einen Block woanders hinsetzen würden, werden gesperrt.\nKisten, Türen usw. benutzen und Items wie Essen oder Eimer gehen weiter normal.",
     "easyplace2.printer.opt.restrict": "Nur an Schematic-Plätzen",
     "easyplace2.printer.opt.restrict.desc": "Blöcke nur an der richtigen Stelle setzen, sonst nirgends",
-    "easyplace2.message.restricted": "Easy Place 2.0: Hier ist kein fehlender Block der Schematic"
+    "easyplace2.message.restricted": "Easy Place 2.0: Hier ist kein fehlender Block der Schematic",
+    "easyplace2.printer.state.excavating": "Höhlt aus",
+    "easyplace2.printer.opt.excavate": "Aushöhlen",
+    "easyplace2.printer.opt.excavate.desc": "Blöcke abbauen, wo die Schematic Luft will",
+    "easyplace2.printer.opt.replaceWrong": "Falsche Blöcke ersetzen",
+    "easyplace2.printer.opt.replaceWrong.desc": "Falsche Blöcke abbauen und richtig neu setzen",
+    "easyplace2.config.name.printerExcavate": "printerExcavate",
+    "easyplace2.config.prettyName.printerExcavate": "Printer: Aushöhlen",
+    "easyplace2.config.comment.printerExcavate": "Baut Blöcke ab, die im Bereich der Schematic stehen, wo laut Schematic Luft sein soll (z. B. beim Bauen in einen Berg). Von oben nach unten, nie unter den eigenen Füßen. Kisten und andere Blöcke mit Inhalt sowie Blöcke neben Wasser oder Lava bleiben stehen.",
+    "easyplace2.config.name.printerReplaceWrong": "printerReplaceWrong",
+    "easyplace2.config.prettyName.printerReplaceWrong": "Printer: Falsche Blöcke ersetzen",
+    "easyplace2.config.comment.printerReplaceWrong": "Steht an einer Stelle der Schematic ein anderer Block, wird er abgebaut und der richtige gesetzt. Kisten und andere Blöcke mit Inhalt bleiben stehen."
 }

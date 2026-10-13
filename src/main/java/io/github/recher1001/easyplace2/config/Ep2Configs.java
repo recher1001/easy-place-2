@@ -69,6 +69,9 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_SCAFFOLD    = new ConfigBoolean("printerScaffold", true).apply(KEY);
     public static final ConfigString  PRINTER_SCAFFOLD_ITEMS = new ConfigString("printerScaffoldItems",
             "minecraft:dirt,minecraft:cobblestone,minecraft:netherrack,minecraft:cobbled_deepslate").apply(KEY);
+    // Aushoehlen
+    public static final ConfigBoolean PRINTER_EXCAVATE    = new ConfigBoolean("printerExcavate", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_REPLACE_WRONG = new ConfigBoolean("printerReplaceWrong", false).apply(KEY);
     public static final ConfigInteger PRINTER_STUCK_SECONDS = new ConfigInteger("printerStuckSeconds", 90, 20, 600).apply(KEY);
     // Module
     public static final ConfigHotkey  MODULE_INVSEE       = new ConfigHotkey("moduleInvseeHotkey", "").apply(KEY);
@@ -108,6 +111,8 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_SCAFFOLD,
             PRINTER_SCAFFOLD_ITEMS,
             PRINTER_STUCK_SECONDS,
+            PRINTER_EXCAVATE,
+            PRINTER_REPLACE_WRONG,
             MODULE_INVSEE,
             MODULE_INVSEE_ANGLE,
             MODULE_INVSEE_RANGE,

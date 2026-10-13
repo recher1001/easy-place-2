@@ -43,7 +43,7 @@ public final class SchematicScanner
 
     public record Snapshot(List<Target> missing, int total, int done, int wrong, int unplaceable,
                            List<BlockPos> unloaded, Map<Item, Integer> neededItems, String names,
-                           List<BlockPos> scaffold)
+                           List<BlockPos> scaffold, List<BlockPos> excavate)
     {
         public double progress()
         {
@@ -63,6 +63,8 @@ public final class SchematicScanner
     private Map<Item, Integer> needed = new HashMap<>();
     /** Geruest-Bloecke, die auf einer Position der Schematic stehen und dort ersetzt werden muessen. */
     private List<BlockPos> scaffold = new ArrayList<>();
+    /** Bloecke, die weg muessen: wo die Schematic Luft will (Aushoehlen) oder falsche Bloecke (falls an). */
+    private List<BlockPos> excavate = new ArrayList<>();
     private Set<Long> unloadedChunks = new HashSet<>();
     private int total, done, wrong, unplaceable;
     private String names = "";
@@ -96,7 +98,7 @@ public final class SchematicScanner
 
             if (this.regions.isEmpty())
             {
-                this.latest = new Snapshot(List.of(), 0, 0, 0, 0, List.of(), Map.of(), "", List.of());
+                this.latest = new Snapshot(List.of(), 0, 0, 0, 0, List.of(), Map.of(), "", List.of(), List.of());
                 return;
             }
         }
@@ -122,7 +124,7 @@ public final class SchematicScanner
             }
 
             this.latest = new Snapshot(List.copyOf(this.missing), this.total, this.done, this.wrong, this.unplaceable,
-                    unloaded, Map.copyOf(this.needed), this.names, List.copyOf(this.scaffold));
+                    unloaded, Map.copyOf(this.needed), this.names, List.copyOf(this.scaffold), List.copyOf(this.excavate));
 
             if (Ep2Configs.DEBUG.getBooleanValue() && this.latest.missing().size() != this.lastLoggedMissing)
             {
@@ -167,6 +169,7 @@ public final class SchematicScanner
         this.missing = new ArrayList<>();
         this.needed = new HashMap<>();
         this.scaffold = new ArrayList<>();
+        this.excavate = new ArrayList<>();
         this.unloadedChunks = new HashSet<>();
         this.total = this.done = this.wrong = this.unplaceable = 0;
         this.names = String.join(", ", placementNames);
@@ -193,6 +196,17 @@ public final class SchematicScanner
 
         if (wanted.isAir())
         {
+            // Aushoehlen: dort soll Luft sein
+            if (Ep2Configs.PRINTER_EXCAVATE.getBooleanValue())
+            {
+                BlockState there = level.getBlockState(pos);
+
+                if (!there.isAir() && Excavation.canDig(level, pos, there))
+                {
+                    this.excavate.add(pos.immutable());
+                }
+            }
+
             return;
         }
 
@@ -205,12 +219,18 @@ public final class SchematicScanner
             return;
         }
 
-        // Falsche Bloecke werden nie abgebaut, nur gezaehlt. Ausnahme: eigenes Geruest, das wird ersetzt.
+        // Falsche Bloecke werden nur gezaehlt. Ausnahmen: eigenes Geruest wird ersetzt, und mit
+        // "Falsche Bloecke ersetzen" werden sie abgebaut und neu gesetzt.
         if (!current.canBeReplaced() && current.getBlock() != wanted.getBlock())
         {
             if (!scaffoldBlocks.isEmpty() && scaffoldBlocks.contains(pos))
             {
                 this.scaffold.add(pos.immutable());
+            }
+            else if (Ep2Configs.PRINTER_REPLACE_WRONG.getBooleanValue() && Excavation.canDig(level, pos, current))
+            {
+                // Falscher Block: abbauen, danach wird der richtige gesetzt
+                this.excavate.add(pos.immutable());
             }
             else
             {

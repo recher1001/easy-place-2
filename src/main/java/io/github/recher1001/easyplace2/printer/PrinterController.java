@@ -37,7 +37,7 @@ import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
 import io.github.recher1001.easyplace2.placement.EasyPlace2Handler;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
 import io.github.recher1001.easyplace2.printer.refill.RefillManager;
-import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldCleaner;
+import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldSource;
 import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 
 /**
@@ -54,7 +54,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, MOVING, AIMING, CLICKING, WAITING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, MOVING, AIMING, CLICKING, WAITING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -73,7 +73,9 @@ public final class PrinterController
     private final SchematicScanner scanner = new SchematicScanner();
     private final InventoryManager inventory = new InventoryManager();
     private final RefillManager refill = new RefillManager();
-    private final ScaffoldCleaner cleaner = new ScaffoldCleaner();
+    private final BlockDigger cleaner = new BlockDigger(new ScaffoldSource());
+    private final Excavation excavation = new Excavation();
+    private final BlockDigger excavator = new BlockDigger(this.excavation);
     private final Watchdog watchdog = new Watchdog();
     private final Random random = new Random();
 
@@ -164,6 +166,7 @@ public final class PrinterController
 
         this.scanner.reset();
         this.cleaner.reset();
+        this.excavator.reset();
         this.watchdog.reset();
         this.unloadedAttempts.clear();
         this.failures.clear();
@@ -193,6 +196,7 @@ public final class PrinterController
         AimController.INSTANCE.stop();
         this.refill.cancel(mc);
         this.cleaner.cancel(mc);
+        this.excavator.cancel(mc);
         this.inventory.cancel(mc);
         BaritoneBridge.cancel();
         BaritoneBridge.restoreSettings();
@@ -407,13 +411,14 @@ public final class PrinterController
                     this.detail = this.refill.detail();
                 }
             }
-            case CLEANING ->
+            case CLEANING, EXCAVATING ->
             {
-                int before = this.cleaner.broken();
+                BlockDigger digger = this.state == State.CLEANING ? this.cleaner : this.excavator;
+                int before = digger.broken();
 
-                if (this.cleaner.tick(mc, now, this.canWalk()))
+                if (digger.tick(mc, now, this.canWalk()))
                 {
-                    if (this.cleaner.broken() > before)
+                    if (digger.broken() > before)
                     {
                         this.watchdog.progress();
                         // Neu scannen: an der Stelle fehlt jetzt evtl. ein Block der Schematic
@@ -484,6 +489,16 @@ public final class PrinterController
             }
         }
 
+        // Aushoehlen: was weg muss, kommt zuerst (von oben nach unten), danach wird gebaut
+        this.excavation.update(snap.excavate());
+
+        if (!snap.excavate().isEmpty() && this.excavator.start(player, level, schematic, p -> true, now))
+        {
+            AimController.INSTANCE.stop();
+            this.setState(State.EXCAVATING, this.excavator.detail());
+            return;
+        }
+
         if (open.isEmpty())
         {
             // Hier ist alles gebaut: erst alles Geruest wieder abbauen, dann fertig (oder zum naechsten Teil laufen)
@@ -498,7 +513,8 @@ public final class PrinterController
             {
                 this.walkToUnloaded(player, snap.unloaded(), now);
             }
-            else if (snap.missing().isEmpty() && snap.unloaded().isEmpty() && this.cleaner.skippedCount(now) == 0)
+            else if (snap.missing().isEmpty() && snap.unloaded().isEmpty() && this.cleaner.skippedCount(now) == 0 &&
+                     this.excavator.skippedCount(now) == 0 && !this.excavator.hasWork(level, schematic, p -> true, now))
             {
                 // Uebersprungenes Geruest wird vorher noch einmal versucht (der Watchdog sorgt dafuer, dass das endet)
                 int left = (int) ScaffoldTracker.INSTANCE.positions().stream().filter(level::hasChunkAt).count();
@@ -894,6 +910,7 @@ public final class PrinterController
         BaritoneBridge.setScaffold(false, List.of());
         this.refill.cancel(mc);
         this.cleaner.cancel(mc);
+        this.excavator.cancel(mc);
         this.inventory.cancel(mc);
     }
 
@@ -923,6 +940,7 @@ public final class PrinterController
                 this.failures.clear();
                 this.unloadedAttempts.clear();
                 this.cleaner.clearSkipped();
+                this.excavator.clearSkipped();
             }
             case ESCAPE ->
             {

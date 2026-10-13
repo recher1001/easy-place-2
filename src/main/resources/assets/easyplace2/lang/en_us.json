@@ -355,5 +355,16 @@
     "easyplace2.config.comment.easyPlace2RestrictPlacement": "If on: while Easy Place 2.0 is on, blocks can only be placed at the right spot of the schematic.\nClicks that would place a block anywhere else are blocked.\nUsing chests, doors etc. and items like food or buckets still works normally.",
     "easyplace2.printer.opt.restrict": "Only at schematic spots",
     "easyplace2.printer.opt.restrict.desc": "Place blocks only at the right spot, nowhere else",
-    "easyplace2.message.restricted": "Easy Place 2.0: no missing schematic block here"
+    "easyplace2.message.restricted": "Easy Place 2.0: no missing schematic block here",
+    "easyplace2.printer.state.excavating": "Excavating",
+    "easyplace2.printer.opt.excavate": "Excavate",
+    "easyplace2.printer.opt.excavate.desc": "Break blocks where the schematic wants air",
+    "easyplace2.printer.opt.replaceWrong": "Replace wrong blocks",
+    "easyplace2.printer.opt.replaceWrong.desc": "Break wrong blocks and place the right ones",
+    "easyplace2.config.name.printerExcavate": "printerExcavate",
+    "easyplace2.config.prettyName.printerExcavate": "Printer: excavate",
+    "easyplace2.config.comment.printerExcavate": "Breaks blocks inside the schematic area where the schematic wants air (e.g. when building into a hill). Top to bottom, never below your own feet. Chests and other blocks with contents and blocks next to water or lava are left alone.",
+    "easyplace2.config.name.printerReplaceWrong": "printerReplaceWrong",
+    "easyplace2.config.prettyName.printerReplaceWrong": "Printer: replace wrong blocks",
+    "easyplace2.config.comment.printerReplaceWrong": "If a different block stands at a schematic position, it is broken and the right one is placed. Chests and other blocks with contents are left alone."
 }

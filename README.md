@@ -113,6 +113,18 @@ von deinem Standort aus erreichst.
 - Nutze den Printer nur auf Servern, auf denen das erlaubt ist. Wenn dort ein Anti-Cheat läuft, kann der
   Server-Admin deinen Spieler davon ausnehmen (bei Grim z. B. mit der Berechtigung `grim.exempt`).
 
+## Aushöhlen und falsche Blöcke
+
+- **Aushöhlen** (Menü → Verhalten, standardmäßig an): Der Printer baut Blöcke ab, die im Bereich der
+  Schematic stehen, wo laut Schematic Luft sein soll, zum Beispiel wenn du in einen Berg baust. Erst wird
+  ausgehöhlt (von oben nach unten), dann gebaut.
+- **Falsche Blöcke ersetzen** (standardmäßig aus): Steht an einer Stelle der Schematic ein anderer Block,
+  wird er abgebaut und der richtige gesetzt.
+- Abgebaut wird wie ein Spieler: mit dem besten Werkzeug aus der Hotbar, sichtbar hingedreht, nie der
+  Block unter den eigenen Füßen (außer man fällt dabei höchstens 3 Blöcke).
+- Nie angefasst werden: Kisten und andere Blöcke mit Inhalt oder Daten (Schilder, Spawner …),
+  unzerstörbare Blöcke, Wasser und Lava und Blöcke direkt daneben (damit nichts überflutet wird).
+
 ## Gerüst und Festhängen
 
 **Gerüst (Menü → Laufen → „Gerüst setzen“, standardmäßig an):** Kommt der Printer an einen Block vom Boden

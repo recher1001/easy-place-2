@@ -151,6 +151,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testScaffold(context, server);
             testWatchdog(context);
             testStandingInSchematic(context, server);
+            testExcavate(context, server);
         }
     }
 
@@ -527,6 +528,85 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.runCommand(setblock(elsewhere, "air"));
 
         System.out.println("[EP2-TEST] In der Schematic stehen, hinterster Block und Sperre ok");
+    }
+
+    /**
+     * Aushoehlen: Wo die Schematic Luft will, stehen zwei Erdbloecke uebereinander, die weg muessen. An der
+     * Stelle des Bruchsteins steht Stein (falscher Block), der mit "Falsche Bloecke ersetzen" abgebaut und
+     * durch Bruchstein ersetzt werden muss.
+     */
+    private static void testExcavate(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos build = new BlockPos(-1, Y, 0);
+        BlockPos airLow = new BlockPos(-1, Y, 1);
+        BlockPos airHigh = new BlockPos(-1, Y + 1, 1);
+        BlockPos min = new BlockPos(-1, Y, 0);
+        BlockPos max = new BlockPos(-1, Y + 1, 1);
+
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand(setblock(build, "cobblestone"));
+        context.waitFor(mc -> mc.level.getBlockState(build).is(Blocks.COBBLESTONE) && mc.level.getBlockState(airLow).isAir());
+
+        context.runOnClient(mc ->
+        {
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(min, max, "dig"), false);
+            area.setExplicitOrigin(min);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "dig", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Aushoehlen-Schematic konnte nicht erstellt werden");
+            }
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, min, "dig", true, true), false);
+        });
+
+        // Jetzt steht dort, wo Luft sein soll, Erde, und statt Bruchstein steht Stein
+        server.runCommand(setblock(build, "stone"));
+        server.runCommand(setblock(airLow, "dirt"));
+        server.runCommand(setblock(airHigh, "dirt"));
+        server.runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f 90 30", PLAYER_POS.x, PLAYER_POS.y, PLAYER_POS.z));
+        server.runCommand("clear @a");
+        server.runCommand("give @a cobblestone 4");
+        server.runCommand("give @a wooden_pickaxe");
+        context.waitFor(mc -> mc.level.getBlockState(build).is(Blocks.STONE) && mc.level.getBlockState(airHigh).is(Blocks.DIRT));
+        context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(build).is(Blocks.COBBLESTONE), 200);
+        context.runOnClient(mc ->
+        {
+            Ep2Configs.PRINTER_EXCAVATE.setBooleanValue(true);
+            Ep2Configs.PRINTER_REPLACE_WRONG.setBooleanValue(true);
+            PrinterController.INSTANCE.start();
+        });
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 1800);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-excavate-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Aushoehlen haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Spieler " + mc.player.position() + ", Hand " + mc.player.getMainHandItem()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+        finally
+        {
+            context.runOnClient(mc -> Ep2Configs.PRINTER_REPLACE_WRONG.setBooleanValue(false));
+        }
+
+        assertBlock(server, airHigh, BlockState::isAir, "Aushoehlen: oberer Block wurde nicht abgebaut");
+        assertBlock(server, airLow, BlockState::isAir, "Aushoehlen: unterer Block wurde nicht abgebaut");
+        assertBlock(server, build, state -> state.is(Blocks.COBBLESTONE), "Falscher Block wurde nicht ersetzt");
+        System.out.println("[EP2-TEST] Aushoehlen und falsche Bloecke ersetzen ok");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

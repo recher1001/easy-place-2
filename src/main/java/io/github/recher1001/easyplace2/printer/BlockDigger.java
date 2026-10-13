@@ -1,4 +1,4 @@
-package io.github.recher1001.easyplace2.printer.scaffold;
+package io.github.recher1001.easyplace2.printer;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -12,31 +12,40 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
-import io.github.recher1001.easyplace2.placement.StateMatcher;
-import io.github.recher1001.easyplace2.printer.AimController;
-import io.github.recher1001.easyplace2.printer.BaritoneBridge;
-import io.github.recher1001.easyplace2.printer.BlockBreaker;
-import io.github.recher1001.easyplace2.printer.StandSpots;
 import io.github.recher1001.easyplace2.printer.refill.RefillUtil;
+import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 
 /**
- * Baut das Geruest wieder ab, das Baritone fuer den Printer gesetzt hat.
+ * Baut Bloecke ab wie ein Spieler, z. B. das Geruest, das Baritone gesetzt hat, oder Bloecke, die beim
+ * Aushoehlen weg muessen. Welche Bloecke, sagt die {@link Source}.
  * <p>
  * Damit sich der Printer nicht selbst einsperrt oder den Weg abschneidet:
  * <ul>
- *     <li>immer von oben nach unten (der hoechste Geruest-Block zuerst)</li>
+ *     <li>immer von oben nach unten (der hoechste Block zuerst)</li>
  *     <li>nie den Block unter den eigenen Fuessen, ausser beim Turm-Abstieg (senkrecht runter,
  *         darunter hoechstens 3 Bloecke Luft, also kein Fallschaden)</li>
  *     <li>was nicht erreichbar ist, wird mit Baritone angelaufen; klappt das mehrmals nicht,
  *         wird der Block eine Weile uebersprungen statt es endlos zu versuchen</li>
  * </ul>
  */
-public final class ScaffoldCleaner
+public final class BlockDigger
 {
+    /** Woher die Bloecke kommen, die abgebaut werden sollen. */
+    public interface Source
+    {
+        /** Alle Bloecke, die gerade abgebaut werden sollen (Reihenfolge egal). */
+        Iterable<BlockPos> candidates(Level level, Level schematic);
+
+        /** Soll dieser Block (noch) weg? */
+        boolean stillWanted(Level level, Level schematic, BlockPos pos);
+
+        /** Der Block ist erledigt (abgebaut oder nicht mehr noetig). */
+        void done(BlockPos pos);
+    }
+
     private enum Step { IDLE, CHECK, WALK, BREAK }
 
     private static final int MAX_ATTEMPTS = 3;
@@ -44,6 +53,7 @@ public final class ScaffoldCleaner
     private static final int WALK_TIMEOUT = 20 * 30;
     private static final int MAX_SAFE_DROP = 3;
 
+    private final Source source;
     private final Map<BlockPos, Integer> attempts = new HashMap<>();
     private final Map<BlockPos, Long> skipped = new HashMap<>();
     private Step step = Step.IDLE;
@@ -53,12 +63,17 @@ public final class ScaffoldCleaner
     private int broken;
     private boolean walkedWithScaffold;
 
+    public BlockDigger(Source source)
+    {
+        this.source = source;
+    }
+
     public boolean isActive()
     {
         return this.step != Step.IDLE;
     }
 
-    /** Wie viele Geruest-Bloecke seit dem Start abgebaut wurden. */
+    /** Wie viele Bloecke seit dem Start abgebaut wurden. */
     public int broken()
     {
         return this.broken;
@@ -87,14 +102,14 @@ public final class ScaffoldCleaner
     }
 
     /**
-     * Gibt es Geruest, das (laut Filter) abgebaut werden soll und gerade nicht uebersprungen wird?
+     * Gibt es Bloecke, die (laut Filter) abgebaut werden sollen und gerade nicht uebersprungen werden?
      */
     public boolean hasWork(Level level, Level schematic, Predicate<BlockPos> filter, long now)
     {
         return !this.candidates(level, schematic, filter, now).isEmpty();
     }
 
-    /** Wie viele Geruest-Bloecke gerade uebersprungen werden, weil sie nicht erreichbar sind. */
+    /** Wie viele Bloecke gerade uebersprungen werden, weil sie nicht erreichbar sind. */
     public int skippedCount(long now)
     {
         this.skipped.values().removeIf(until -> until <= now);
@@ -102,7 +117,7 @@ public final class ScaffoldCleaner
     }
 
     /**
-     * Startet das Abbauen des naechsten passenden Geruest-Blocks.
+     * Startet das Abbauen des naechsten passenden Blocks.
      *
      * @return true, wenn ein Block gewaehlt wurde
      */
@@ -178,9 +193,9 @@ public final class ScaffoldCleaner
         {
             case CHECK ->
             {
-                if (!ScaffoldTracker.INSTANCE.isStillScaffold(level.getBlockState(this.target)))
+                if (schematic == null || !this.source.stillWanted(level, schematic, this.target))
                 {
-                    ScaffoldTracker.INSTANCE.remove(this.target);
+                    this.source.done(this.target);
                     this.finish();
                     return true;
                 }
@@ -222,7 +237,7 @@ public final class ScaffoldCleaner
 
                 if (result == BlockBreaker.Result.DONE)
                 {
-                    ScaffoldTracker.INSTANCE.remove(this.target);
+                    this.source.done(this.target);
                     this.attempts.remove(this.target);
                     this.broken++;
                     this.finish();
@@ -264,34 +279,16 @@ public final class ScaffoldCleaner
     private List<BlockPos> candidates(Level level, Level schematic, Predicate<BlockPos> filter, long now)
     {
         this.skipped.values().removeIf(until -> until <= now);
-        ScaffoldTracker tracker = ScaffoldTracker.INSTANCE;
-        tracker.forgetGone(level);
         List<BlockPos> list = new ArrayList<>();
-        List<BlockPos> nowPartOfBuild = new ArrayList<>();
 
-        for (BlockPos p : tracker.positions())
+        for (BlockPos p : this.source.candidates(level, schematic))
         {
-            if (!level.hasChunkAt(p))
-            {
-                continue;
-            }
-
-            // Wollte die Schematic genau diesen Block hier haben, ist es kein Geruest mehr
-            BlockState wanted = schematic.getBlockState(p);
-
-            if (!wanted.isAir() && StateMatcher.isComplete(level.getBlockState(p), wanted))
-            {
-                nowPartOfBuild.add(p);
-                continue;
-            }
-
-            if (!this.skipped.containsKey(p) && filter.test(p))
+            if (level.hasChunkAt(p) && !this.skipped.containsKey(p) && filter.test(p) && this.source.stillWanted(level, schematic, p))
             {
                 list.add(p);
             }
         }
 
-        nowPartOfBuild.forEach(tracker::remove);
         // Hoechster zuerst, dann der naechste
         Vec3 center = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.position() : Vec3.ZERO;
         list.sort(Comparator.<BlockPos>comparingInt(p -> -p.getY())

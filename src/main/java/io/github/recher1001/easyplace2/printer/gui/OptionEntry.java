@@ -200,6 +200,8 @@ public final class OptionEntry
 
         bool(Page.BEHAVIOUR, "layerRange", Ep2Configs.PRINTER_LAYER_RANGE);
         bool(Page.BEHAVIOUR, "pauseOnDamage", Ep2Configs.PRINTER_PAUSE_ON_DAMAGE);
+        bool(Page.BEHAVIOUR, "excavate", Ep2Configs.PRINTER_EXCAVATE);
+        bool(Page.BEHAVIOUR, "replaceWrong", Ep2Configs.PRINTER_REPLACE_WRONG);
 
         bool(Page.LOOK, "hud", Ep2Configs.PRINTER_HUD);
         bool(Page.LOOK, "glass", Ep2Configs.PRINTER_GLASS);
