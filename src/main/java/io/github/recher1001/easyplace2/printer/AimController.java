@@ -84,7 +84,8 @@ public final class AimController
     public void onFrame(Minecraft mc)
     {
         long now = System.nanoTime();
-        double dt = Math.min(0.1, (now - this.lastFrame) / 1.0E9);
+        // Auch bei wenigen Bildern pro Sekunde zuegig drehen (aber keine riesigen Spruenge nach einem Haenger)
+        double dt = Math.min(0.25, (now - this.lastFrame) / 1.0E9);
         this.lastFrame = now;
 
         LocalPlayer player = mc.player;

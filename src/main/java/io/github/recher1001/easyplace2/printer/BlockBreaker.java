@@ -94,8 +94,8 @@ public final class BlockBreaker
             AimController.INSTANCE.aimAt(points.get(0).getLocation(), Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
         }
 
-        if (mc.hitResult instanceof BlockHitResult bhr && bhr.getBlockPos().equals(this.pos) &&
-            (this.destroying || AimController.INSTANCE.isOnTarget()))
+        // Wie ein Spieler: sobald das Fadenkreuz auf dem Block liegt, wird abgebaut (nicht erst am genauen Punkt)
+        if (mc.hitResult instanceof BlockHitResult bhr && bhr.getBlockPos().equals(this.pos))
         {
             if (!this.destroying)
             {
