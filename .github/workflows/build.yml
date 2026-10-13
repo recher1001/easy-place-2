@@ -33,11 +33,14 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      # Ist der Artifact-Speicher auf GitHub voll, bleibt der Build trotzdem gruen
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
+        continue-on-error: true
         with:
           name: easy-place-2
           path: build/libs/
+          retention-days: 7
       # Nur bei manuellem Start mit Haken: die .jar als eigener Branch, z. B. zum Herunterladen ohne Artifact
       - name: publish jar to branch
         if: github.event_name == 'workflow_dispatch' && inputs.publish_jar
@@ -71,12 +74,14 @@ jobs:
       - name: upload screenshots and logs
         if: always()
         uses: actions/upload-artifact@v7
+        continue-on-error: true
         with:
           name: client-game-test
           path: |
             build/run/clientGameTest/screenshots/
             build/run/clientGameTest/logs/latest.log
           if-no-files-found: ignore
+          retention-days: 7
       # Nur bei manuellem Start mit Haken: Screenshots als eigener Branch, z. B. zum Ansehen ohne Artifact-Download
       - name: publish screenshots to branch
         if: always() && github.event_name == 'workflow_dispatch' && inputs.publish_screenshots
