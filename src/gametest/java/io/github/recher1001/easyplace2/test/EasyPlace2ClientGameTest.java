@@ -461,13 +461,16 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
     {
         BlockPos head = new BlockPos(0, Y + 1, 0);
         BlockPos target = new BlockPos(0, Y, 2);
+        BlockPos front = new BlockPos(0, Y, 1);
         BlockPos min = new BlockPos(0, Y, 0);
         BlockPos max = new BlockPos(0, Y + 1, 2);
         BlockPos elsewhere = new BlockPos(-1, Y, -1);
 
         server.runCommand(setblock(head, "stone"));
         server.runCommand(setblock(target, "cobblestone"));
-        context.waitFor(mc -> mc.level.getBlockState(head).is(Blocks.STONE) && mc.level.getBlockState(target).is(Blocks.COBBLESTONE));
+        server.runCommand(setblock(front, "stone"));
+        context.waitFor(mc -> mc.level.getBlockState(head).is(Blocks.STONE) && mc.level.getBlockState(target).is(Blocks.COBBLESTONE) &&
+                              mc.level.getBlockState(front).is(Blocks.STONE));
 
         context.runOnClient(mc ->
         {
@@ -503,10 +506,12 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             Ep2Configs.RESTRICT_PLACEMENT.setBooleanValue(true);
         });
 
-        // Der Kopf steckt im Geisterblock "Stein"; geschaut wird auf den Boden unter dem Ziel
+        // Der Kopf steckt im Geisterblock "Stein"; geschaut wird auf den Boden unter dem Ziel. Dabei liegt
+        // noch ein fehlender Block davor: gesetzt werden muss der hinterste
         lookAndClick(context, server, new Vec3(0.5, Y, 2.5));
-        assertBlock(server, target, state -> state.is(Blocks.COBBLESTONE), "Block im Blick wurde nicht gesetzt, obwohl der Kopf in der Schematic steckt");
+        assertBlock(server, target, state -> state.is(Blocks.COBBLESTONE), "Hinterster Block im Blick wurde nicht gesetzt (Kopf steckt in der Schematic)");
         assertBlock(server, head, BlockState::isAir, "Easy Place 2.0 hat am eigenen Kopf gebaut");
+        assertBlock(server, front, BlockState::isAir, "Easy Place 2.0 hat den vorderen statt den hintersten Block genommen");
 
         // Ausserhalb der Schematic: mit Sperre kein Block, ohne Sperre ganz normal
         server.runCommand("item replace entity @a hotbar.0 with dirt 4");
@@ -521,7 +526,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         context.runOnClient(mc -> Ep2Configs.RESTRICT_PLACEMENT.setBooleanValue(true));
         server.runCommand(setblock(elsewhere, "air"));
 
-        System.out.println("[EP2-TEST] In der Schematic stehen und Sperre ok");
+        System.out.println("[EP2-TEST] In der Schematic stehen, hinterster Block und Sperre ok");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

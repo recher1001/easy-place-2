@@ -69,22 +69,10 @@ public class EasyPlace2Handler
             return false;
         }
 
-        // Geisterbloecke, in denen der Spieler selbst steht (Kopf/Fuesse), zaehlen nicht
-        BlockHitResult ghostHit = GhostTrace.target(level, schematicWorld, camera, player, player.blockInteractionRange());
+        Choice choice = choose(mc, player, level, schematicWorld, camera);
 
-        // Fadenkreuz zeigt nicht auf einen Geisterblock -> normaler Rechtsklick (ausser Bloecke setzen ist gesperrt)
-        if (ghostHit == null)
-        {
-            return restrictPlacement(mc, player, level);
-        }
-
-        BlockPos target = ghostHit.getBlockPos();
-        BlockState stateSchematic = schematicWorld.getBlockState(target);
-        BlockState stateClient = level.getBlockState(target);
-
-        // Schon richtig, oder dort steht ein anderer fester Block -> normaler Rechtsklick (ausser gesperrt)
-        if (stateSchematic.isAir() || StateMatcher.isComplete(stateClient, stateSchematic) ||
-            (!stateClient.canBeReplaced() && stateClient.getBlock() != stateSchematic.getBlock()))
+        // Fadenkreuz zeigt auf keinen fehlenden Geisterblock -> normaler Rechtsklick (ausser Bloecke setzen ist gesperrt)
+        if (choice == null)
         {
             return restrictPlacement(mc, player, level);
         }
@@ -93,31 +81,21 @@ public class EasyPlace2Handler
         // Sonst wuerde Vanilla das Item in der Hand irgendwo hinter dem Geisterblock platzieren.
         ((MinecraftAccessor) mc).easyplace2$setRightClickDelay(Ep2Configs.DELAY_TICKS.getIntegerValue());
 
-        if (isRecentlyPlaced(target))
+        BlockPos target = choice.target();
+        BlockState stateSchematic = choice.state();
+        ItemStack required = choice.required();
+
+        if (choice.plan() == null || choice.plan().hit() == null)
         {
+            if (!choice.reason().isEmpty())
+            {
+                debug(target, stateSchematic, choice.reason());
+            }
+
             return true;
         }
 
-        ItemStack required = MaterialCache.getInstance().getRequiredBuildItemForState(stateSchematic, schematicWorld, target);
-
-        if (required.isEmpty() || !(required.getItem() instanceof BlockItem blockItem))
-        {
-            debug(target, stateSchematic, "kein platzierbares Item fuer diesen Block");
-            return true;
-        }
-
-        BlockHitResult crosshair = mc.hitResult instanceof BlockHitResult bhr && bhr.getType() == HitResult.Type.BLOCK ? bhr : null;
-        boolean strict = Ep2Configs.STRICT_CROSSHAIR.getBooleanValue();
-
-        // Erst pruefen, ob ein Vanilla-Klick ueberhaupt moeglich ist, bevor Items getauscht werden
-        PlacementPlanner.Result plan = new PlacementPlanner(player, level, target, stateSchematic,
-                InteractionHand.MAIN_HAND, required, blockItem).plan(crosshair, strict);
-
-        if (plan.hit() == null)
-        {
-            debug(target, stateSchematic, plan.reason());
-            return true;
-        }
+        PlacementPlanner.Result plan = choice.plan();
 
         // Item mit Litematicas eigener Logik in die Hand holen (Hotbar, Inventar, Shulker-Option).
         // Der Printer holt Items selbst wie ein Spieler ueber das Inventar, dann wird hier nichts getauscht.
@@ -149,6 +127,78 @@ public class EasyPlace2Handler
         RECENTLY_PLACED.put(target.immutable(), System.currentTimeMillis());
 
         return true;
+    }
+
+    /**
+     * Welchen Geisterblock wuerde Easy Place 2.0 jetzt setzen?
+     *
+     * @param target   der Block
+     * @param plan     der geplante Vanilla-Klick, oder null wenn keiner moeglich ist
+     * @param reason   warum es nicht geht (fuer die Debug-Meldung)
+     */
+    public record Choice(BlockPos target, BlockState state, ItemStack required, @Nullable PlacementPlanner.Result plan, String reason) {}
+
+    /**
+     * Sucht im Fadenkreuz den Block, den Easy Place 2.0 setzt: von allen fehlenden Geisterbloecken im
+     * Blick der <b>hinterste</b>, der sich mit einem normalen Klick setzen laesst. Geht keiner, wird der
+     * hinterste mit dem Grund zurueckgegeben. Veraendert nichts (kein Itemtausch, kein Klick).
+     *
+     * @return null, wenn im Fadenkreuz kein fehlender Geisterblock liegt
+     */
+    @Nullable
+    public static Choice choose(Minecraft mc, LocalPlayer player, ClientLevel level, Level schematicWorld, Entity camera)
+    {
+        BlockHitResult crosshair = mc.hitResult instanceof BlockHitResult bhr && bhr.getType() == HitResult.Type.BLOCK ? bhr : null;
+        boolean strict = Ep2Configs.STRICT_CROSSHAIR.getBooleanValue();
+        Choice fallback = null;
+
+        // Geisterbloecke, in denen der Spieler selbst steht (Kopf/Fuesse), zaehlen nicht
+        for (BlockHitResult ghost : GhostTrace.ghostsInView(level, schematicWorld, camera, player, player.blockInteractionRange()))
+        {
+            BlockPos target = ghost.getBlockPos();
+            BlockState stateSchematic = schematicWorld.getBlockState(target);
+            BlockState stateClient = level.getBlockState(target);
+
+            // Schon richtig, oder dort steht ein anderer fester Block -> kein Ziel
+            if (stateSchematic.isAir() || StateMatcher.isComplete(stateClient, stateSchematic) ||
+                (!stateClient.canBeReplaced() && stateClient.getBlock() != stateSchematic.getBlock()))
+            {
+                continue;
+            }
+
+            ItemStack required = MaterialCache.getInstance().getRequiredBuildItemForState(stateSchematic, schematicWorld, target);
+
+            if (isRecentlyPlaced(target))
+            {
+                return new Choice(target, stateSchematic, required, null, "");
+            }
+
+            if (required.isEmpty() || !(required.getItem() instanceof BlockItem blockItem))
+            {
+                if (fallback == null)
+                {
+                    fallback = new Choice(target, stateSchematic, required, null, "kein platzierbares Item fuer diesen Block");
+                }
+
+                continue;
+            }
+
+            // Erst pruefen, ob ein Vanilla-Klick ueberhaupt moeglich ist, bevor Items getauscht werden
+            PlacementPlanner.Result plan = new PlacementPlanner(player, level, target, stateSchematic,
+                    InteractionHand.MAIN_HAND, required, blockItem).plan(crosshair, strict);
+
+            if (plan.hit() != null)
+            {
+                return new Choice(target, stateSchematic, required, plan, "");
+            }
+
+            if (fallback == null)
+            {
+                fallback = new Choice(target, stateSchematic, required, null, plan.reason());
+            }
+        }
+
+        return fallback;
     }
 
     /**

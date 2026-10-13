@@ -45,6 +45,8 @@ Gut zu wissen:
   Blöcke setzen geht dann nicht, solange „Nur an Schematic-Plätzen setzen“ an ist.
 - Stehst du selbst in der Schematic, zählen die Geisterblöcke an deinem Kopf und deinen Füßen nicht. Gebaut wird
   der Block, auf den du schaust.
+- Liegen mehrere fehlende Blöcke hintereinander im Blick, wird der **hinterste** gesetzt (der direkt vor dem
+  echten Block, auf den dein Fadenkreuz zeigt). So bauen sich die vorderen später nicht selbst zu.
 - Blöcke wie Treppen, Öfen oder Trichter bekommen ihre Richtung wie in Vanilla von deiner Blickrichtung
   bzw. von der angeklickten Fläche. Passt das nicht, dreh dich passend hin. Die Debug-Meldung sagt dir, was nicht passt.
 - Auf Kisten, Türen usw. wird nicht geklickt, weil Vanilla sie sonst öffnen würde. Wenn du selbst schleichst, geht es.

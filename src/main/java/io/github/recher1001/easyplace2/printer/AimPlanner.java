@@ -85,12 +85,11 @@ public final class AimPlanner
                     continue;
                 }
 
-                // Litematica nimmt den ersten Geisterblock auf dem Strahl: liegt ein anderer davor,
-                // wuerde der Klick diesem zugeordnet
-                // (Bloecke, in denen der Spieler selbst steht, ueberspringt Easy Place 2.0 dabei)
-                BlockHitResult firstGhost = GhostTrace.firstGhost(schematic, player, eye, beyond);
+                // Easy Place 2.0 nimmt den hintersten Geisterblock vor der angeklickten Flaeche: das muss
+                // genau dieser sein (Bloecke, in denen der Spieler selbst steht, zaehlen dabei nicht)
+                BlockHitResult lastGhost = GhostTrace.lastGhost(schematic, player, eye, point);
 
-                if (firstGhost == null || !firstGhost.getBlockPos().equals(target))
+                if (lastGhost == null || !lastGhost.getBlockPos().equals(target))
                 {
                     continue;
                 }

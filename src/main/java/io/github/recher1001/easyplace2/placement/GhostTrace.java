@@ -1,5 +1,8 @@
 package io.github.recher1001.easyplace2.placement;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Predicate;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,7 +20,6 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import fi.dy.masa.litematica.data.DataManager;
-import fi.dy.masa.litematica.util.RayTraceUtils;
 
 /**
  * Welcher Geisterblock liegt im Fadenkreuz?
@@ -26,6 +28,9 @@ import fi.dy.masa.litematica.util.RayTraceUtils;
  * sein Kopf (oder seine Fuesse) steckt, und Minecraft zaehlt das als Treffer. Dann wuerde Easy Place 2.0
  * versuchen, genau dort zu bauen, wo der Spieler steht, statt dort, wo er hinschaut. Solche Bloecke kann
  * man ohnehin nicht setzen, deshalb werden sie hier uebersprungen.
+ * <p>
+ * Liegen mehrere fehlende Bloecke hintereinander im Blick, wird der hinterste zuerst gebaut (der direkt
+ * vor dem echten Block, den das Fadenkreuz trifft). So verdecken die vorderen spaeter nichts.
  */
 public final class GhostTrace
 {
@@ -36,48 +41,68 @@ public final class GhostTrace
     }
 
     /**
-     * Der Geisterblock im Fadenkreuz, wie Litematica ihn sieht, aber ohne die Bloecke, in denen der
-     * Spieler selbst steht.
-     *
-     * @return der Treffer, oder null wenn das Fadenkreuz auf keinen Geisterblock zeigt (normaler Klick)
+     * Alle Geisterbloecke im Fadenkreuz bis zum ersten echten Block (innerhalb der Reichweite), der
+     * <b>hinterste zuerst</b>. Bloecke, in denen der Spieler selbst steht, und Bloecke ausserhalb des
+     * sichtbaren Litematica-Schichtbereichs zaehlen nicht.
      */
-    @Nullable
-    public static BlockHitResult target(ClientLevel level, Level schematic, Entity camera, Entity player, double range)
+    public static List<BlockHitResult> ghostsInView(ClientLevel level, Level schematic, Entity camera, Entity player, double range)
     {
-        RayTraceUtils.RayTraceWrapper trace = RayTraceUtils.getGenericTrace(level, camera, range);
-
-        if (trace == null || trace.getHitType() != RayTraceUtils.RayTraceWrapper.HitType.SCHEMATIC_BLOCK)
-        {
-            return null;
-        }
-
-        BlockHitResult hit = trace.getBlockHitResult();
-
-        if (!occupiedBy(player, hit.getBlockPos()))
-        {
-            return hit;
-        }
-
-        // Der erste Treffer ist der Block am eigenen Kopf/Fuss: weiter hinten suchen
         Vec3 eye = camera.getEyePosition();
         Vec3 end = eye.add(camera.getViewVector(1.0f).scale(range));
-        BlockHitResult ghost = firstGhost(schematic, player, eye, end);
-
-        if (ghost == null)
-        {
-            return null;
-        }
-
-        // Steht ein echter Block davor, ist es ein normaler Klick auf diesen Block
         BlockHitResult real = level.clip(new ClipContext(eye, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, camera));
 
-        if (real.getType() == HitResult.Type.BLOCK &&
-            real.getLocation().distanceToSqr(eye) + EPSILON < ghost.getLocation().distanceToSqr(eye))
-        {
-            return null;
-        }
+        // Nur bis zum echten Block: was dahinter liegt, kann man nicht anklicken
+        Vec3 limit = real.getType() == HitResult.Type.BLOCK ? real.getLocation() : end;
+        List<BlockHitResult> list = ghostsOnSegment(schematic, player, eye, limit);
+        Collections.reverse(list);
+        return list;
+    }
 
-        return ghost;
+    /** Der hinterste Geisterblock auf dem Strahl {@code from → to}, oder null. */
+    @Nullable
+    public static BlockHitResult lastGhost(Level schematic, Entity player, Vec3 from, Vec3 to)
+    {
+        List<BlockHitResult> list = ghostsOnSegment(schematic, player, from, to);
+        return list.isEmpty() ? null : list.get(list.size() - 1);
+    }
+
+    /** Alle Geisterbloecke auf dem Strahl {@code from → to}, der vorderste zuerst. */
+    private static List<BlockHitResult> ghostsOnSegment(Level schematic, Entity player, Vec3 from, Vec3 to)
+    {
+        AABB body = bodyBox(player);
+        List<BlockHitResult> list = new ArrayList<>();
+        // Ein klein wenig ueber das Ende hinaus, damit der Block direkt vor der angeklickten Flaeche mitzaehlt
+        Vec3 delta = to.subtract(from);
+        Vec3 until = delta.lengthSqr() < 1.0E-8 ? to : to.add(delta.normalize().scale(0.01));
+        // Was erst am Ende (oder dahinter) beginnt, zaehlt nicht: z. B. der angeklickte echte Block selbst,
+        // wenn er schon fertig zur Schematic gehoert
+        double maxDist = delta.length() - EPSILON;
+
+        BlockGetter.traverseBlocks(from, until, schematic, (world, pos) ->
+        {
+            if (body.intersects(new AABB(pos)) || !DataManager.getRenderLayerRange().isPositionWithinRange(pos))
+            {
+                return null;
+            }
+
+            BlockState state = world.getBlockState(pos);
+
+            if (!state.isAir())
+            {
+                VoxelShape shape = state.getShape(world, pos);
+                BlockHitResult hit = shape.isEmpty() ? null : shape.clip(from, until, pos);
+
+                if (hit != null && hit.getLocation().distanceTo(from) < maxDist)
+                {
+                    list.add(hit);
+                }
+            }
+
+            // null = weitersuchen bis zum Ende des Strahls
+            return null;
+        }, world -> null);
+
+        return list;
     }
 
     /**
