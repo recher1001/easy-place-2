@@ -29,6 +29,10 @@ public final class BlockBreaker
     private static final int NOT_VISIBLE_GRACE = 20;
 
     private final BlockPos pos;
+    /** Dieses Hotbar-Fach nehmen (z. B. die Star-Spitzhacke), oder -1. */
+    private final int forceSlot;
+    /** Dieses Hotbar-Fach nicht nehmen (z. B. die Star-Spitzhacke beim Einzelabbau), oder -1. */
+    private final int avoidSlot;
     private boolean toolChosen;
     private boolean destroying;
     private int ticks;
@@ -36,7 +40,14 @@ public final class BlockBreaker
 
     public BlockBreaker(BlockPos pos)
     {
+        this(pos, -1, -1);
+    }
+
+    public BlockBreaker(BlockPos pos, int forceSlot, int avoidSlot)
+    {
         this.pos = pos.immutable();
+        this.forceSlot = forceSlot;
+        this.avoidSlot = avoidSlot;
     }
 
     public BlockPos pos()
@@ -68,7 +79,15 @@ public final class BlockBreaker
         if (!this.toolChosen)
         {
             this.toolChosen = true;
-            selectBestTool(player, state);
+
+            if (this.forceSlot >= 0 && this.forceSlot < Inventory.getSelectionSize())
+            {
+                player.getInventory().setSelectedSlot(this.forceSlot);
+            }
+            else
+            {
+                selectBestTool(player, state, this.avoidSlot);
+            }
         }
 
         // Fuers Abbauen zaehlen Geisterbloecke nicht: der Linksklick trifft nur echte Bloecke
@@ -146,14 +165,19 @@ public final class BlockBreaker
     }
 
     /** Wie ein Spieler mit dem Mausrad: das schnellste Werkzeug aus der Hotbar nehmen. */
-    private static void selectBestTool(LocalPlayer player, BlockState state)
+    private static void selectBestTool(LocalPlayer player, BlockState state, int avoidSlot)
     {
         Inventory inv = player.getInventory();
         int best = inv.getSelectedSlot();
-        float bestSpeed = inv.getItem(best).getDestroySpeed(state);
+        float bestSpeed = best == avoidSlot ? -1 : inv.getItem(best).getDestroySpeed(state);
 
         for (int i = 0; i < Inventory.getSelectionSize(); i++)
         {
+            if (i == avoidSlot)
+            {
+                continue;
+            }
+
             float speed = inv.getItem(i).getDestroySpeed(state);
 
             if (speed > bestSpeed)
@@ -161,6 +185,12 @@ public final class BlockBreaker
                 best = i;
                 bestSpeed = speed;
             }
+        }
+
+        if (best == avoidSlot)
+        {
+            // Nur das zu meidende Werkzeug passt: dann lieber mit einem anderen Fach (notfalls mit der Hand)
+            best = (avoidSlot + 1) % Inventory.getSelectionSize();
         }
 
         inv.setSelectedSlot(best);

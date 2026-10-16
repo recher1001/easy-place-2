@@ -39,6 +39,10 @@ import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
 import io.github.recher1001.easyplace2.placement.EasyPlace2Handler;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
 import io.github.recher1001.easyplace2.printer.refill.RefillManager;
+import io.github.recher1001.easyplace2.printer.lanes.BuildLanes;
+import io.github.recher1001.easyplace2.printer.lanes.LaneMiner;
+import io.github.recher1001.easyplace2.printer.lanes.LaneWalker;
+import io.github.recher1001.easyplace2.printer.lanes.StarTool;
 import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldSource;
 import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 
@@ -56,7 +60,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, MOVING, AIMING, CLICKING, WAITING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, LANE_WALKING, MOVING, AIMING, CLICKING, WAITING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -78,6 +82,11 @@ public final class PrinterController
     private final BlockDigger cleaner = new BlockDigger(new ScaffoldSource());
     private final Excavation excavation = new Excavation();
     private final BlockDigger excavator = new BlockDigger(this.excavation);
+    private final LaneMiner laneMiner = new LaneMiner();
+    private final BuildLanes buildLanes = new BuildLanes();
+    private final LaneWalker walker = new LaneWalker();
+    /** Ging das Laufen in der Bahn schief, eine Weile normal weitermachen. */
+    private long laneFailUntil;
     private final Watchdog watchdog = new Watchdog();
     /** Ist gerade ein Menue offen, hinter dem der Printer weiterbaut (ESC, Chat ...)? */
     private boolean behindScreen;
@@ -171,6 +180,9 @@ public final class PrinterController
         this.scanner.reset();
         this.cleaner.reset();
         this.excavator.reset();
+        this.laneMiner.reset();
+        this.buildLanes.reset();
+        this.laneFailUntil = 0;
         this.watchdog.reset();
         this.unloadedAttempts.clear();
         this.failures.clear();
@@ -201,6 +213,7 @@ public final class PrinterController
         this.refill.cancel(mc);
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
+        this.walker.cancel(mc);
         this.inventory.cancel(mc);
         BaritoneBridge.cancel();
         BaritoneBridge.restoreSettings();
@@ -441,7 +454,8 @@ public final class PrinterController
                     }
 
                     // Aushoehlen: gleich mit dem naechsten Block weitermachen, ohne Pause und ohne neuen Scan
-                    if (broke && digger == this.excavator && this.excavator.start(player, level, schematic, p -> true, now))
+                    if (broke && digger == this.excavator && !Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() &&
+                        this.excavator.start(player, level, schematic, p -> true, now))
                     {
                         this.detail = this.excavator.detail();
                         return;
@@ -456,6 +470,23 @@ public final class PrinterController
                     // Kurz durchatmen (z. B. nach dem Runterfallen beim Turm-Abstieg), dann neu planen
                     this.setState(State.SELECTING, "");
                     this.stateTicks = broke && digger == this.cleaner ? -(3 + this.random.nextInt(4)) : 0;
+                }
+            }
+            case LANE_WALKING ->
+            {
+                LaneWalker.Result result = this.walker.tick(mc);
+
+                if (result == LaneWalker.Result.FAILED)
+                {
+                    debug("Laufen in der Bahn ging nicht, eine Weile normal weiter");
+                    this.laneFailUntil = now + 20 * 10;
+                    this.laneMiner.reset();
+                    this.buildLanes.reset();
+                }
+
+                if (result != LaneWalker.Result.RUNNING)
+                {
+                    this.setState(State.SELECTING, "");
                 }
             }
             case MOVING -> this.tickMoving(player, now);
@@ -520,11 +551,39 @@ public final class PrinterController
         // Aushoehlen: was weg muss, kommt zuerst (von oben nach unten), danach wird gebaut
         this.excavation.update(snap.excavate());
 
-        if (!snap.excavate().isEmpty() && this.excavator.start(player, level, schematic, p -> true, now))
+        if (!snap.excavate().isEmpty())
         {
-            AimController.INSTANCE.stop();
-            this.setState(State.EXCAVATING, this.excavator.detail());
-            return;
+            // In Bahnen: Gang geradeaus, Kurve, daneben zurueck, dann eine Lage tiefer
+            if (Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() && now >= this.laneFailUntil)
+            {
+                LaneMiner.Action action = this.laneMiner.next(player, level, schematic, this.excavation, this.excavator, now);
+
+                if (action.kind() == LaneMiner.Kind.DIG)
+                {
+                    this.excavator.setTool(action.forceSlot(), action.avoidSlot());
+                    Set<BlockPos> dig = action.dig();
+
+                    if (this.excavator.start(player, level, schematic, dig::contains, now))
+                    {
+                        this.setState(State.EXCAVATING, this.excavator.detail());
+                        return;
+                    }
+                }
+                else if (action.kind() == LaneMiner.Kind.WALK && action.walkTo() != null && this.walkLane(player, level, action.walkTo(), now))
+                {
+                    return;
+                }
+            }
+
+            // Sonst (oder fuer den Rest): der naechste Block in Reichweite; nie mit der Star-Spitzhacke
+            this.excavator.setTool(-1, StarTool.findSlot(player));
+
+            if (this.excavator.start(player, level, schematic, p -> true, now))
+            {
+                AimController.INSTANCE.stop();
+                this.setState(State.EXCAVATING, this.excavator.detail());
+                return;
+            }
         }
 
         if (open.isEmpty())
@@ -665,6 +724,18 @@ public final class PrinterController
             AimController.INSTANCE.aimAt(hits.get(0).getLocation(), Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
             this.setState(State.AIMING, blockName(t.state()));
             return;
+        }
+
+        // Nichts in Reichweite: in Bahnen zum naechsten Platz mit Arbeit (geht auch ohne Baritone, wenn geradeaus)
+        if (Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() && now >= this.laneFailUntil)
+        {
+            List<BlockPos> layerCells = layer.stream().map(SchematicScanner.Target::pos).toList();
+            BlockPos next = this.buildLanes.next(player, level, layerCells, lowest, reach - Ep2Configs.PRINTER_REACH_MARGIN.getDoubleValue());
+
+            if (next != null && this.walkLane(player, level, next, now))
+            {
+                return;
+            }
         }
 
         // Nichts in Reichweite: hinlaufen
@@ -951,6 +1022,35 @@ public final class PrinterController
                !(screen instanceof AbstractContainerScreen<?>);
     }
 
+    /**
+     * Zu einem Feld in der Bahn laufen: geradeaus selbst (Vorwaerts-Taste), sonst mit Baritone.
+     *
+     * @return false, wenn es so nicht geht
+     */
+    private boolean walkLane(LocalPlayer player, ClientLevel level, BlockPos target, long now)
+    {
+        if (LaneWalker.straightWalkable(level, player.blockPosition(), target))
+        {
+            AimController.INSTANCE.stop();
+            this.walker.start(target, player);
+            this.setState(State.LANE_WALKING, target.toShortString());
+            return true;
+        }
+
+        if (this.canWalk() && BaritoneBridge.goToAny(List.of(target)))
+        {
+            AimController.INSTANCE.stop();
+            this.moveTarget = null;
+            this.moveStartTick = now;
+            this.moveStartPos = player.position();
+            this.watchdog.startMoving(player.position());
+            this.setState(State.MOVING, target.toShortString());
+            return true;
+        }
+
+        return false;
+    }
+
     /** Alles loslassen: Drehen, Laufen, Material holen, Geruest abbauen, Inventar. */
     private void interrupt(Minecraft mc)
     {
@@ -960,6 +1060,7 @@ public final class PrinterController
         this.refill.cancel(mc);
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
+        this.walker.cancel(mc);
         this.inventory.cancel(mc);
     }
 

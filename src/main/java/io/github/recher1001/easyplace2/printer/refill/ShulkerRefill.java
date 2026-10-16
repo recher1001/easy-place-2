@@ -461,7 +461,9 @@ public final class ShulkerRefill implements Refill
     {
         for (int i = 0; i < 9; i++)
         {
-            if (player.getInventory().getItem(i).is(ItemTags.PICKAXES))
+            // Nie die Star-Spitzhacke: die wuerde 3x3 um die Kiste herum abbauen
+            if (player.getInventory().getItem(i).is(ItemTags.PICKAXES) &&
+                !io.github.recher1001.easyplace2.printer.lanes.StarTool.isStarTool(player.getInventory().getItem(i)))
             {
                 player.getInventory().setSelectedSlot(i);
                 return;

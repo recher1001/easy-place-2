@@ -54,6 +54,8 @@ public final class BlockDigger
     private static final int MAX_SAFE_DROP = 3;
 
     private final Source source;
+    private int forceSlot = -1;
+    private int avoidSlot = -1;
     private final Map<BlockPos, Integer> attempts = new HashMap<>();
     private final Map<BlockPos, Long> skipped = new HashMap<>();
     private Step step = Step.IDLE;
@@ -107,6 +109,23 @@ public final class BlockDigger
     public boolean hasWork(Level level, Level schematic, Predicate<BlockPos> filter, long now)
     {
         return !this.candidates(level, schematic, filter, now).isEmpty();
+    }
+
+    /**
+     * Werkzeug fuer die naechsten Bloecke: {@code forceSlot} immer nehmen (z. B. Star-Spitzhacke) oder
+     * {@code avoidSlot} meiden; -1 = egal (das schnellste Werkzeug aus der Hotbar).
+     */
+    public void setTool(int forceSlot, int avoidSlot)
+    {
+        this.forceSlot = forceSlot;
+        this.avoidSlot = avoidSlot;
+    }
+
+    /** Wird dieser Block gerade uebersprungen? */
+    public boolean isSkipped(BlockPos pos, long now)
+    {
+        Long until = this.skipped.get(pos);
+        return until != null && until > now;
     }
 
     /** Wie viele Bloecke gerade uebersprungen werden, weil sie nicht erreichbar sind. */
@@ -207,7 +226,7 @@ public final class BlockDigger
 
                 if (!RefillUtil.visiblePoints(player, level, null, this.target, null).isEmpty())
                 {
-                    this.breaker = new BlockBreaker(this.target);
+                    this.breaker = new BlockBreaker(this.target, this.forceSlot, this.avoidSlot);
                     this.go(Step.BREAK);
                 }
                 else if (canWalk && schematic != null && this.walk(player, level, schematic))

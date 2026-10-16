@@ -70,6 +70,11 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_SCAFFOLD    = new ConfigBoolean("printerScaffold", true).apply(KEY);
     public static final ConfigString  PRINTER_SCAFFOLD_ITEMS = new ConfigString("printerScaffoldItems",
             "minecraft:dirt,minecraft:cobblestone,minecraft:netherrack,minecraft:cobbled_deepslate").apply(KEY);
+    // Bahnen (Linien-Modus) und Star-Spitzhacke
+    public static final ConfigBoolean PRINTER_LANE_MODE   = new ConfigBoolean("printerLaneMode", true).apply(KEY);
+    public static final ConfigInteger PRINTER_LANE_SPACING = new ConfigInteger("printerLaneSpacing", 1, 1, 8).apply(KEY);
+    public static final ConfigBoolean PRINTER_STAR_TOOL   = new ConfigBoolean("printerStarTool", false).apply(KEY);
+    public static final ConfigString  PRINTER_STAR_TOOL_NAME = new ConfigString("printerStarToolName", "star").apply(KEY);
     // Aushoehlen
     public static final ConfigBoolean PRINTER_EXCAVATE    = new ConfigBoolean("printerExcavate", true).apply(KEY);
     public static final ConfigBoolean PRINTER_REPLACE_WRONG = new ConfigBoolean("printerReplaceWrong", false).apply(KEY);
@@ -114,6 +119,10 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_SCAFFOLD_ITEMS,
             PRINTER_STUCK_SECONDS,
             PRINTER_EXCAVATE,
+            PRINTER_LANE_MODE,
+            PRINTER_LANE_SPACING,
+            PRINTER_STAR_TOOL,
+            PRINTER_STAR_TOOL_NAME,
             PRINTER_REPLACE_WRONG,
             MODULE_INVSEE,
             MODULE_INVSEE_ANGLE,

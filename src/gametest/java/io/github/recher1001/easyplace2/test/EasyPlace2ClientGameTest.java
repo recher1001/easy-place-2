@@ -38,6 +38,7 @@ import io.github.recher1001.easyplace2.config.Ep2ConfigTab;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.Watchdog;
+import io.github.recher1001.easyplace2.printer.lanes.LanePath;
 import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 import io.github.recher1001.easyplace2.printer.gui.OptionEntry;
 import io.github.recher1001.easyplace2.printer.gui.PrinterScreen;
@@ -153,6 +154,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testWatchdog(context);
             testStandingInSchematic(context, server);
             testExcavate(context, server);
+            testLanePath(context);
+            testLaneExcavate(context, server);
         }
     }
 
@@ -620,6 +623,141 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         assertBlock(server, airLow, BlockState::isAir, "Aushoehlen: unterer Block wurde nicht abgebaut");
         assertBlock(server, build, state -> state.is(Blocks.COBBLESTONE), "Falscher Block wurde nicht ersetzt");
         System.out.println("[EP2-TEST] Aushoehlen und falsche Bloecke ersetzen (hinter dem Pause-Menue) ok");
+    }
+
+    /** Bahnen: geradeaus, Kurve, daneben zurueck; mit Star-Tool 3 breit und 3 Bahnen Abstand. */
+    private static void testLanePath(ClientGameTestContext context)
+    {
+        String normal = describe(LanePath.build(0, 3, 0, 2, 0, 1, 0, new Vec3(0.5, 0, 0.5)));
+        String expected = "0,0E 1,0E 2,0E 3,0E 3,1S 2,1W 1,1W 0,1W 0,2S 1,2E 2,2E 3,2E";
+
+        if (!expected.equals(normal))
+        {
+            throw new AssertionError("Bahnen falsch: " + normal);
+        }
+
+        String star = describe(LanePath.build(0, 5, 0, 5, 0, 3, 1, new Vec3(0.5, 0, 0.5)));
+        String expectedStar = "0,1E 1,1E 2,1E 3,1E 4,1E 5,1E 5,2S 5,3S 5,4S 4,4W 3,4W 2,4W 1,4W 0,4W";
+
+        if (!expectedStar.equals(star))
+        {
+            throw new AssertionError("Star-Bahnen falsch: " + star);
+        }
+
+        System.out.println("[EP2-TEST] Bahnen ok");
+    }
+
+    private static String describe(List<LanePath.Step> path)
+    {
+        StringBuilder sb = new StringBuilder();
+
+        for (LanePath.Step st : path)
+        {
+            sb.append(sb.isEmpty() ? "" : " ").append(st.pos().getX()).append(',').append(st.pos().getZ())
+              .append(st.dir().getName().toUpperCase(Locale.ROOT).charAt(0));
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Aushoehlen in Bahnen ohne Baritone: zwei 8 Bloecke lange, 2 hohe Bahnen aus Erde, wo die Schematic Luft
+     * will. Der Printer muss sie Gang fuer Gang abbauen und dabei selbst geradeaus hineinlaufen.
+     */
+    private static void testLaneExcavate(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos min = new BlockPos(5, Y, -3);
+        BlockPos max = new BlockPos(12, Y + 1, -1);
+        BlockPos keep = new BlockPos(12, Y, -1);
+
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand(setblock(keep, "stone"));
+        context.waitFor(mc -> mc.level.getBlockState(keep).is(Blocks.STONE));
+
+        context.runOnClient(mc ->
+        {
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(min, max, "lanes"), false);
+            area.setExplicitOrigin(min);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "lanes", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Bahnen-Schematic konnte nicht erstellt werden");
+            }
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, min, "lanes", true, true), false);
+        });
+
+        // Zwei Bahnen voll Erde (z = -3 und -2), die dritte Reihe bleibt frei
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d dirt", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), -2));
+        server.runCommand("clear @a");
+        server.runCommand("tp @a 4.5 " + Y + " -2.5 -90 0");
+        context.waitFor(mc -> mc.level.getBlockState(new BlockPos(12, Y + 1, -2)).is(Blocks.DIRT));
+        context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(keep).is(Blocks.STONE), 200);
+        context.runOnClient(mc ->
+        {
+            Ep2Configs.PRINTER_EXCAVATE.setBooleanValue(true);
+            Ep2Configs.PRINTER_LANE_MODE.setBooleanValue(true);
+            Ep2Configs.PRINTER_STAR_TOOL.setBooleanValue(false);
+            PrinterController.INSTANCE.start();
+        });
+
+        double[] maxX = { 0 };
+
+        try
+        {
+            // Nebenbei merken, wie weit der Spieler in die Bahn hineingelaufen ist
+            context.waitFor(mc ->
+            {
+                maxX[0] = Math.max(maxX[0], mc.player.getX());
+                return !PrinterController.INSTANCE.isRunning();
+            }, 3000);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-lanes-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Bahnen haengen: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Spieler " + mc.player.position()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        int left = server.computeOnServer(s ->
+        {
+            int n = 0;
+
+            for (BlockPos p : BlockPos.betweenClosed(5, Y, -3, 12, Y + 1, -2))
+            {
+                if (!s.overworld().getBlockState(p).isAir())
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        });
+        double x = maxX[0];
+
+        if (left != 0)
+        {
+            throw new AssertionError("Bahnen: " + left + " Bloecke wurden nicht abgebaut");
+        }
+
+        if (x < 7.0)
+        {
+            throw new AssertionError("Bahnen: der Printer ist nicht in die Bahn gelaufen (weitestes x = " + x + ")");
+        }
+
+        context.takeScreenshot("easyplace2-lanes-done");
+        System.out.println("[EP2-TEST] Aushoehlen in Bahnen ok (weitestes x = " + x + ")");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

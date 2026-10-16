@@ -113,6 +113,27 @@ von deinem Standort aus erreichst.
 - Nutze den Printer nur auf Servern, auf denen das erlaubt ist. Wenn dort ein Anti-Cheat läuft, kann der
   Server-Admin deinen Spieler davon ausnehmen (bei Grim z. B. mit der Berechtigung `grim.exempt`).
 
+## In Bahnen arbeiten und Star-Tool
+
+**In Bahnen** (Menü → Laufen → „In Bahnen arbeiten“, standardmäßig an): Der Printer arbeitet wie beim
+Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und kommt direkt daneben zurück.
+
+- **Aushöhlen:** Er gräbt einen Gang, 1 breit und 2 hoch, und läuft selbst hinein, auch ohne Baritone.
+  Was er vom Platz aus sieht und erreicht, baut er gleich ab. Ist eine Lage fertig, gräbt er 2 Blöcke nach
+  unten und macht dort genauso weiter.
+- **Bauen:** Ist nichts mehr in Reichweite, folgt er der Bahn zum nächsten Platz, an dem es etwas zu bauen gibt.
+- **Bahnabstand:** 1 bedeutet direkt daneben.
+
+**Star-Tool** (Menü → Laufen → „Star-Tool (3x3)“): für eine Spitzhacke vom Server, die 3x3 abbaut.
+
+- Die Gänge sind 3 breit und 3 hoch, die Bahnen liegen 3 auseinander.
+- Der Spieler steht in der Mitte und schlägt auf den mittleren Block vor sich, der Server baut die ganze 3x3-Wand ab.
+- Nach unten schlägt er dreimal auf den Block unter den Füßen.
+- Erkannt wird die Spitzhacke am Namen in der Hotbar (`printerStarToolName`, Standard „star“).
+- Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll (Rand der Schematic, Kisten …), baut er dort
+  mit einem anderen Werkzeug Block für Block ab.
+- Sonst nimmt der Printer die Star-Spitzhacke nie, damit nichts ungewollt 3x3 abgebaut wird.
+
 ## Weiterbauen hinter Menüs
 
 Drückst du **ESC**, schreibst im **Chat** oder hast das **Printer-Menü** offen, baut der Printer weiter

@@ -190,6 +190,10 @@ public final class OptionEntry
         bool(Page.WALK, "sprint", Ep2Configs.PRINTER_SPRINT);
         number(Page.WALK, "reachMargin", Ep2Configs.PRINTER_REACH_MARGIN, 0, 2.5, 0.1, v -> String.format(Locale.ROOT, "%.1f", v));
         bool(Page.WALK, "scaffold", Ep2Configs.PRINTER_SCAFFOLD);
+        bool(Page.WALK, "laneMode", Ep2Configs.PRINTER_LANE_MODE);
+        ALL.add(new OptionEntry(Page.WALK, "laneSpacing", Kind.INT, Ep2Configs.PRINTER_LANE_SPACING, 1, 8, 1,
+                v -> String.format(Locale.ROOT, "%d", Math.round(v))));
+        bool(Page.WALK, "starTool", Ep2Configs.PRINTER_STAR_TOOL);
         ALL.add(new OptionEntry(Page.WALK, "stuckSeconds", Kind.INT, Ep2Configs.PRINTER_STUCK_SECONDS, 20, 600, 10,
                 v -> String.format(Locale.ROOT, "%d s", Math.round(v))));
 
