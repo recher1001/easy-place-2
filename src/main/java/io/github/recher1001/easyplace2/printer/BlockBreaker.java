@@ -25,7 +25,8 @@ public final class BlockBreaker
     private static final int TIMEOUT = 20 * 20;
 
     /** Spielzeit, zu der der Printer zuletzt abgebaut hat (siehe {@link #isMining}). */
-    private static long lastMiningTick = Long.MIN_VALUE;
+    private static long lastMiningTick = -1;
+    private static boolean everMined;
     private static final int NOT_VISIBLE_GRACE = 20;
 
     private final BlockPos pos;
@@ -156,12 +157,19 @@ public final class BlockBreaker
     public static void markMining(Level level)
     {
         lastMiningTick = level.getGameTime();
+        everMined = true;
     }
 
     /** Hat der Printer in diesem oder dem letzten Tick abgebaut? */
     public static boolean isMining(@org.jetbrains.annotations.Nullable Level level)
     {
-        return level != null && level.getGameTime() - lastMiningTick <= 1;
+        if (level == null || !everMined || !PrinterController.INSTANCE.isRunning())
+        {
+            return false;
+        }
+
+        long ago = level.getGameTime() - lastMiningTick;
+        return ago >= 0 && ago <= 1;
     }
 
     /** Wie ein Spieler mit dem Mausrad: das schnellste Werkzeug aus der Hotbar nehmen. */

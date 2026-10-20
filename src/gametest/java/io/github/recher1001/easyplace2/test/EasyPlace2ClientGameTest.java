@@ -81,6 +81,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             server.runCommand("time set day");
             server.runCommand("gamerule doDaylightCycle false");
 
+            testManualMining(context, server);
+
             // Vorlage bauen, als Schematic aufnehmen und wieder entfernen
             server.runCommand(setblock(STAIRS_EAST, "oak_stairs[facing=east,half=bottom]"));
             server.runCommand(setblock(SLAB_TOP, "oak_slab[type=top]"));
@@ -623,6 +625,40 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         assertBlock(server, airLow, BlockState::isAir, "Aushoehlen: unterer Block wurde nicht abgebaut");
         assertBlock(server, build, state -> state.is(Blocks.COBBLESTONE), "Falscher Block wurde nicht ersetzt");
         System.out.println("[EP2-TEST] Aushoehlen und falsche Bloecke ersetzen (hinter dem Pause-Menue) ok");
+    }
+
+    /**
+     * Selbst abbauen muss immer gehen, auch wenn der Printer noch nie etwas abgebaut hat und gerade ein
+     * Menue offen war (frueher war das Abbauen dann gesperrt, bis der Printer einmal abgebaut hatte).
+     */
+    private static void testManualMining(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos dirt = new BlockPos(0, Y, -1);
+        server.runCommand(setblock(dirt, "dirt"));
+        server.runCommand("clear @a");
+        context.waitFor(mc -> mc.level.getBlockState(dirt).is(Blocks.DIRT));
+
+        // ESC auf und wieder zu
+        context.setScreen(() -> new PauseScreen(true));
+        context.waitTicks(5);
+        context.setScreen(() -> null);
+        context.waitTicks(5);
+
+        Vec3 aim = new Vec3(0.5, Y + 0.5, -0.5);
+        Vec3 d = aim.subtract(EYE);
+        double yaw = Math.toDegrees(Math.atan2(-d.x, d.z));
+        double pitch = Math.toDegrees(Math.atan2(-d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+        server.runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f %.2f %.2f", PLAYER_POS.x, PLAYER_POS.y, PLAYER_POS.z, yaw, pitch));
+        context.waitTicks(10);
+
+        // Linke Maustaste halten wie ein Spieler (Erde mit der Hand: unter einer Sekunde)
+        context.getInput().holdMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        context.waitTicks(40);
+        context.getInput().releaseMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        context.waitTicks(5);
+
+        assertBlock(server, dirt, BlockState::isAir, "Selbst abbauen geht nicht (Mod sperrt das Abbauen)");
+        System.out.println("[EP2-TEST] Selbst abbauen ok");
     }
 
     /** Bahnen: geradeaus, Kurve, daneben zurueck; mit Star-Tool 3 breit und 3 Bahnen Abstand. */
