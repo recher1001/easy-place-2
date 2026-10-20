@@ -261,6 +261,14 @@ public final class InventoryManager
     {
         int min = Ep2Configs.PRINTER_INV_DELAY_MIN.getIntegerValue();
         int max = Math.max(min, Ep2Configs.PRINTER_INV_DELAY_MAX.getIntegerValue());
+
+        // Schnell bauen: halb so lange Pausen im Inventar
+        if (Ep2Configs.PRINTER_FAST_BUILD.getBooleanValue())
+        {
+            min = Math.max(1, min / 2);
+            max = Math.max(min, max / 2);
+        }
+
         return min + this.random.nextInt(max - min + 1);
     }
 

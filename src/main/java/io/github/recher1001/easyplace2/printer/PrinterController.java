@@ -114,6 +114,7 @@ public final class PrinterController
     private final Map<BlockPos, Integer> failures = new HashMap<>();
     private final Map<BlockPos, Long> blacklist = new HashMap<>();
     private final Map<Item, Integer> missingMaterials = new LinkedHashMap<>();
+    private final List<Pending> pending = new ArrayList<>();
 
     private int placed;
     private long startMillis;
@@ -189,6 +190,7 @@ public final class PrinterController
         this.blacklist.clear();
         this.moveAttempts.clear();
         this.missingMaterials.clear();
+        this.pending.clear();
         this.placed = 0;
         this.startMillis = System.currentTimeMillis();
         this.running = true;
@@ -368,6 +370,7 @@ public final class PrinterController
         }
 
         long now = level.getGameTime();
+        this.checkPending(level, now);
 
         // Bei Schaden kurz alles loslassen und abwarten (z. B. Mob, Lava, Fall)
         if (Ep2Configs.PRINTER_PAUSE_ON_DAMAGE.getBooleanValue() && player.hurtTime > 0)
@@ -662,8 +665,9 @@ public final class PrinterController
         double reach = player.blockInteractionRange();
         int tried = 0;
 
-        // In Reichweite von hinten nach vorne bauen: erst die entfernten Bloecke, sonst verdecken
-        // die nahen spaeter die Flaechen, die man fuer die hinteren anklicken muesste
+        // Reihenfolge, nicht zufaellig: von unten nach oben; in einer Schicht von hinten nach vorne (sonst
+        // verdecken die nahen spaeter die Flaechen fuer die hinteren); unter den hintersten dann der, zu dem
+        // man sich am wenigsten drehen muss, am liebsten mit dem Item, das schon in der Hand ist
         List<SchematicScanner.Target> reachable = new ArrayList<>();
 
         for (SchematicScanner.Target t : layer)
@@ -676,18 +680,48 @@ public final class PrinterController
             reachable.add(t);
         }
 
-        Collections.reverse(reachable);
+        reachable.sort(Comparator.<SchematicScanner.Target>comparingInt(t -> t.pos().getY())
+                .thenComparing(Comparator.<SchematicScanner.Target>comparingDouble(t -> Vec3.atCenterOf(t.pos()).distanceToSqr(eye)).reversed()));
 
-        // Pro Tick nur ein Teil; bei sehr vielen Kandidaten jedes Mal ein Stueck weiter vorne anfangen
-        int count = Math.min(reachable.size(), CANDIDATES_PER_TICK);
-        int start = reachable.size() > CANDIDATES_PER_TICK ? (this.selectRound++ * CANDIDATES_PER_TICK) % reachable.size() : 0;
+        // Pro Tick nur ein Teil; klappt keiner, beim naechsten Tick die naechsten (der Reihe nach)
+        int start = this.selectRound * CANDIDATES_PER_TICK;
 
-        for (int i = 0; i < count; i++)
+        if (start >= reachable.size())
         {
-            SchematicScanner.Target t = reachable.get((start + i) % reachable.size());
-            tried++;
+            start = 0;
+            this.selectRound = 0;
+        }
 
+        int end = Math.min(reachable.size(), start + CANDIDATES_PER_TICK);
+        SchematicScanner.Target best = null;
+        List<BlockHitResult> bestHits = List.of();
+        double bestScore = Double.MAX_VALUE;
+        int bandY = 0;
+        double bandDist = 0;
+        int found = 0;
+
+        for (int i = start; i < end; i++)
+        {
+            SchematicScanner.Target t = reachable.get(i);
+            double dist = Vec3.atCenterOf(t.pos()).distanceTo(eye);
+
+            // Nur die hinterste Gruppe der untersten Hoehe (die Liste ist so sortiert, der Rest kommt spaeter)
+            if (found > 0 && (t.pos().getY() != bandY || dist < bandDist - 1.0))
+            {
+                break;
+            }
+
+            tried++;
             ItemStack stack = new ItemStack(t.item());
+            boolean held = EntityUtils.getUsedHandForItem(player, stack) != null;
+            boolean inHotbar = held || InventoryManager.isInHotbar(player, t.item());
+
+            // Hinter einem Menue kann das Inventar nicht geoeffnet werden: nur, was schon in der Hotbar liegt
+            if (this.behindScreen && !inHotbar)
+            {
+                continue;
+            }
+
             List<BlockHitResult> hits = AimPlanner.find(player, level, schematic, t.pos(), t.state(), stack, (BlockItem) t.item(),
                     reach - Ep2Configs.PRINTER_REACH_MARGIN.getDoubleValue());
 
@@ -696,15 +730,44 @@ public final class PrinterController
                 continue;
             }
 
-            this.current = t;
-            this.aimHits = hits;
-            this.aimIndex = 0;
-
-            // Hinter einem Menue kann das Inventar nicht geoeffnet werden: nur, was schon in der Hotbar liegt
-            if (this.behindScreen && EntityUtils.getUsedHandForItem(player, stack) == null && !InventoryManager.isInHotbar(player, t.item()))
+            if (found++ == 0)
             {
-                continue;
+                bandY = t.pos().getY();
+                bandDist = dist;
             }
+
+            double score = AimController.angleTo(player, hits.get(0).getLocation()) / 15.0 + (held ? 0 : inHotbar ? 2 : 6);
+
+            if (score < bestScore)
+            {
+                best = t;
+                bestHits = hits;
+                bestScore = score;
+            }
+
+            if (found >= 8)
+            {
+                break;
+            }
+        }
+
+        if (best == null && end < reachable.size())
+        {
+            // Die naechsten Kandidaten beim naechsten Tick, bevor weggelaufen wird
+            this.selectRound++;
+            this.setState(State.SELECTING, "");
+            return;
+        }
+
+        this.selectRound = 0;
+
+        if (best != null)
+        {
+            SchematicScanner.Target t = best;
+            ItemStack stack = new ItemStack(t.item());
+            this.current = t;
+            this.aimHits = bestHits;
+            this.aimIndex = 0;
 
             // Erst das Item wie ein Spieler holen, danach wird neu geplant (die Position kann sich nicht aendern)
             if (EntityUtils.getUsedHandForItem(player, stack) == null)
@@ -721,7 +784,7 @@ public final class PrinterController
                 return;
             }
 
-            AimController.INSTANCE.aimAt(hits.get(0).getLocation(), Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+            AimController.INSTANCE.aimAt(bestHits.get(0).getLocation(), Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
             this.setState(State.AIMING, blockName(t.state()));
             return;
         }
@@ -900,10 +963,10 @@ public final class PrinterController
 
         if (AimController.INSTANCE.isOnTarget())
         {
-            // Wie ein Spieler: einen Augenblick auf dem Ziel bleiben, dann klicken
+            // Wie ein Spieler: einen Augenblick auf dem Ziel bleiben, dann klicken (schnell bauen: sofort)
             int min = Ep2Configs.PRINTER_REACTION_MIN.getIntegerValue();
             int max = Math.max(min, Ep2Configs.PRINTER_REACTION_MAX.getIntegerValue());
-            this.settleTicks = min - 1 + this.random.nextInt(max - min + 1);
+            this.settleTicks = Ep2Configs.PRINTER_FAST_BUILD.getBooleanValue() ? 0 : min - 1 + this.random.nextInt(max - min + 1);
             this.setState(State.CLICKING, this.detail);
         }
         else if (this.stateTicks > AIM_TIMEOUT_TICKS)
@@ -955,8 +1018,53 @@ public final class PrinterController
         }
 
         ((MinecraftAccessor) mc).easyplace2$startUseItem();
+
+        if (Ep2Configs.PRINTER_FAST_BUILD.getBooleanValue())
+        {
+            // So schnell wie gehaltene rechte Maustaste; ob der Server den Block behaelt, wird nebenbei geprueft,
+            // waehrend schon der naechste Block angepeilt wird
+            this.nextClickTick = now + Ep2Configs.DELAY_TICKS.getIntegerValue();
+            this.pending.add(new Pending(t, now));
+            this.current = null;
+            this.setState(State.SELECTING, "");
+            return;
+        }
+
         this.nextClickTick = now + Ep2Configs.DELAY_TICKS.getIntegerValue() + this.random.nextInt(Ep2Configs.PRINTER_EXTRA_DELAY.getIntegerValue() + 1);
         this.setState(State.WAITING, this.detail);
+    }
+
+    /** Gesetzte Bloecke, bei denen noch geprueft wird, ob der Server sie behaelt. */
+    private record Pending(SchematicScanner.Target target, long tick) {}
+
+    private void checkPending(ClientLevel level, long now)
+    {
+        java.util.Iterator<Pending> it = this.pending.iterator();
+
+        while (it.hasNext())
+        {
+            Pending p = it.next();
+
+            if (now - p.tick() < 4)
+            {
+                continue;
+            }
+
+            it.remove();
+            BlockPos pos = p.target().pos();
+
+            if (StateMatcher.isComplete(level.getBlockState(pos), p.target().state()))
+            {
+                this.placed++;
+                this.watchdog.progress();
+                this.failures.remove(pos);
+                this.moveAttempts.remove(pos);
+            }
+            else
+            {
+                this.fail(pos, now);
+            }
+        }
     }
 
     private void tickWaiting(ClientLevel level)

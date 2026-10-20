@@ -43,6 +43,7 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigHotkey  PRINTER_TOGGLE      = new ConfigHotkey("printerToggleHotkey", "").apply(KEY);
     public static final ConfigDouble  PRINTER_TURN_SPEED  = new ConfigDouble("printerTurnSpeed", 220.0, 40.0, 720.0).apply(KEY);
     public static final ConfigDouble  PRINTER_TURN_JITTER = new ConfigDouble("printerTurnJitter", 0.25, 0.0, 1.0).apply(KEY);
+    public static final ConfigBoolean PRINTER_FAST_BUILD  = new ConfigBoolean("printerFastBuild", true).apply(KEY);
     public static final ConfigInteger PRINTER_EXTRA_DELAY = new ConfigInteger("printerExtraDelay", 3, 0, 40).apply(KEY);
     public static final ConfigInteger PRINTER_INV_DELAY_MIN = new ConfigInteger("printerInventoryDelayMin", 5, 1, 40).apply(KEY);
     public static final ConfigInteger PRINTER_INV_DELAY_MAX = new ConfigInteger("printerInventoryDelayMax", 10, 1, 60).apply(KEY);
@@ -95,6 +96,7 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_TOGGLE,
             PRINTER_TURN_SPEED,
             PRINTER_TURN_JITTER,
+            PRINTER_FAST_BUILD,
             PRINTER_EXTRA_DELAY,
             PRINTER_INV_DELAY_MIN,
             PRINTER_INV_DELAY_MAX,

@@ -182,6 +182,7 @@ public final class OptionEntry
         bool(Page.TURN, "fastTurn", Ep2Configs.PRINTER_FAST_TURN);
         number(Page.TURN, "fastTurnMaxAngle", Ep2Configs.PRINTER_FAST_TURN_MAX_ANGLE, 5, 180, 5, v -> String.format(Locale.ROOT, "%.0f°", v));
 
+        bool(Page.TIMING, "fastBuild", Ep2Configs.PRINTER_FAST_BUILD);
         integer(Page.TIMING, "extraDelay", Ep2Configs.PRINTER_EXTRA_DELAY, 0, 40);
         integer(Page.TIMING, "reactionMin", Ep2Configs.PRINTER_REACTION_MIN, 1, 20);
         integer(Page.TIMING, "reactionMax", Ep2Configs.PRINTER_REACTION_MAX, 1, 30);
