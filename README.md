@@ -113,6 +113,18 @@ von deinem Standort aus erreichst.
 - Nutze den Printer nur auf Servern, auf denen das erlaubt ist. Wenn dort ein Anti-Cheat läuft, kann der
   Server-Admin deinen Spieler davon ausnehmen (bei Grim z. B. mit der Berechtigung `grim.exempt`).
 
+## Tempo und Reihenfolge beim Bauen
+
+- **Schnell bauen** (Menü → Timing, standardmäßig an): Der Printer klickt so schnell wie eine gehaltene
+  rechte Maustaste (Abstand „Verzögerung“, Vanilla 4 Ticks), ohne Reaktionszeit und Extra-Pause. Ob der
+  Server den Block behält, prüft er nebenbei, während er schon den nächsten anpeilt. Die Pausen im Inventar
+  sind halb so lang.
+- **Reihenfolge**, nicht zufällig:
+  1. von unten nach oben,
+  2. in einer Schicht von hinten nach vorne (damit nichts verdeckt wird),
+  3. dann der Block, zu dem er sich am wenigsten drehen muss, am liebsten mit dem Item, das er schon in
+     der Hand hat (weniger Wechsel im Inventar).
+
 ## In Bahnen arbeiten und Star-Tool
 
 **In Bahnen** (Menü → Laufen → „In Bahnen arbeiten“, standardmäßig an): Der Printer arbeitet wie beim

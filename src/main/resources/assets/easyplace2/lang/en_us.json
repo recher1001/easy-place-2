@@ -390,5 +390,10 @@
     "easyplace2.config.comment.printerStarTool": "For a server pickaxe that breaks 3x3: tunnels 3 wide and 3 high, the player stands in the middle and hits the middle block, 3 blocks down. If the 3x3 area would hit something that should stay, it digs block by block with another tool.",
     "easyplace2.config.name.printerStarToolName": "printerStarToolName",
     "easyplace2.config.prettyName.printerStarToolName": "Printer: star pickaxe name",
-    "easyplace2.config.comment.printerStarToolName": "How the star pickaxe is recognised in the hotbar: part of its name (case does not matter). It is never used otherwise, so nothing is broken 3x3 by accident."
+    "easyplace2.config.comment.printerStarToolName": "How the star pickaxe is recognised in the hotbar: part of its name (case does not matter). It is never used otherwise, so nothing is broken 3x3 by accident.",
+    "easyplace2.printer.opt.fastBuild": "Fast building",
+    "easyplace2.printer.opt.fastBuild.desc": "As fast as holding right click, without extra pauses",
+    "easyplace2.config.name.printerFastBuild": "printerFastBuild",
+    "easyplace2.config.prettyName.printerFastBuild": "Printer: fast building",
+    "easyplace2.config.comment.printerFastBuild": "If on: clicks spaced by 'Delay (ticks)' like holding right click, without reaction time or extra pause. Whether the server keeps the block is checked on the side while the next one is already being aimed at. Shorter pauses in the inventory."
 }

@@ -390,5 +390,10 @@
     "easyplace2.config.comment.printerStarTool": "Für eine Spitzhacke vom Server, die 3x3 abbaut: Gänge 3 breit und 3 hoch, der Spieler steht in der Mitte und schlägt auf den mittleren Block, nach unten 3 Blöcke. Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll, wird mit einem anderen Werkzeug einzeln abgebaut.",
     "easyplace2.config.name.printerStarToolName": "printerStarToolName",
     "easyplace2.config.prettyName.printerStarToolName": "Printer: Name der Star-Spitzhacke",
-    "easyplace2.config.comment.printerStarToolName": "Woran die Star-Spitzhacke in der Hotbar erkannt wird: ein Teil ihres Namens (Groß-/Kleinschreibung egal). Sie wird sonst nie benutzt, damit nichts ungewollt 3x3 abgebaut wird."
+    "easyplace2.config.comment.printerStarToolName": "Woran die Star-Spitzhacke in der Hotbar erkannt wird: ein Teil ihres Namens (Groß-/Kleinschreibung egal). Sie wird sonst nie benutzt, damit nichts ungewollt 3x3 abgebaut wird.",
+    "easyplace2.printer.opt.fastBuild": "Schnell bauen",
+    "easyplace2.printer.opt.fastBuild.desc": "So schnell wie gehaltene rechte Maustaste, ohne Extra-Pausen",
+    "easyplace2.config.name.printerFastBuild": "printerFastBuild",
+    "easyplace2.config.prettyName.printerFastBuild": "Printer: schnell bauen",
+    "easyplace2.config.comment.printerFastBuild": "Wenn an: Klicks im Abstand von „Verzögerung (Ticks)“ wie bei gehaltener rechter Maustaste, ohne Reaktionszeit und Extra-Pause. Ob der Server den Block behält, wird nebenbei geprüft, während schon der nächste angepeilt wird. Kürzere Pausen im Inventar."
 }
