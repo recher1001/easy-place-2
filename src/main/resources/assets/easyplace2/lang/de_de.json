@@ -401,7 +401,7 @@
     "easyplace2.macro.gui.empty": "Noch kein Makro. Drück auf „Aufnehmen“, mach im Spiel vor, was wiederholt werden soll (hinschauen, abbauen, Item nehmen, Rechtsklick), und beende die Aufnahme wieder hier oder mit der Taste. Danach kannst du jeden Schritt anpassen.",
     "easyplace2.macro.gui.info": "%s/%s · %s Schritte · Wartezeit %s",
     "easyplace2.macro.gui.repeats": "Wiederholungen",
-    "easyplace2.macro.gui.stop_damage": "Bei Schaden anhalten",
+    "easyplace2.macro.gui.stop_damage": "Stopp bei Schaden",
     "easyplace2.macro.gui.stop_damage.desc": "Sicherheit beim AFK-Farmen",
     "easyplace2.macro.gui.steps_hint": "Schritte: Regler ändern Wartezeiten. „Aus Fadenkreuz“ nimmt den Block, auf den du vor dem Öffnen des Menüs geschaut hast. „Bis weg“ baut ab, bis von dem Block in Reichweite nichts mehr übrig ist (z. B. der ganze Baumstamm).",
     "easyplace2.macro.gui.add.wait": "+ Warten",

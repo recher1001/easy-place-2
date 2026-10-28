@@ -1156,7 +1156,8 @@ public class PrinterScreen extends Screen
         this.add(new Controls.Area(this.cx0 + half + GAP, y, width - half - GAP, ROW_H, (g, font, a, hover) ->
         {
             this.paintCard(g, a, hover);
-            Ui.text(g, font, Component.translatable("easyplace2.macro.gui.stop_damage").withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 6, Ui.text());
+            Ui.text(g, font, Component.literal(Ui.clip(font, Component.translatable("easyplace2.macro.gui.stop_damage").getString(), a.w - 46))
+                    .withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 6, Ui.text());
             Ui.text(g, font, Ui.clip(font, Component.translatable("easyplace2.macro.gui.stop_damage.desc").getString(), a.w - 46),
                     a.x + 10, a.y + 18, Ui.textFaint());
         }, () -> macro.stopOnDamage = !macro.stopOnDamage));

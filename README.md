@@ -230,7 +230,7 @@ gewachsen ist“.
    - **Blick:** schaut sichtbar in die gespeicherte Richtung, **Jetzigen Blick übernehmen** ändert sie.
    - **Item:** nimmt das Item in die Hand, holt es wenn nötig wie ein Spieler aus dem Inventar.
    - **↑ ↓ ✕** verschieben bzw. löschen Schritte, unten kannst du neue hinzufügen.
-4. **Abspielen:** **▶ Abspielen** (oder Taste). **Wiederholungen** 0 = endlos. Mit **Bei Schaden anhalten**
+4. **Abspielen:** **▶ Abspielen** (oder Taste). **Wiederholungen** 0 = endlos. Mit **Stopp bei Schaden**
    stoppt es, sobald du Schaden bekommst.
 
 Gespeichert wird in `config/easyplace2_macros.json`. Während ein Makro läuft, ist der Printer aus (und umgekehrt).
