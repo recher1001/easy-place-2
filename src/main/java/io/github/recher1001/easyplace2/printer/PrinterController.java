@@ -168,6 +168,10 @@ public final class PrinterController
             return;
         }
 
+        // Printer und Makro gleichzeitig wuerden sich gegenseitig die Maus wegnehmen
+        io.github.recher1001.easyplace2.modules.macro.MacroPlayer.INSTANCE.stop(mc, null);
+        io.github.recher1001.easyplace2.modules.macro.MacroRecorder.INSTANCE.stop(mc);
+
         // Platziert wird immer ueber Easy Place 2.0, und zwar nur dort, wo das Fadenkreuz wirklich hinzeigt
         Ep2Configs.EASY_PLACE_2.setBooleanValue(true);
         Ep2Configs.STRICT_CROSSHAIR.setBooleanValue(true);

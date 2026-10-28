@@ -160,10 +160,11 @@ public final class BlockBreaker
         everMined = true;
     }
 
-    /** Hat der Printer in diesem oder dem letzten Tick abgebaut? */
+    /** Hat der Printer (oder ein Makro) in diesem oder dem letzten Tick abgebaut? */
     public static boolean isMining(@org.jetbrains.annotations.Nullable Level level)
     {
-        if (level == null || !everMined || !PrinterController.INSTANCE.isRunning())
+        if (level == null || !everMined ||
+            (!PrinterController.INSTANCE.isRunning() && !io.github.recher1001.easyplace2.modules.macro.MacroPlayer.INSTANCE.isPlaying()))
         {
             return false;
         }

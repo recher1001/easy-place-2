@@ -14,6 +14,8 @@ import fi.dy.masa.malilib.hotkeys.KeyCallbackToggleBooleanConfigWithMessage;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.config.Ep2Hotkeys;
 import io.github.recher1001.easyplace2.modules.InvseeModule;
+import io.github.recher1001.easyplace2.modules.macro.MacroPlayer;
+import io.github.recher1001.easyplace2.modules.macro.MacroRecorder;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.refill.StorageRegistry;
 import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
@@ -58,11 +60,23 @@ public class EasyPlace2 implements ClientModInitializer
                 InvseeModule.trigger(Minecraft.getInstance());
                 return true;
             });
+            Ep2Configs.MODULE_MACRO_RECORD.getKeybind().setCallback((action, key) ->
+            {
+                MacroRecorder.INSTANCE.toggle(Minecraft.getInstance());
+                return true;
+            });
+            Ep2Configs.MODULE_MACRO_PLAY.getKeybind().setCallback((action, key) ->
+            {
+                MacroPlayer.INSTANCE.toggle(Minecraft.getInstance());
+                return true;
+            });
         });
 
         PrinterController.INSTANCE.register();
         StorageRegistry.INSTANCE.register();
         ScaffoldTracker.INSTANCE.register();
+        MacroRecorder.INSTANCE.register();
+        MacroPlayer.INSTANCE.register();
         PrinterHud.register();
     }
 }

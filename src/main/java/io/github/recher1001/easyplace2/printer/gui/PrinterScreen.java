@@ -23,6 +23,8 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 import fi.dy.masa.malilib.config.IConfigResettable;
 import fi.dy.masa.malilib.event.InputEventHandler;
@@ -32,6 +34,11 @@ import fi.dy.masa.litematica.data.DataManager;
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
+import io.github.recher1001.easyplace2.modules.macro.Macro;
+import io.github.recher1001.easyplace2.modules.macro.MacroPlayer;
+import io.github.recher1001.easyplace2.modules.macro.MacroRecorder;
+import io.github.recher1001.easyplace2.modules.macro.MacroStep;
+import io.github.recher1001.easyplace2.modules.macro.MacroStore;
 import io.github.recher1001.easyplace2.printer.BaritoneBridge;
 import io.github.recher1001.easyplace2.printer.InventoryManager;
 import io.github.recher1001.easyplace2.printer.PrinterController;
@@ -243,6 +250,7 @@ public class PrinterScreen extends Screen
                 case THEME -> this.buildThemes();
                 case KEYS -> this.buildKeys();
                 case INFO -> this.buildInfo();
+                case MACROS -> this.buildMacros();
                 default ->
                 {
                     this.addViewToggles();
@@ -1007,9 +1015,9 @@ public class PrinterScreen extends Screen
     private void buildKeys()
     {
         int width = this.cx1 - this.cx0;
-        String[] keys = { "menu", "toggle", "easyplace", "storage", "invsee" };
+        String[] keys = { "menu", "toggle", "easyplace", "storage", "invsee", "macroRecord", "macroPlay" };
         IHotkey[] hotkeys = { Ep2Configs.PRINTER_MENU, Ep2Configs.PRINTER_TOGGLE, Ep2Configs.EASY_PLACE_2, Ep2Configs.PRINTER_MARK_STORAGE,
-                              Ep2Configs.MODULE_INVSEE };
+                              Ep2Configs.MODULE_INVSEE, Ep2Configs.MODULE_MACRO_RECORD, Ep2Configs.MODULE_MACRO_PLAY };
         int y = this.contentTop;
 
         for (int i = 0; i < keys.length; i++)
@@ -1042,6 +1050,328 @@ public class PrinterScreen extends Screen
         this.add(new Controls.Area(this.cx0, y + 4, width, lines * 10, (g, font, a, hover) ->
         {
             List<FormattedCharSequence> split = font.split(hint, a.w - 4);
+
+            for (int i = 0; i < split.size(); i++)
+            {
+                g.drawString(font, split.get(i), a.x + 2, a.y + i * 10, Ui.textFaint(), false);
+            }
+        }, null));
+    }
+
+    // ---------------------------------------------------------------- Makros
+
+    private void buildMacros()
+    {
+        Minecraft mc = Minecraft.getInstance();
+        MacroStore store = MacroStore.INSTANCE;
+        int width = this.cx1 - this.cx0;
+        int y = this.contentTop;
+        int third = (width - 2 * GAP) / 3;
+
+        // Aufnehmen, Abspielen, neues leeres Makro
+        this.add(new Controls.Button(this.cx0, y, third, 20, () -> MacroRecorder.INSTANCE.isRecording()
+                ? Component.translatable("easyplace2.macro.gui.record_stop", MacroRecorder.INSTANCE.stepCount())
+                : Component.translatable("easyplace2.macro.gui.record"), () -> Ui.RED, MacroRecorder.INSTANCE.isRecording(), () ->
+        {
+            boolean wasRecording = MacroRecorder.INSTANCE.isRecording();
+            MacroRecorder.INSTANCE.toggle(mc);
+
+            // Zum Aufnehmen das Menue schliessen, damit man gleich loslegen kann
+            if (!wasRecording && MacroRecorder.INSTANCE.isRecording())
+            {
+                this.onClose();
+            }
+            else
+            {
+                this.rebuildContent();
+            }
+        }));
+        Controls.Button play = new Controls.Button(this.cx0 + third + GAP, y, third, 20, () -> MacroPlayer.INSTANCE.isPlaying()
+                ? Component.translatable("easyplace2.macro.gui.play_stop")
+                : Component.translatable("easyplace2.macro.gui.play"), Ui::accent, true, () ->
+        {
+            boolean wasPlaying = MacroPlayer.INSTANCE.isPlaying();
+            MacroPlayer.INSTANCE.toggle(mc);
+
+            if (!wasPlaying && MacroPlayer.INSTANCE.isPlaying())
+            {
+                this.onClose();
+            }
+            else
+            {
+                this.rebuildContent();
+            }
+        });
+        play.enabled = () -> MacroPlayer.INSTANCE.isPlaying() || (store.selected() != null && !store.selected().steps.isEmpty());
+        this.add(play);
+        this.add(new Controls.Button(this.cx0 + 2 * (third + GAP), y, width - 2 * (third + GAP), 20,
+                () -> Component.translatable("easyplace2.macro.gui.new"), Ui::accent, false, () ->
+        {
+            store.add(new Macro(store.nextName(), List.of()));
+            this.rebuildContent();
+        }));
+        y += 26;
+
+        Macro macro = store.selected();
+
+        if (macro == null)
+        {
+            this.addHint(y, Component.translatable("easyplace2.macro.gui.empty"));
+            return;
+        }
+
+        // Auswahl: < Name >, Loeschen
+        this.add(new Controls.Area(this.cx0, y, width, ROW_H, (g, font, a, hover) ->
+        {
+            this.paintCard(g, a, 0f);
+            Component name = Component.literal(macro.name).withStyle(ChatFormatting.BOLD);
+            Ui.text(g, font, name, a.x + (a.w - font.width(name)) / 2, a.y + 6, Ui.text());
+            Component info = Component.translatable("easyplace2.macro.gui.info", store.selectedIndex() + 1, store.macros().size(),
+                    macro.steps.size(), MacroStep.seconds(totalTicks(macro)));
+            Ui.text(g, font, info, a.x + (a.w - font.width(info)) / 2, a.y + 18, Ui.textFaint());
+        }, null));
+        this.add(this.smallButton(this.cx0 + 6, y + 7, 16, "<", Ui.accent(), () -> store.select(store.selectedIndex() - 1)));
+        this.add(this.smallButton(this.cx1 - 44, y + 7, 16, ">", Ui.accent(), () -> store.select(store.selectedIndex() + 1)));
+        this.add(this.smallButton(this.cx1 - 22, y + 7, 16, "✕", Ui.RED, () ->
+        {
+            if (MacroPlayer.INSTANCE.current() == macro)
+            {
+                MacroPlayer.INSTANCE.stop(mc, null);
+            }
+
+            store.remove(macro);
+        }));
+        y += ROW_H + GAP;
+
+        // Wiederholungen und Stopp bei Schaden
+        int half = (width - GAP) / 2;
+        this.add(new Controls.Area(this.cx0, y, half, ROW_H, (g, font, a, hover) ->
+        {
+            this.paintCard(g, a, 0f);
+            Ui.text(g, font, Component.translatable("easyplace2.macro.gui.repeats").withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 5, Ui.text());
+            String value = macro.repeats == 0 ? "∞" : macro.repeats + "×";
+            Ui.text(g, font, value, a.x + a.w - 10 - font.width(value), a.y + 5, Ui.accent());
+        }, null));
+        this.add(new Controls.Slider(this.cx0 + 10, y + 17, half - 20, 0, 100, 1, () -> macro.repeats, v -> macro.repeats = (int) v));
+        this.add(new Controls.Area(this.cx0 + half + GAP, y, width - half - GAP, ROW_H, (g, font, a, hover) ->
+        {
+            this.paintCard(g, a, hover);
+            Ui.text(g, font, Component.translatable("easyplace2.macro.gui.stop_damage").withStyle(ChatFormatting.BOLD), a.x + 10, a.y + 6, Ui.text());
+            Ui.text(g, font, Ui.clip(font, Component.translatable("easyplace2.macro.gui.stop_damage.desc").getString(), a.w - 46),
+                    a.x + 10, a.y + 18, Ui.textFaint());
+        }, () -> macro.stopOnDamage = !macro.stopOnDamage));
+        this.add(new Controls.Switch(this.cx1 - 10 - Controls.Switch.WIDTH, y + (ROW_H - Controls.Switch.HEIGHT) / 2,
+                () -> macro.stopOnDamage, v -> macro.stopOnDamage = v));
+        y += ROW_H + GAP + 4;
+
+        // Schritte
+        this.addHint(y, Component.translatable("easyplace2.macro.gui.steps_hint"));
+        y += this.hintHeight(Component.translatable("easyplace2.macro.gui.steps_hint")) + 4;
+
+        for (int i = 0; i < macro.steps.size(); i++)
+        {
+            y = this.addStepRow(mc, macro, i, y) + GAP;
+        }
+
+        // Schritte hinzufuegen
+        String[] adds = { "wait", "mine", "wait_block", "use", "look", "select" };
+        int bw = (width - 2 * GAP) / 3;
+
+        for (int i = 0; i < adds.length; i++)
+        {
+            String key = adds[i];
+            int bx = this.cx0 + (i % 3) * (bw + GAP);
+            int by = y + (i / 3) * (18 + GAP);
+            this.add(new Controls.Button(bx, by, i % 3 == 2 ? width - 2 * (bw + GAP) : bw, 18,
+                    () -> Component.translatable("easyplace2.macro.gui.add." + key), Ui::accent, false, () ->
+            {
+                macro.steps.add(newStep(mc, key));
+                this.rebuildContent();
+                this.scrollTarget = this.maxScroll;
+            }));
+        }
+    }
+
+    /** Eine Zeile fuer einen Schritt; gibt die Unterkante zurueck. */
+    private int addStepRow(Minecraft mc, Macro macro, int index, int y)
+    {
+        MacroStep step = macro.steps.get(index);
+        int width = this.cx1 - this.cx0;
+        int h = 34;
+        this.add(new Controls.Area(this.cx0, y, width, h, (g, font, a, hover) ->
+        {
+            boolean active = MacroPlayer.INSTANCE.current() == macro && MacroPlayer.INSTANCE.stepIndex() == index;
+            Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, active ? Ui.cardHover() : Ui.card(),
+                    active ? Ui.accent() : Ui.border());
+            String number = (index + 1) + ".";
+            Ui.text(g, font, number, a.x + 8, a.y + 6, Ui.textFaint());
+            Ui.text(g, font, Ui.clip(font, step.describe().getString(), a.w - 90), a.x + 26, a.y + 6, Ui.text());
+        }, null));
+
+        // Hoch, runter, loeschen
+        int bx = this.cx1 - 6 - 3 * 16 - 2 * 3;
+        this.add(this.smallButton(bx, y + 3, 16, "↑", Ui.accent(), () -> this.moveStep(macro, index, -1)));
+        this.add(this.smallButton(bx + 19, y + 3, 16, "↓", Ui.accent(), () -> this.moveStep(macro, index, 1)));
+        this.add(this.smallButton(bx + 38, y + 3, 16, "✕", Ui.RED, () -> macro.steps.remove(index)));
+
+        int lx = this.cx0 + 26;
+        int ly = y + 19;
+        int sliderW = Math.max(60, width / 2 - 30);
+
+        switch (step.type)
+        {
+            case WAIT -> this.add(new Controls.Slider(lx, ly, width - 36, 0, 200, 1, () -> step.ticks, v -> step.ticks = (int) v));
+            case KEYS -> this.add(new Controls.Slider(lx, ly, width - 36, 1, 200, 1, () -> step.ticks, v -> step.ticks = (int) v));
+            case WAIT_FOR_BLOCK ->
+            {
+                this.add(new Controls.Slider(lx, ly, sliderW, 0, 1200, 20, () -> step.ticks, v -> step.ticks = (int) v));
+                this.add(this.chip(lx + sliderW + 10, ly - 2, Component.translatable("easyplace2.macro.gui.from_crosshair"), () ->
+                {
+                    String block = crosshairBlockId(mc);
+
+                    if (block != null)
+                    {
+                        step.block = block;
+                    }
+                }));
+            }
+            case MINE ->
+            {
+                Controls.Button mode = this.chip(lx, ly - 2, step.mode == MacroStep.MineMode.WHILE_BLOCK
+                        ? Component.translatable("easyplace2.macro.gui.mode_while")
+                        : Component.translatable("easyplace2.macro.gui.mode_once"), () ->
+                {
+                    step.mode = step.mode == MacroStep.MineMode.ONCE ? MacroStep.MineMode.WHILE_BLOCK : MacroStep.MineMode.ONCE;
+                });
+                this.add(mode);
+                this.add(this.chip(lx + mode.w + 6, ly - 2, Component.translatable("easyplace2.macro.gui.from_crosshair"), () ->
+                {
+                    String block = crosshairBlockId(mc);
+
+                    if (block != null)
+                    {
+                        step.block = block;
+                        step.mode = MacroStep.MineMode.WHILE_BLOCK;
+                    }
+                }));
+            }
+            case LOOK -> this.add(this.chip(lx, ly - 2, Component.translatable("easyplace2.macro.gui.take_look"), () ->
+            {
+                if (mc.player != null)
+                {
+                    step.yaw = mc.player.getYRot();
+                    step.pitch = mc.player.getXRot();
+                }
+            }));
+            case SELECT -> this.add(this.chip(lx, ly - 2, Component.translatable("easyplace2.macro.gui.take_item"), () ->
+            {
+                if (mc.player != null)
+                {
+                    ItemStack held = mc.player.getMainHandItem();
+                    step.item = held.isEmpty() ? "" : MacroStep.id(held.getItem());
+                    step.slot = mc.player.getInventory().getSelectedSlot();
+                }
+            }));
+            case USE -> this.add(new Controls.Area(lx, ly - 1, width - 36, 10, (g, font, a, hover) ->
+                    Ui.text(g, font, Component.translatable("easyplace2.macro.gui.use_desc"), a.x, a.y, Ui.textFaint()), null));
+        }
+
+        return y + h;
+    }
+
+    private static MacroStep newStep(Minecraft mc, String key)
+    {
+        String block = crosshairBlockId(mc);
+
+        return switch (key)
+        {
+            case "mine" -> block != null ? MacroStep.mine(MacroStep.MineMode.WHILE_BLOCK, block) : MacroStep.mine(MacroStep.MineMode.ONCE, "");
+            case "wait_block" -> MacroStep.waitForBlock(block != null ? block : "minecraft:oak_log", 0);
+            case "use" -> MacroStep.use();
+            case "look" -> mc.player != null ? MacroStep.look(mc.player.getYRot(), mc.player.getXRot()) : MacroStep.look(0, 0);
+            case "select" ->
+            {
+                ItemStack held = mc.player != null ? mc.player.getMainHandItem() : ItemStack.EMPTY;
+                yield MacroStep.select(held.isEmpty() ? "" : MacroStep.id(held.getItem()),
+                        mc.player != null ? mc.player.getInventory().getSelectedSlot() : 0);
+            }
+            default -> MacroStep.wait(20);
+        };
+    }
+
+    /** Der Block, auf den der Spieler vor dem Oeffnen des Menues geschaut hat. */
+    @Nullable
+    private static String crosshairBlockId(Minecraft mc)
+    {
+        if (mc.level != null && mc.hitResult instanceof BlockHitResult bhr && bhr.getType() == HitResult.Type.BLOCK)
+        {
+            return MacroStep.id(mc.level.getBlockState(bhr.getBlockPos()));
+        }
+
+        return null;
+    }
+
+    private static int totalTicks(Macro macro)
+    {
+        int sum = 0;
+
+        for (MacroStep step : macro.steps)
+        {
+            if (step.type == MacroStep.Type.WAIT || step.type == MacroStep.Type.KEYS)
+            {
+                sum += step.ticks;
+            }
+        }
+
+        return sum;
+    }
+
+    private void moveStep(Macro macro, int index, int delta)
+    {
+        int to = index + delta;
+
+        if (to >= 0 && to < macro.steps.size())
+        {
+            macro.steps.add(to, macro.steps.remove(index));
+        }
+    }
+
+    /** Kleiner quadratischer Knopf mit Zeichen; baut die Seite danach neu auf und speichert. */
+    private Controls.Area smallButton(int x, int y, int size, String symbol, int color, Runnable action)
+    {
+        return new Controls.Area(x, y, size, size, (g, font, a, hover) ->
+        {
+            Ui.round(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.withAlpha(color, (int) (0x30 + 0x50 * hover)));
+            Ui.text(g, font, symbol, a.x + (a.w - font.width(symbol) + 1) / 2, a.y + (a.h - 8) / 2 + 1, Ui.lerpColor(Ui.textDim(), color, hover));
+        }, () ->
+        {
+            action.run();
+            MacroStore.INSTANCE.save();
+            this.rebuildContent();
+        });
+    }
+
+    /** Kleiner Textknopf in einer Schrittzeile; baut die Seite danach neu auf und speichert. */
+    private Controls.Button chip(int x, int y, Component label, Runnable action)
+    {
+        return new Controls.Button(x, y, this.font.width(label) + 12, 13, () -> label, Ui::accent, false, () ->
+        {
+            action.run();
+            MacroStore.INSTANCE.save();
+            this.rebuildContent();
+        });
+    }
+
+    private int hintHeight(Component text)
+    {
+        return Math.max(1, this.font.split(text, this.cx1 - this.cx0 - 4).size()) * 10;
+    }
+
+    private void addHint(int y, Component text)
+    {
+        this.add(new Controls.Area(this.cx0, y, this.cx1 - this.cx0, this.hintHeight(text), (g, font, a, hover) ->
+        {
+            List<FormattedCharSequence> split = font.split(text, a.w - 4);
 
             for (int i = 0; i < split.size(); i++)
             {
@@ -1251,8 +1581,9 @@ public class PrinterScreen extends Screen
         Ui.item(g, p.icon(), a.x + 5, a.y + (a.h - 12) / 2, 0.75f);
         Ui.text(g, font, p.title(), a.x + 22, ty, selected ? Ui.text() : Ui.lerpColor(Ui.textDim(), Ui.text(), hover));
 
-        int count = p.hasOptions() ? OptionEntry.of(p).size() : p == Page.THEME ? Theme.ALL.size() : p == Page.KEYS ? 5
-                  : p == Page.STORAGE ? StorageRegistry.INSTANCE.entries().size() : 0;
+        int count = p.hasOptions() ? OptionEntry.of(p).size() : p == Page.THEME ? Theme.ALL.size() : p == Page.KEYS ? 7
+                  : p == Page.STORAGE ? StorageRegistry.INSTANCE.entries().size()
+                  : p == Page.MACROS ? MacroStore.INSTANCE.macros().size() : 0;
 
         if (count > 0)
         {
@@ -1493,6 +1824,7 @@ public class PrinterScreen extends Screen
     public void removed()
     {
         Ep2Configs.saveToFile();
+        MacroStore.INSTANCE.save();
         super.removed();
     }
 

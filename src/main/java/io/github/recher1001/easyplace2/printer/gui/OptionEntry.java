@@ -38,7 +38,8 @@ public final class OptionEntry
         THEME(Section.GENERAL, Items.PAINTING),
         KEYS(Section.GENERAL, Items.TRIPWIRE_HOOK),
         INFO(Section.GENERAL, Items.BOOK),
-        INVSEE(Section.MODULES, Items.ENDER_CHEST);
+        INVSEE(Section.MODULES, Items.ENDER_CHEST),
+        MACROS(Section.MODULES, Items.REPEATER);
 
         public final Section section;
         private final net.minecraft.world.item.Item icon;
@@ -67,7 +68,7 @@ public final class OptionEntry
         /** Seiten mit Optionskarten (Rest hat eigene Inhalte). */
         public boolean hasOptions()
         {
-            return this != OVERVIEW && this != MATERIALS && this != STORAGE && this != THEME && this != KEYS && this != INFO;
+            return this != OVERVIEW && this != MATERIALS && this != STORAGE && this != THEME && this != KEYS && this != INFO && this != MACROS;
         }
     }
 

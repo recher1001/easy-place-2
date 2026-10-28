@@ -85,6 +85,8 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigDouble  MODULE_INVSEE_ANGLE = new ConfigDouble("moduleInvseeAngle", 45.0, 5.0, 180.0).apply(KEY);
     public static final ConfigDouble  MODULE_INVSEE_RANGE = new ConfigDouble("moduleInvseeRange", 32.0, 4.0, 128.0).apply(KEY);
     public static final ConfigString  MODULE_INVSEE_COMMAND = new ConfigString("moduleInvseeCommand", "invsee {name}").apply(KEY);
+    public static final ConfigHotkey  MODULE_MACRO_RECORD = new ConfigHotkey("moduleMacroRecordHotkey", "").apply(KEY);
+    public static final ConfigHotkey  MODULE_MACRO_PLAY   = new ConfigHotkey("moduleMacroPlayHotkey", "").apply(KEY);
 
     public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
             EASY_PLACE_2,
@@ -129,7 +131,9 @@ public class Ep2Configs implements IConfigHandler
             MODULE_INVSEE,
             MODULE_INVSEE_ANGLE,
             MODULE_INVSEE_RANGE,
-            MODULE_INVSEE_COMMAND
+            MODULE_INVSEE_COMMAND,
+            MODULE_MACRO_RECORD,
+            MODULE_MACRO_PLAY
     );
 
     public static void loadFromFile()

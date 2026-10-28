@@ -36,6 +36,11 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
 import io.github.recher1001.easyplace2.config.Ep2ConfigTab;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
+import io.github.recher1001.easyplace2.modules.macro.Macro;
+import io.github.recher1001.easyplace2.modules.macro.MacroPlayer;
+import io.github.recher1001.easyplace2.modules.macro.MacroRecorder;
+import io.github.recher1001.easyplace2.modules.macro.MacroStep;
+import io.github.recher1001.easyplace2.modules.macro.MacroStore;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.Watchdog;
 import io.github.recher1001.easyplace2.printer.lanes.LanePath;
@@ -158,6 +163,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testExcavate(context, server);
             testLanePath(context);
             testLaneExcavate(context, server);
+            testMacro(context, server);
         }
     }
 
@@ -794,6 +800,118 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
 
         context.takeScreenshot("easyplace2-lanes-done");
         System.out.println("[EP2-TEST] Aushoehlen in Bahnen ok (weitestes x = " + x + ")");
+    }
+
+    /**
+     * Makros: eine kurze Aufnahme (Blick und Item werden erkannt), dann ein Baum-Makro abspielen:
+     * Axt nehmen, auf den Stamm schauen, abbauen bis kein Holz mehr da ist (auch die Bloecke weiter oben),
+     * Setzling nehmen, auf den Boden schauen, setzen und warten, bis der Setzling im Fadenkreuz ist.
+     */
+    private static void testMacro(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+        });
+
+        BlockPos ground = new BlockPos(-4, Y - 1, 4);
+        BlockPos[] logs = { new BlockPos(-4, Y, 4), new BlockPos(-4, Y + 1, 4), new BlockPos(-4, Y + 2, 4) };
+        server.runCommand("fill -6 " + Y + " 1 -2 " + (Y + 4) + " 6 air");
+        server.runCommand(setblock(ground, "grass_block"));
+
+        for (BlockPos log : logs)
+        {
+            server.runCommand(setblock(log, "oak_log"));
+        }
+
+        server.runCommand("clear @a");
+        server.runCommand("give @a iron_axe");
+        server.runCommand("give @a oak_sapling 4");
+        server.runCommand("tp @a -3.5 " + Y + " 2.5 0 0");
+        context.waitFor(mc -> mc.level.getBlockState(logs[2]).is(Blocks.OAK_LOG) && mc.player.getInventory().countItem(Items.OAK_SAPLING) == 4);
+        context.waitTicks(10);
+
+        // Aufnahme: anderes Fach nehmen und anders hinschauen
+        context.runOnClient(mc -> MacroRecorder.INSTANCE.start(mc));
+        context.waitTicks(10);
+        context.runOnClient(mc -> mc.player.getInventory().setSelectedSlot((mc.player.getInventory().getSelectedSlot() + 1) % 9));
+        context.waitTicks(5);
+        server.runCommand("tp @a -3.5 " + Y + " 2.5 40 20");
+        context.waitTicks(20);
+        int[] recorded = new int[3];
+        context.runOnClient(mc ->
+        {
+            MacroRecorder.INSTANCE.stop(mc);
+            Macro macro = MacroStore.INSTANCE.selected();
+            recorded[0] = macro == null ? 0 : macro.steps.size();
+            recorded[1] = macro == null ? 0 : (int) macro.steps.stream().filter(s -> s.type == MacroStep.Type.LOOK).count();
+            recorded[2] = macro == null ? 0 : (int) macro.steps.stream().filter(s -> s.type == MacroStep.Type.SELECT).count();
+        });
+
+        // Start: Blick + Fach, dazu der neue Blick und das neue Fach
+        if (recorded[1] < 2 || recorded[2] < 2)
+        {
+            throw new AssertionError("Makro-Aufnahme: " + recorded[0] + " Schritte, " + recorded[1] + "x Blick, " + recorded[2] + "x Item");
+        }
+
+        System.out.println("[EP2-TEST] Makro-Aufnahme ok (" + recorded[0] + " Schritte)");
+
+        Vec3 eye = new Vec3(-3.5, Y + 1.62, 2.5);
+        Macro tree = new Macro("Baum", List.of(
+                MacroStep.select("minecraft:iron_axe", -1),
+                lookAt(eye, new Vec3(-3.5, Y + 0.5, 4.0)),
+                MacroStep.mine(MacroStep.MineMode.WHILE_BLOCK, "minecraft:oak_log"),
+                MacroStep.select("minecraft:oak_sapling", -1),
+                lookAt(eye, new Vec3(-3.5, Y, 4.5)),
+                MacroStep.use(),
+                MacroStep.waitForBlock("minecraft:oak_sapling", 60),
+                MacroStep.wait(5)));
+        tree.repeats = 1;
+        server.runCommand("tp @a -3.5 " + Y + " 2.5 0 0");
+        context.waitTicks(10);
+        context.runOnClient(mc ->
+        {
+            MacroStore.INSTANCE.add(tree);
+            MacroPlayer.INSTANCE.play(mc, tree);
+        });
+
+        try
+        {
+            context.waitFor(mc -> !MacroPlayer.INSTANCE.isPlaying(), 1200);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-macro-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Makro haengt bei Schritt " + MacroPlayer.INSTANCE.stepIndex() +
+                    ", Fadenkreuz " + mc.hitResult.getLocation()));
+            context.runOnClient(mc -> MacroPlayer.INSTANCE.stop(mc, null));
+            throw e;
+        }
+
+        context.waitTicks(10);
+
+        for (BlockPos log : logs)
+        {
+            assertBlock(server, log, state -> !state.is(Blocks.OAK_LOG), "Makro: Holz wurde nicht ganz abgebaut");
+        }
+
+        assertBlock(server, logs[0], state -> state.is(Blocks.OAK_SAPLING), "Makro: Setzling wurde nicht gesetzt");
+        context.takeScreenshot("easyplace2-macro-done");
+        menuScreenshot(context, OptionEntry.Page.MACROS, false, "easyplace2-module-macros");
+        System.out.println("[EP2-TEST] Makro (Baum faellen, Setzling setzen) ok");
+    }
+
+    private static MacroStep lookAt(Vec3 eye, Vec3 point)
+    {
+        Vec3 d = point.subtract(eye);
+        float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+        float pitch = (float) Math.toDegrees(Math.atan2(-d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+        return MacroStep.look(yaw, pitch);
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

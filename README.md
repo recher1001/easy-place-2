@@ -209,6 +209,34 @@ Im Menü unter **Module → Invsee**. Wenn du die Taste drückst (unter **Tasten
 - Den Befehl stellt der Server bereit (z. B. ein Plugin). Ob er erlaubt ist, entscheidet der Server.
 - Der Befehl selbst steht in `config/easyplace2.json` (`moduleInvseeCommand`, Standard `invsee {name}`).
 
+## Modul: Makros
+
+Im Menü unter **Module → Makros**. Damit kannst du Abläufe aufnehmen und danach in Schleife laufen lassen,
+z. B. zum AFK-Farmen: „Holz abbauen, bis der Stamm weg ist, Setzling setzen, warten, bis der Baum wieder
+gewachsen ist“.
+
+1. **Aufnehmen:** auf **● Aufnehmen** klicken (oder die Taste unter **Tasten** belegen). Das Menü schließt sich.
+   Mach jetzt vor, was wiederholt werden soll: hinschauen, abbauen, Item in die Hand nehmen, Rechtsklick,
+   laufen. Die Pausen dazwischen werden mit aufgenommen.
+2. **Beenden:** im Menü auf **■ Aufnahme beenden** oder wieder die Taste. Das Makro wird gespeichert.
+3. **Anpassen:** jeder Schritt steht als Zeile in der Liste.
+   - **Warten:** mit dem Regler die Zeit ändern (oder das Timing so lassen, wie aufgenommen).
+   - **Abbauen:** *einmal* (den Block im Fadenkreuz) oder *bis weg*: baut so lange ab, bis von diesem Block in
+     Reichweite nichts mehr übrig ist. Dabei dreht es sich auch zu den Blöcken weiter oben oder daneben,
+     z. B. bis der ganze Baumstamm weg ist. **Block aus Fadenkreuz** nimmt den Block, auf den du vor dem Öffnen
+     des Menüs geschaut hast.
+   - **Warten auf Block:** wartet, bis ein bestimmter Block im Fadenkreuz auftaucht (z. B. bis der Baum
+     gewachsen ist), mit Regler für die längste Wartezeit (0 = ohne Grenze).
+   - **Blick:** schaut sichtbar in die gespeicherte Richtung, **Jetzigen Blick übernehmen** ändert sie.
+   - **Item:** nimmt das Item in die Hand, holt es wenn nötig wie ein Spieler aus dem Inventar.
+   - **↑ ↓ ✕** verschieben bzw. löschen Schritte, unten kannst du neue hinzufügen.
+4. **Abspielen:** **▶ Abspielen** (oder Taste). **Wiederholungen** 0 = endlos. Mit **Bei Schaden anhalten**
+   stoppt es, sobald du Schaden bekommst.
+
+Gespeichert wird in `config/easyplace2_macros.json`. Während ein Makro läuft, ist der Printer aus (und umgekehrt).
+Mit **Hinter Menüs weiterbauen** läuft das Makro auch hinter dem Pause-Menü oder Chat weiter.
+Ob Makros auf einem Server erlaubt sind, entscheidet der Server – lies vorher die Regeln.
+
 ## Wo bekomme ich die .jar?
 
 **Automatisch von GitHub (am einfachsten):**
