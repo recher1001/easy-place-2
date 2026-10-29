@@ -49,8 +49,8 @@ jobs:
           for c in net.minecraft.client.gui.Font 'net.minecraft.client.gui.Font$Provider' 'net.minecraft.client.gui.Font$GlyphVisitor' \
                    net.minecraft.network.chat.Style net.minecraft.network.chat.FontDescription 'net.minecraft.network.chat.FontDescription$Resource' \
                    net.minecraft.client.gui.font.FontManager 'net.minecraft.client.gui.font.FontManager$CachedFontProvider' net.minecraft.client.gui.font.FontSet \
-                   net.minecraft.client.gui.GuiGraphics net.minecraft.client.gui.font.providers.TrueTypeGlyphProviderDefinition \\
-                   net.minecraft.client.gui.font.GlyphSource 'net.minecraft.client.gui.GuiGraphics$ScissorStack' \\
+                   net.minecraft.client.gui.GuiGraphics net.minecraft.client.gui.font.providers.TrueTypeGlyphProviderDefinition \
+                   net.minecraft.client.gui.font.GlyphSource 'net.minecraft.client.gui.GuiGraphics$ScissorStack' \
                    net.minecraft.client.renderer.RenderPipelines; do
             echo "=== $c"; javap -cp "$JAR" -p "$c" 2>&1 | grep -v 'lambda\$' | head -150
           done
