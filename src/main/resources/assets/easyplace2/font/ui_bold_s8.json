@@ -1,0 +1,19 @@
+{
+    "providers": [
+        {
+            "type": "ttf",
+            "file": "easyplace2:inter_bold.ttf",
+            "size": 9.0,
+            "oversample": 8.0,
+            "shift": [
+                0.0,
+                0.5
+            ],
+            "skip": []
+        },
+        {
+            "type": "reference",
+            "id": "minecraft:default"
+        }
+    ]
+}

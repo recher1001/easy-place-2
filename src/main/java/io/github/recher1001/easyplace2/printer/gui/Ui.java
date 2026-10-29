@@ -303,7 +303,7 @@ public final class Ui
         g.pose().pushMatrix();
         g.pose().translate(x, y);
         g.pose().scale(scale, scale);
-        g.drawString(font, text, 0, 0, color, false);
+        g.drawString(font, font instanceof UiFont ? UiFont.scaled(text.getVisualOrderText(), scale) : text.getVisualOrderText(), 0, 0, color, false);
         g.pose().popMatrix();
     }
 

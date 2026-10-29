@@ -46,12 +46,9 @@ jobs:
             if unzip -l "$j" 2>/dev/null | grep -q 'net/minecraft/client/gui/Font.class'; then JAR="$j"; break; fi
           done
           echo "JAR=$JAR"
-          for c in net.minecraft.client.gui.Font 'net.minecraft.client.gui.Font$Provider' 'net.minecraft.client.gui.Font$GlyphVisitor' \
-                   net.minecraft.network.chat.Style net.minecraft.network.chat.FontDescription 'net.minecraft.network.chat.FontDescription$Resource' \
-                   net.minecraft.client.gui.font.FontManager 'net.minecraft.client.gui.font.FontManager$CachedFontProvider' net.minecraft.client.gui.font.FontSet \
-                   net.minecraft.client.gui.GuiGraphics net.minecraft.client.gui.font.providers.TrueTypeGlyphProviderDefinition \
-                   net.minecraft.client.gui.font.GlyphSource 'net.minecraft.client.gui.GuiGraphics$ScissorStack' \
-                   net.minecraft.client.renderer.RenderPipelines; do
+          for c in net.minecraft.network.chat.ClickEvent 'net.minecraft.network.chat.ClickEvent$RunCommand' 'net.minecraft.network.chat.ClickEvent$SuggestCommand' \
+                   net.minecraft.client.gui.components.ChatComponent net.minecraft.client.GuiMessage 'net.minecraft.client.GuiMessage$Line' \
+                   net.minecraft.client.gui.screens.ChatScreen net.minecraft.client.input.MouseButtonEvent net.minecraft.client.input.MouseButtonInfo; do
             echo "=== $c"; javap -cp "$JAR" -p "$c" 2>&1 | grep -v 'lambda\$' | head -150
           done
           unzip -l "$JAR" | grep -i 'gui/font/' | head -60

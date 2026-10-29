@@ -24,7 +24,8 @@ import io.github.recher1001.easyplace2.mixin.FontAccessor;
  */
 public final class UiFont extends Font
 {
-    private static final int MAX_SCALE = 6;
+    private static final int MAX_SCALE = 9;
+    private static final String SCALED = "scaled_";
     /** Merker fuer "fetter Schnitt"; wird beim Zeichnen auf die passende Skalierung umgelenkt. */
     private static final FontDescription BOLD = font("ui_bold");
     private static final FontDescription[] REGULAR_BY_SCALE = new FontDescription[MAX_SCALE + 1];
@@ -63,6 +64,16 @@ public final class UiFont extends Font
                     return base.glyphs(BOLD_BY_SCALE[scale(mc)]);
                 }
 
+                // Vergroesserter/verkleinerter Text: passend zur tatsaechlichen Groesse auf dem Bildschirm rastern
+                if (description instanceof FontDescription.Resource(Identifier id) && id.getNamespace().equals(EasyPlace2.MOD_ID) &&
+                    id.getPath().startsWith(SCALED))
+                {
+                    String[] parts = id.getPath().split("_");
+                    boolean bold = parts[1].equals("b");
+                    int s = Math.max(1, Math.min(MAX_SCALE, Math.round(guiScale(mc) * Integer.parseInt(parts[2]) / 100f)));
+                    return base.glyphs(bold ? BOLD_BY_SCALE[s] : REGULAR_BY_SCALE[s]);
+                }
+
                 return base.glyphs(description);
             }
 
@@ -76,7 +87,41 @@ public final class UiFont extends Font
 
     private static int scale(Minecraft mc)
     {
-        return Math.max(1, Math.min(MAX_SCALE, (int) Math.round(mc.getWindow().getGuiScale())));
+        return Math.max(1, Math.min(MAX_SCALE, Math.round(guiScale(mc))));
+    }
+
+    private static float guiScale(Minecraft mc)
+    {
+        return (float) mc.getWindow().getGuiScale();
+    }
+
+    private static final java.util.Map<String, FontDescription> SCALED_FONTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Text, der mit {@code factor} vergroessert oder verkleinert gezeichnet wird: so markiert, dass die Zeichen
+     * fuer genau diese Groesse gerastert werden (sonst waeren sie unscharf).
+     */
+    public static FormattedCharSequence scaled(FormattedCharSequence text, float factor)
+    {
+        int percent = Math.round(factor * 100);
+        FontDescription regular = scaledFont("r", percent);
+        FontDescription bold = scaledFont("b", percent);
+
+        return sink -> text.accept((index, style, codepoint) ->
+        {
+            if (!style.getFont().equals(FontDescription.DEFAULT))
+            {
+                return sink.accept(index, style, codepoint);
+            }
+
+            boolean heavy = style.isBold() || style.isItalic();
+            return sink.accept(index, heavy ? style.withBold(false).withItalic(false).withFont(bold) : style.withFont(regular), codepoint);
+        });
+    }
+
+    private static FontDescription scaledFont(String weight, int percent)
+    {
+        return SCALED_FONTS.computeIfAbsent(weight + percent, k -> font(SCALED + weight + "_" + percent));
     }
 
     private static FontDescription font(String name)
