@@ -50,7 +50,7 @@ jobs:
             echo "=== $c"; javap -cp "$JAR" -p "$c" 2>&1 | grep -v 'lambda\$' | head -150
           done
           unzip -l "$JAR" | grep -i 'gui/font/' | head -60
-, bleibt der Build trotzdem gruen
+      # Ist der Artifact-Speicher auf GitHub voll, bleibt der Build trotzdem gruen
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         continue-on-error: true
