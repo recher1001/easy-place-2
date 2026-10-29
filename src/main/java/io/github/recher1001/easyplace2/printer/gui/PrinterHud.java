@@ -42,14 +42,14 @@ public final class PrinterHud
             return;
         }
 
-        Font font = mc.font;
+        Font font = Ui.font();
         SchematicScanner.Snapshot snap = printer.getSnapshot();
         double progress = snap != null ? snap.progress() : 0.0;
         shown = shown < 0 ? (float) progress : Ui.approach(shown, (float) progress, 0.1f);
 
         int x = 6, y = 6, w = 156, h = 40;
         Ui.card(g, x, y, x + w, y + h, Ui.background(), Ui.border());
-        g.fillGradient(x + 2, y + 1, x + w - 2, y + 14, Ui.withAlpha(Ui.theme().accent(), 0x18), 0x00000000);
+        g.fillGradient(x + 6, y + 1, x + w - 6, y + 14, Ui.withAlpha(Ui.theme().accent(), 0x18), 0x00000000);
 
         PrinterController.State state = printer.getState();
         int color = Ui.stateColor(state);
@@ -60,12 +60,12 @@ public final class PrinterHud
         Ui.text(g, font, name, x + w - 8 - font.width(name), y + 6, color);
 
         int bx0 = x + 8, bx1 = x + w - 8, by = y + 19;
-        Ui.round(g, bx0, by, bx1, by + 6, Ui.track());
+        Ui.pill(g, bx0, by, bx1, by + 6, Ui.track());
         int fill = bx0 + Math.round((bx1 - bx0) * Math.max(0f, Math.min(1f, shown)));
 
         if (fill > bx0 + 1)
         {
-            Ui.gradientH(g, bx0 + 1, by + 1, fill - 1, by + 5, Ui.accent2(), Ui.accent());
+            Ui.gradientPill(g, bx0, by, fill, by + 6, Ui.accent2(), Ui.accent());
         }
 
         String line = snap == null ? "…" : String.format(Locale.ROOT, "%.1f %%  ·  %d/%d  ·  %.0f/min  ·  %s",

@@ -169,14 +169,20 @@ public final class Controls
         protected void draw(GuiGraphics g, Font font, int mx, int my)
         {
             this.knob = Ui.approach(this.knob, this.value.getAsBoolean() ? 1f : 0f, 0.3f);
-            // Aus: sichtbare graue Spur mit Rand, An: Akzentfarbe
-            int off = Ui.withAlpha(Ui.theme().border(), 0xFF);
-            int track = Ui.lerpColor(Ui.lerpColor(off, Ui.textFaint(), 0.15f + this.hover * 0.2f), Ui.accent(), this.knob);
-            Ui.round(g, this.x, this.y, this.x + this.w, this.y + this.h, Ui.lerpColor(Ui.textFaint(), Ui.accent(), this.knob));
-            Ui.round(g, this.x + 1, this.y + 1, this.x + this.w - 1, this.y + this.h - 1, track);
-            int r = (this.h - 4) / 2;
-            int cx = this.x + 2 + r + Math.round((this.w - 4 - 2 * r) * this.knob);
-            Ui.dot(g, cx, this.y + this.h / 2, r, Ui.lerpColor(0xFFC8CCDC, Ui.WHITE, this.knob + this.hover * 0.3f));
+            // Aus: dezente graue Pille mit Rand, An: Akzentfarbe mit leichtem Schein
+            int off = Ui.lerpColor(Ui.withAlpha(Ui.theme().border(), 0xFF), Ui.textFaint(), 0.25f + this.hover * 0.2f);
+            int track = Ui.lerpColor(off, Ui.accent(), this.knob);
+
+            if (this.knob > 0.01f)
+            {
+                Ui.pill(g, this.x - 2, this.y - 2, this.x + this.w + 2, this.y + this.h + 2, Ui.withAlpha(Ui.accent(), (int) (0x30 * this.knob)));
+            }
+
+            Ui.pill(g, this.x, this.y, this.x + this.w, this.y + this.h, track);
+            int size = this.h - 4;
+            float kx = this.x + 2 + (this.w - 4 - size) * Ui.easeInOut(this.knob);
+            Ui.circle(g, kx, this.y + 3, size, Ui.withAlpha(0x000000, 0x40));
+            Ui.circle(g, kx, this.y + 2, size, Ui.lerpColor(0xFFD6D9E6, Ui.WHITE, this.knob + this.hover * 0.3f));
         }
 
         @Override
@@ -216,17 +222,26 @@ public final class Controls
         {
             float t = (float) Math.max(0, Math.min(1, (this.value.getAsDouble() - this.min) / (this.max - this.min)));
             this.shown = this.shown < 0 || this.dragging ? t : Ui.approach(this.shown, t, 0.35f);
-            int ty = this.y + this.h / 2 - 1;
-            Ui.round(g, this.x, ty - 1, this.x + this.w, ty + 3, Ui.track());
+            int ty = this.y + this.h / 2 - 2;
+            Ui.pill(g, this.x, ty, this.x + this.w, ty + 4, Ui.track());
             int fx = this.x + Math.round(this.w * this.shown);
 
-            if (fx > this.x + 1)
+            if (fx > this.x + 2)
             {
-                Ui.gradientH(g, this.x + 1, ty, fx, ty + 2, Ui.accent2(), Ui.accent());
+                Ui.gradientPill(g, this.x, ty, fx, ty + 4, Ui.accent2(), Ui.accent());
             }
 
-            int r = this.dragging || this.hover > 0.5f ? 4 : 3;
-            Ui.dot(g, Math.max(this.x + r, Math.min(this.x + this.w - r, fx)), ty + 1, r, Ui.WHITE);
+            int size = this.dragging || this.hover > 0.5f ? 10 : 8;
+            float kx = Math.max(this.x, Math.min(this.x + this.w - size, fx - size / 2f));
+            float ky = ty + 2 - size / 2f;
+
+            if (this.dragging || this.hover > 0.01f)
+            {
+                Ui.circle(g, kx - 3, ky - 3, size + 6, Ui.withAlpha(Ui.accent(), (int) (0x38 * Math.max(this.hover, this.dragging ? 1f : 0f))));
+            }
+
+            Ui.circle(g, kx, ky + 1, size, Ui.withAlpha(0x000000, 0x50));
+            Ui.circle(g, kx, ky, size, Ui.WHITE);
         }
 
         @Override

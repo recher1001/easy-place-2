@@ -265,6 +265,12 @@ wird übersprungen, schwebender Block wird übersprungen. Danach öffnet er das 
 Printer eine kleine Schematic bauen. Die Hotbar ist dabei voll mit Erde, die Bausteine muss er also über das
 Inventar holen. Geprüft wird auf dem Server, auch die Richtung der Treppe.
 
+## Schrift im Menü
+
+Das Menü nutzt die Schrift **Inter** (© The Inter Project Authors, SIL Open Font License 1.1, siehe
+`assets/easyplace2/font/INTER_LICENSE.txt`). Sie wird passend zur GUI-Skalierung gerastert und ist deshalb
+auf jedem Bildschirm scharf. Zeichen, die Inter nicht hat, kommen aus der normalen Minecraft-Schrift.
+
 ## Technik (kurz)
 
 | Teil | Datei |

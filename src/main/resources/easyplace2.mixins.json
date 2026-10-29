@@ -5,6 +5,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"BlockItemInvoker",
+		"FontAccessor",
 		"MinecraftAccessor",
 		"MinecraftMixin",
 		"litematica.GuiConfigsMixin",

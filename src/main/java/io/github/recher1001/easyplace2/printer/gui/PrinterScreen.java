@@ -122,7 +122,7 @@ public class PrinterScreen extends Screen
         this.buildSidebar();
 
         int boxW = Math.max(70, Math.min(150, (this.cx1 - this.cx0) / 3));
-        this.search = new EditBox(this.font, this.cx1 - boxW + 18, this.headerTop + 3, boxW - 24, 10, Component.empty());
+        this.search = new EditBox(Ui.font(), this.cx1 - boxW + 18, this.headerTop + 3, boxW - 24, 10, Component.empty());
         this.search.setBordered(false);
         this.search.setMaxLength(40);
         this.search.setTextColor(Ui.text());
@@ -292,7 +292,7 @@ public class PrinterScreen extends Screen
     private void addResetChip()
     {
         Component label = Component.translatable("easyplace2.printer.reset");
-        int w = this.font.width(label) + 16;
+        int w = Ui.font().width(label) + 16;
         this.header.add(new Controls.Area(this.cx0, this.headerTop + 26, w, 16, (g, font, a, hover) ->
         {
             Ui.card(g, a.x, a.y, a.x + a.w, a.y + a.h, Ui.lerpColor(Ui.card(), Ui.cardHover(), hover), Ui.border());
@@ -527,12 +527,12 @@ public class PrinterScreen extends Screen
         Ui.scaledText(g, font, percent, a.x + a.w - 10 - Ui.scaledWidth(font, percent, 1.25f), a.y + 6, 1.25f, Ui.text());
 
         int bx0 = a.x + 10, bx1 = a.x + a.w - 10, by = a.y + 22;
-        Ui.round(g, bx0, by, bx1, by + 8, Ui.track());
+        Ui.pill(g, bx0, by, bx1, by + 8, Ui.track());
         int fill = bx0 + Math.round((bx1 - bx0) * Math.max(0f, Math.min(1f, this.shownProgress)));
 
         if (fill > bx0 + 2)
         {
-            Ui.gradientH(g, bx0 + 1, by + 1, fill - 1, by + 7, Ui.accent2(), Ui.accent());
+            Ui.gradientPill(g, bx0, by, fill, by + 8, Ui.accent2(), Ui.accent());
 
             if (printer.isRunning())
             {
@@ -884,7 +884,7 @@ public class PrinterScreen extends Screen
         if (entries.isEmpty())
         {
             Component hint = Component.translatable("easyplace2.printer.storage.empty");
-            int lines = Math.max(1, this.font.split(hint, width - 8).size());
+            int lines = Math.max(1, Ui.font().split(hint, width - 8).size());
             this.add(new Controls.Area(this.cx0, y, width, lines * 10 + 4, (g, font, a, hover) ->
             {
                 List<FormattedCharSequence> split = font.split(hint, a.w - 8);
@@ -1046,7 +1046,7 @@ public class PrinterScreen extends Screen
         }
 
         Component hint = Component.translatable("easyplace2.printer.key.hint");
-        int lines = Math.max(1, this.font.split(hint, width - 4).size());
+        int lines = Math.max(1, Ui.font().split(hint, width - 4).size());
         this.add(new Controls.Area(this.cx0, y + 4, width, lines * 10, (g, font, a, hover) ->
         {
             List<FormattedCharSequence> split = font.split(hint, a.w - 4);
@@ -1355,7 +1355,7 @@ public class PrinterScreen extends Screen
     /** Kleiner Textknopf in einer Schrittzeile; baut die Seite danach neu auf und speichert. */
     private Controls.Button chip(int x, int y, Component label, Runnable action)
     {
-        return new Controls.Button(x, y, this.font.width(label) + 12, 13, () -> label, Ui::accent, false, () ->
+        return new Controls.Button(x, y, Ui.font().width(label) + 12, 13, () -> label, Ui::accent, false, () ->
         {
             action.run();
             MacroStore.INSTANCE.save();
@@ -1365,7 +1365,7 @@ public class PrinterScreen extends Screen
 
     private int hintHeight(Component text)
     {
-        return Math.max(1, this.font.split(text, this.cx1 - this.cx0 - 4).size()) * 10;
+        return Math.max(1, Ui.font().split(text, this.cx1 - this.cx0 - 4).size()) * 10;
     }
 
     private void addHint(int y, Component text)
@@ -1404,7 +1404,7 @@ public class PrinterScreen extends Screen
         for (String key : new String[] { "how1", "how2", "how3", "how4", "server" })
         {
             Component text = Component.translatable("easyplace2.printer.info." + key);
-            int lines = Math.max(1, this.font.split(text, width - 20).size());
+            int lines = Math.max(1, Ui.font().split(text, width - 20).size());
             int h = 12 + lines * 10;
             this.add(new Controls.Area(this.cx0, y, width, h, (g, font, a, hover) ->
             {
@@ -1470,7 +1470,7 @@ public class PrinterScreen extends Screen
 
         for (Controls.Control c : this.header)
         {
-            c.render(g, this.font, mouseX, my);
+            c.render(g, Ui.font(), mouseX, my);
         }
 
         g.enableScissor(this.cx0 - 2, this.contentTop, this.cx1 + 6, this.contentBottom);
@@ -1482,7 +1482,7 @@ public class PrinterScreen extends Screen
             c.y = this.contentBaseY.get(i) - offset;
             c.visible = c.y + c.h > this.contentTop && c.y < this.contentBottom;
             boolean mouseInView = my >= this.contentTop && my < this.contentBottom;
-            c.render(g, this.font, mouseX, mouseInView ? my : -1000);
+            c.render(g, Ui.font(), mouseX, mouseInView ? my : -1000);
         }
 
         g.disableScissor();
@@ -1497,7 +1497,7 @@ public class PrinterScreen extends Screen
         {
             Component footer = Component.literal("● ").withColor(Ui.accent() & 0xFFFFFF)
                     .append(Component.translatable("easyplace2.printer.theme.footer", Theme.current().displayName()).withColor(Ui.textFaint() & 0xFFFFFF));
-            Ui.text(g, this.font, footer, this.x1 - 14 - this.font.width(footer), this.y1 - 16, Ui.textFaint());
+            Ui.text(g, Ui.font(), footer, this.x1 - 14 - Ui.font().width(footer), this.y1 - 16, Ui.textFaint());
         }
 
         g.pose().popMatrix();
@@ -1506,11 +1506,11 @@ public class PrinterScreen extends Screen
     private void renderFrame(GuiGraphics g)
     {
         Ui.shadow(g, this.x0, this.y0, this.x1, this.y1);
-        Ui.card(g, this.x0, this.y0, this.x1, this.y1, Ui.background(), Ui.border());
+        Ui.card(g, this.x0, this.y0, this.x1, this.y1, 8, Ui.background(), Ui.border());
         // feiner Lichtschein oben im Panel
-        g.fillGradient(this.x0 + 2, this.y0 + 1, this.x1 - 2, this.y0 + 60, Ui.withAlpha(Ui.theme().accent(), 0x14), 0x00000000);
+        g.fillGradient(this.x0 + 8, this.y0 + 1, this.x1 - 8, this.y0 + 60, Ui.withAlpha(Ui.theme().accent(), 0x14), 0x00000000);
         // Seitenleiste als eigenes Innenpanel
-        Ui.card(g, this.x0 + 6, this.y0 + 6, this.x0 + 6 + SIDEBAR_W, this.y1 - 6, Ui.sidebar(), Ui.border());
+        Ui.card(g, this.x0 + 6, this.y0 + 6, this.x0 + 6 + SIDEBAR_W, this.y1 - 6, 6, Ui.sidebar(), Ui.withAlpha(Ui.theme().border(), 0x80));
     }
 
     private void renderSidebar(GuiGraphics g, int mouseX, int mouseY)
@@ -1520,9 +1520,9 @@ public class PrinterScreen extends Screen
         // Logo und Name
         Ui.item(g, new ItemStack(Items.GOLDEN_HELMET), sx + 9, this.y0 + 15, 0.75f);
         MutableComponent name = Component.literal("Easy Place ").withStyle(ChatFormatting.BOLD);
-        Ui.text(g, this.font, name, sx + 24, this.y0 + 14, Ui.text());
-        Ui.text(g, this.font, Component.literal("Printer").withStyle(ChatFormatting.ITALIC), sx + 24 + this.font.width(name), this.y0 + 14, Ui.accent());
-        Ui.scaledText(g, this.font, Component.translatable("easyplace2.printer.version", "0.2.0"), sx + 24, this.y0 + 25, 0.75f, Ui.textFaint());
+        Ui.text(g, Ui.font(), name, sx + 24, this.y0 + 14, Ui.text());
+        Ui.text(g, Ui.font(), Component.literal("Printer").withStyle(ChatFormatting.ITALIC), sx + 24 + Ui.font().width(name), this.y0 + 14, Ui.accent());
+        Ui.scaledText(g, Ui.font(), Component.translatable("easyplace2.printer.version", "0.2.0"), sx + 24, this.y0 + 25, 0.75f, Ui.textFaint());
 
         g.enableScissor(sx + 1, this.sideTop - 2, sx + SIDEBAR_W - 1, this.sideBottom);
 
@@ -1535,6 +1535,8 @@ public class PrinterScreen extends Screen
             int hy = Math.round(this.highlightY) - this.sideScroll;
             Ui.round(g, sx + 6, hy, sx + SIDEBAR_W - 6, hy + this.sideStep - 1,
                     Ui.lerpColor(Ui.cardHover(), Ui.withAlpha(Ui.theme().accent(), 0xFF), 0.18f));
+            // kleiner leuchtender Balken links am gewaehlten Eintrag
+            Ui.pill(g, sx + 6, hy + 4, sx + 8, hy + this.sideStep - 5, Ui.accent());
         }
 
         boolean mouseInList = mouseY >= this.sideTop && mouseY < this.sideBottom;
@@ -1544,7 +1546,7 @@ public class PrinterScreen extends Screen
             Controls.Control c = this.sidebar.get(i);
             c.y = this.sidebarBaseY.get(i) - this.sideScroll;
             c.visible = c.y + c.h > this.sideTop - 2 && c.y < this.sideBottom;
-            c.render(g, this.font, mouseX, mouseInList ? mouseY : -1000);
+            c.render(g, Ui.font(), mouseX, mouseInList ? mouseY : -1000);
         }
 
         g.disableScissor();
@@ -1566,7 +1568,7 @@ public class PrinterScreen extends Screen
         Ui.card(g, sx + 6, py, sx + SIDEBAR_W - 6, py + 18, Ui.card(), Ui.border());
         float pulse = state == PrinterController.State.OFF ? 1f : 0.55f + 0.45f * (float) Math.sin(System.currentTimeMillis() / 220.0);
         Ui.dot(g, sx + 15, py + 9, 2, Ui.withAlpha(color, (int) (0xFF * pulse)));
-        Ui.text(g, this.font, Ui.stateName(state), sx + 22, py + 5, color);
+        Ui.text(g, Ui.font(), Ui.stateName(state), sx + 22, py + 5, color);
     }
 
     private void paintSidebarItem(GuiGraphics g, Font font, Controls.Area a, float hover, Page p)
@@ -1631,14 +1633,14 @@ public class PrinterScreen extends Screen
         int titleRoom = (this.search != null ? this.search.getX() - 24 : this.cx1) - this.cx0;
         float scale = 1.5f;
 
-        while (scale > 1.0f && Ui.scaledWidth(this.font, a, scale) + 6 + Ui.scaledWidth(this.font, b, scale) > titleRoom)
+        while (scale > 1.0f && Ui.scaledWidth(Ui.font(), a, scale) + 6 + Ui.scaledWidth(Ui.font(), b, scale) > titleRoom)
         {
             scale -= 0.1f;
         }
 
-        Ui.scaledText(g, this.font, a, this.cx0, this.headerTop, scale, Ui.accent());
-        Ui.scaledText(g, this.font, b, this.cx0 + Ui.scaledWidth(this.font, a, scale) + 6, this.headerTop, scale, Ui.text());
-        Ui.text(g, this.font, Component.literal(Ui.clip(this.font, subtitle.getString(), this.cx1 - this.cx0)),
+        Ui.scaledText(g, Ui.font(), a, this.cx0, this.headerTop, scale, Ui.accent());
+        Ui.scaledText(g, Ui.font(), b, this.cx0 + Ui.scaledWidth(Ui.font(), a, scale) + 6, this.headerTop, scale, Ui.text());
+        Ui.text(g, Ui.font(), Component.literal(Ui.clip(Ui.font(), subtitle.getString(), this.cx1 - this.cx0)),
                 this.cx0, this.headerTop + 16, Ui.textFaint());
 
         // Suchfeld oben rechts
