@@ -13,6 +13,10 @@ on:
         description: 'Die fertige .jar auf den Branch ci-build legen'
         type: boolean
         default: false
+      inspect_api:
+        description: 'Signaturen einiger Minecraft-Klassen ins Log schreiben (Entwicklung)'
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -33,7 +37,20 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
-      # Ist der Artifact-Speicher auf GitHub voll, bleibt der Build trotzdem gruen
+      # Nur fuer die Entwicklung: Methoden-Signaturen (javap, ohne Code) einiger Klassen ins Log
+      - name: inspect minecraft api
+        if: github.event_name == 'workflow_dispatch' && inputs.inspect_api
+        run: |
+          JAR=$(find ~/.gradle .gradle -name 'minecraft-merged*.jar' -not -name '*sources*' 2>/dev/null | grep -v intermediary | head -1)
+          echo "JAR=$JAR"
+          for c in net.minecraft.client.gui.Font 'net.minecraft.client.gui.Font$Provider' 'net.minecraft.client.gui.Font$GlyphVisitor' \
+                   net.minecraft.network.chat.Style net.minecraft.network.chat.FontDescription 'net.minecraft.network.chat.FontDescription$Resource' \
+                   net.minecraft.client.gui.font.FontManager 'net.minecraft.client.gui.font.FontManager$CachedFontProvider' net.minecraft.client.gui.font.FontSet \
+                   net.minecraft.client.gui.GuiGraphics; do
+            echo "=== $c"; javap -cp "$JAR" -p "$c" 2>&1 | grep -v 'lambda\$' | head -150
+          done
+          unzip -l "$JAR" | grep -i 'gui/font/' | head -60
+, bleibt der Build trotzdem gruen
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         continue-on-error: true
