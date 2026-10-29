@@ -41,12 +41,17 @@ jobs:
       - name: inspect minecraft api
         if: github.event_name == 'workflow_dispatch' && inputs.inspect_api
         run: |
-          JAR=$(find ~/.gradle .gradle -name 'minecraft-merged*.jar' -not -name '*sources*' 2>/dev/null | grep -v intermediary | head -1)
+          JAR=""
+          for j in $(find ~/.gradle .gradle -name '*.jar' -path '*minecraft*' -not -name '*sources*' 2>/dev/null); do
+            if unzip -l "$j" 2>/dev/null | grep -q 'net/minecraft/client/gui/Font.class'; then JAR="$j"; break; fi
+          done
           echo "JAR=$JAR"
           for c in net.minecraft.client.gui.Font 'net.minecraft.client.gui.Font$Provider' 'net.minecraft.client.gui.Font$GlyphVisitor' \
                    net.minecraft.network.chat.Style net.minecraft.network.chat.FontDescription 'net.minecraft.network.chat.FontDescription$Resource' \
                    net.minecraft.client.gui.font.FontManager 'net.minecraft.client.gui.font.FontManager$CachedFontProvider' net.minecraft.client.gui.font.FontSet \
-                   net.minecraft.client.gui.GuiGraphics; do
+                   net.minecraft.client.gui.GuiGraphics net.minecraft.client.gui.font.providers.TrueTypeGlyphProviderDefinition \\
+                   net.minecraft.client.gui.font.GlyphSource 'net.minecraft.client.gui.GuiGraphics$ScissorStack' \\
+                   net.minecraft.client.renderer.RenderPipelines; do
             echo "=== $c"; javap -cp "$JAR" -p "$c" 2>&1 | grep -v 'lambda\$' | head -150
           done
           unzip -l "$JAR" | grep -i 'gui/font/' | head -60
