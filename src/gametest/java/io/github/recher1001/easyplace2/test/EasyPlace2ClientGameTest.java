@@ -10,7 +10,12 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
 
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -36,6 +41,8 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
 import io.github.recher1001.easyplace2.config.Ep2ConfigTab;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
+import io.github.recher1001.easyplace2.mixin.ChatComponentAccessor;
+import io.github.recher1001.easyplace2.modules.ChatInvsee;
 import io.github.recher1001.easyplace2.modules.macro.Macro;
 import io.github.recher1001.easyplace2.modules.macro.MacroPlayer;
 import io.github.recher1001.easyplace2.modules.macro.MacroRecorder;
@@ -164,6 +171,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testLanePath(context);
             testLaneExcavate(context, server);
             testMacro(context, server);
+            testChatInvsee(context);
         }
     }
 
@@ -912,6 +920,64 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
         float pitch = (float) Math.toDegrees(Math.atan2(-d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
         return MacroStep.look(yaw, pitch);
+    }
+
+    /**
+     * Mittelklick im Chat: bei einer Teleport-Anfrage der Spieler hinter /tpaccept, bei normalen Nachrichten
+     * der Absender. Die Zeilen werden genau dort angeklickt, wo Minecraft sie zeichnet.
+     */
+    private static void testChatInvsee(ClientGameTestContext context)
+    {
+        context.runOnClient(mc ->
+        {
+            mc.gui.getChat().clearMessages(false);
+            mc.gui.getChat().addMessage(Component.literal("[DevV2] 1tsFufu: ?rtp"));
+            mc.gui.getChat().addMessage(Component.literal("[HugoSMP] MqanYT hat dir eine Teleportations-Anfrage gesendet!"));
+            mc.gui.getChat().addMessage(Component.literal("Annehmen - ").append(Component.literal("/tpaccept MqanYT tpa")
+                    .withStyle(style -> style.withClickEvent(new ClickEvent.RunCommand("/tpaccept MqanYT tpa")))));
+            mc.gui.getChat().addMessage(Component.literal("Ablehnen - /tpdeny MqanYT tpa"));
+        });
+        context.setScreen(() -> new ChatScreen("", false));
+        context.waitForScreen(ChatScreen.class);
+        context.waitTicks(5);
+        context.takeScreenshot("easyplace2-chat-invsee");
+
+        // Zeile 0 = unterste (neueste) Nachricht; die lange TPA-Zeile darf umgebrochen sein
+        List<String> got = new java.util.ArrayList<>();
+        String[] clicked = new String[1];
+
+        context.runOnClient(mc ->
+        {
+            ChatComponentAccessor chat = (ChatComponentAccessor) mc.gui.getChat();
+            double lineH = chat.easyplace2$lineHeight() * chat.easyplace2$scale();
+            int bottom = mc.getWindow().getGuiScaledHeight() - 40;
+            int rows = chat.easyplace2$lines().size();
+
+            for (int i = 0; i < rows; i++)
+            {
+                got.add(ChatInvsee.nameAt(mc, 12, bottom - (i + 0.5) * lineH));
+            }
+
+            // Ueber den echten Klick-Weg (Mixin im Chat-Fenster), oberste Zeile = Chat-Nachricht von 1tsFufu
+            ChatInvsee.lastName = null;
+            mc.screen.mouseClicked(new MouseButtonEvent(12, bottom - (rows - 0.5) * lineH, new MouseButtonInfo(GLFW.GLFW_MOUSE_BUTTON_MIDDLE, 0)), false);
+            clicked[0] = ChatInvsee.lastName;
+        });
+        context.setScreen(() -> null);
+        System.out.println("[EP2-TEST] Chat-Zeilen -> " + got);
+
+        if (got.size() < 4 || !"1tsFufu".equals(got.get(got.size() - 1)) ||
+            got.subList(0, got.size() - 1).stream().anyMatch(n -> !"MqanYT".equals(n)))
+        {
+            throw new AssertionError("Chat-Invsee: falsche Namen " + got + " (erwartet MqanYT ..., 1tsFufu)");
+        }
+
+        if (!"1tsFufu".equals(clicked[0]))
+        {
+            throw new AssertionError("Chat-Invsee: Mittelklick ergab " + clicked[0] + " statt 1tsFufu");
+        }
+
+        System.out.println("[EP2-TEST] Mittelklick im Chat ok (TPA -> MqanYT, Nachricht -> 1tsFufu)");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */
