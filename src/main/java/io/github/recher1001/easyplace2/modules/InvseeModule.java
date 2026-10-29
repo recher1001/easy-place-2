@@ -54,6 +54,17 @@ public final class InvseeModule
             return;
         }
 
+        run(mc, name);
+    }
+
+    /** Fuehrt den eingestellten Invsee-Befehl fuer diesen Spielernamen sofort aus. */
+    public static void run(Minecraft mc, String name)
+    {
+        if (mc.player == null || mc.getConnection() == null || !NAME.matcher(name).matches())
+        {
+            return;
+        }
+
         String command = Ep2Configs.MODULE_INVSEE_COMMAND.getStringValue().trim().replace("{name}", name);
 
         if (command.startsWith("/"))
@@ -62,7 +73,7 @@ public final class InvseeModule
         }
 
         mc.getConnection().sendCommand(command);
-        self.displayClientMessage(Component.literal("/" + command), true);
+        mc.player.displayClientMessage(Component.literal("/" + command), true);
     }
 
     /** Der naechste Spieler, der hoechstens den eingestellten Winkel neben der Blickrichtung steht. */

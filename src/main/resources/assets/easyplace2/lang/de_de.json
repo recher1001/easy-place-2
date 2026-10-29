@@ -434,5 +434,11 @@
     "easyplace2.macro.msg.started": "„%s“ läuft.",
     "easyplace2.macro.msg.damage": "Schaden bekommen – Makro angehalten.",
     "easyplace2.macro.msg.missing_item": "%s fehlt im Inventar – Makro angehalten.",
-    "easyplace2.macro.msg.done": "„%s“ fertig (%s Durchläufe)."
+    "easyplace2.macro.msg.done": "„%s“ fertig (%s Durchläufe).",
+    "easyplace2.config.name.moduleInvseeChatClick": "moduleInvseeChatClick",
+    "easyplace2.config.prettyName.moduleInvseeChatClick": "Modul Invsee: Mittelklick im Chat",
+    "easyplace2.config.comment.moduleInvseeChatClick": "Mittelklick auf eine Chat-Nachricht führt den Invsee-Befehl für den Absender aus (bei Teleport-Anfragen für den Spieler, von dem die Anfrage kommt).",
+    "easyplace2.printer.opt.invseeChatClick": "Mittelklick im Chat",
+    "easyplace2.printer.opt.invseeChatClick.desc": "Chat öffnen, Nachricht mittelklicken: /invsee für den Absender bzw. TPA-Spieler",
+    "easyplace2.module.invsee.chat_none": "Kein Spielername in dieser Nachricht gefunden."
 }

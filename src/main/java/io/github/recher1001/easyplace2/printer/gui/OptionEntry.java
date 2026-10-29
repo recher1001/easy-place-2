@@ -214,6 +214,7 @@ public final class OptionEntry
         bool(Page.LOOK, "glass", Ep2Configs.PRINTER_GLASS);
         bool(Page.LOOK, "gridView", Ep2Configs.PRINTER_GRID_VIEW);
 
+        bool(Page.INVSEE, "invseeChatClick", Ep2Configs.MODULE_INVSEE_CHAT_CLICK);
         number(Page.INVSEE, "invseeAngle", Ep2Configs.MODULE_INVSEE_ANGLE, 5, 180, 5, v -> String.format(Locale.ROOT, "%.0f°", v));
         number(Page.INVSEE, "invseeRange", Ep2Configs.MODULE_INVSEE_RANGE, 4, 128, 1, v -> String.format(Locale.ROOT, "%.0f m", v));
     }

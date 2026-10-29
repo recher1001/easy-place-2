@@ -46,12 +46,11 @@ jobs:
             if unzip -l "$j" 2>/dev/null | grep -q 'net/minecraft/client/gui/Font.class'; then JAR="$j"; break; fi
           done
           echo "JAR=$JAR"
-          for c in net.minecraft.network.chat.ClickEvent 'net.minecraft.network.chat.ClickEvent$RunCommand' 'net.minecraft.network.chat.ClickEvent$SuggestCommand' \
-                   net.minecraft.client.gui.components.ChatComponent net.minecraft.client.GuiMessage 'net.minecraft.client.GuiMessage$Line' \
-                   net.minecraft.client.gui.screens.ChatScreen net.minecraft.client.input.MouseButtonEvent net.minecraft.client.input.MouseButtonInfo; do
-            echo "=== $c"; javap -cp "$JAR" -p "$c" 2>&1 | grep -v 'lambda\$' | head -150
-          done
-          unzip -l "$JAR" | grep -i 'gui/font/' | head -60
+          javap -cp "$JAR" -p -c -constants net.minecraft.client.gui.screens.ChatScreen | sed -n '/mouseClicked/,/^$/p' | head -120
+          javap -cp "$JAR" -p -c -constants net.minecraft.client.gui.components.ChatComponent | grep -v 'lambda' | sed -n '/forEachLine\|captureClickableText\|private void render(/,/^$/p' | head -400
+          javap -cp "$JAR" -p -constants net.minecraft.client.gui.components.ChatComponent | grep 'static final int'
+          javap -cp "$JAR" -p com.mojang.authlib.GameProfile 2>&1 | head -30
+          for j in $(find ~/.gradle -name 'authlib*.jar' | head -1); do javap -cp "$j" -p com.mojang.authlib.GameProfile | head -30; done
       # Ist der Artifact-Speicher auf GitHub voll, bleibt der Build trotzdem gruen
       - name: capture build artifacts
         uses: actions/upload-artifact@v7

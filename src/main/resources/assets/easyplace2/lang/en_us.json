@@ -434,5 +434,11 @@
     "easyplace2.macro.msg.started": "\"%s\" is running.",
     "easyplace2.macro.msg.damage": "Took damage – macro stopped.",
     "easyplace2.macro.msg.missing_item": "%s is missing from the inventory – macro stopped.",
-    "easyplace2.macro.msg.done": "\"%s\" finished (%s runs)."
+    "easyplace2.macro.msg.done": "\"%s\" finished (%s runs).",
+    "easyplace2.config.name.moduleInvseeChatClick": "moduleInvseeChatClick",
+    "easyplace2.config.prettyName.moduleInvseeChatClick": "Invsee module: middle click in chat",
+    "easyplace2.config.comment.moduleInvseeChatClick": "Middle-clicking a chat message runs the invsee command for its sender (for teleport requests: the player who sent the request).",
+    "easyplace2.printer.opt.invseeChatClick": "Middle click in chat",
+    "easyplace2.printer.opt.invseeChatClick.desc": "Open chat, middle-click a message: /invsee for its sender or TPA player",
+    "easyplace2.module.invsee.chat_none": "No player name found in this message."
 }

@@ -209,6 +209,14 @@ Im Menü unter **Module → Invsee**. Wenn du die Taste drückst (unter **Tasten
 - Den Befehl stellt der Server bereit (z. B. ein Plugin). Ob er erlaubt ist, entscheidet der Server.
 - Der Befehl selbst steht in `config/easyplace2.json` (`moduleInvseeCommand`, Standard `invsee {name}`).
 
+**Mittelklick im Chat:** Chat öffnen (T) und mit dem Mausrad (mittlere Maustaste) auf eine Nachricht klicken.
+Der Befehl wird sofort ausgeführt, und zwar für:
+- **Teleport-Anfragen** (`/tpa`, `/tpahere`): den Spieler, von dem die Anfrage kommt, also den Namen hinter
+  `/tpaccept` bzw. `/tpdeny` (z. B. „Annehmen – /tpaccept MqanYT tpa“ → `/invsee MqanYT`). Das klappt auf jeder
+  Zeile der Anfrage.
+- **normale Chat-Nachrichten**: den Spieler, der sie geschrieben hat (`[Rang] Name: Text` oder `<Name> Text`).
+- Abschalten kannst du das im Menü unter **Invsee → Mittelklick im Chat**.
+
 ## Modul: Makros
 
 Im Menü unter **Module → Makros**. Damit kannst du Abläufe aufnehmen und danach in Schleife laufen lassen,
