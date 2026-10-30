@@ -27,6 +27,10 @@ repositories {
 	}
 }
 
+configurations {
+	baritoneJar { transitive = false }
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	// Gleiche Mappings wie Litematica (offizielle Mojang-Namen)
@@ -41,6 +45,10 @@ dependencies {
 	// Angesprochen wird es weiter per Reflection (BaritoneBridge). LGPL-3.0, unveraendert.
 	modLocalRuntime "cabaletta:baritone:${project.baritone_version}"
 	include "cabaletta:baritone:${project.baritone_version}"
+	// Im Spieltest/Entwicklungs-Start laedt Loom die in Baritone eingebetteten Jars (nether-pathfinder) nicht
+	// selbst; im normalen Spiel macht das Fabric. Deshalb hier zusaetzlich auf den Laufzeit-Klassenpfad.
+	baritoneJar "cabaletta:baritone:${project.baritone_version}"
+	localRuntime files({ zipTree(configurations.baritoneJar.singleFile).matching { include 'META-INF/jars/*.jar' }.files })
 }
 
 // Automatischer Spieltest (src/gametest): startet Minecraft mit Litematica + Easy Place 2.0,

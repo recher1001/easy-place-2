@@ -305,7 +305,7 @@ Inventar holen. Geprüft wird auf dem Server, auch die Richtung der Treppe.
 ## Schrift im Menü
 
 Das Menü nutzt die Schrift **Inter** (© The Inter Project Authors, SIL Open Font License 1.1, siehe
-`assets/easyplace2/font/INTER_LICENSE.txt`). Sie wird passend zur GUI-Skalierung gerastert und ist deshalb
+`assets/easyplace2/font/inter_license.txt`). Sie wird passend zur GUI-Skalierung gerastert und ist deshalb
 auf jedem Bildschirm scharf. Zeichen, die Inter nicht hat, kommen aus der normalen Minecraft-Schrift.
 
 ## Technik (kurz)
