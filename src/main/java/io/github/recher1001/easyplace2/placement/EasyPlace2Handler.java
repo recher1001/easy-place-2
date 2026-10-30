@@ -51,7 +51,7 @@ public class EasyPlace2Handler
      */
     public static boolean onUseItem(Minecraft mc)
     {
-        if (!Ep2Configs.EASY_PLACE_2.getBooleanValue())
+        if (!Ep2Configs.EASY_PLACE_2.getBooleanValue() || vanilla)
         {
             return false;
         }
@@ -239,6 +239,24 @@ public class EasyPlace2Handler
         }
 
         return true;
+    }
+
+    /** Ganz normaler Vanilla-Klick (z. B. Eimer leeren oder fuellen): Easy Place 2.0 mischt sich nicht ein. */
+    private static boolean vanilla;
+
+    public static void runVanilla(Runnable click)
+    {
+        boolean before = vanilla;
+        vanilla = true;
+
+        try
+        {
+            click.run();
+        }
+        finally
+        {
+            vanilla = before;
+        }
     }
 
     /** Vom Printer selbst ausgeloeste Klicks (z. B. eine Shulker zum Ausraeumen abstellen) nicht sperren. */

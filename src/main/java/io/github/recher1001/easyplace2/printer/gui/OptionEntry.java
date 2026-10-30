@@ -209,6 +209,8 @@ public final class OptionEntry
         bool(Page.BEHAVIOUR, "runInMenus", Ep2Configs.PRINTER_RUN_IN_MENUS);
         bool(Page.BEHAVIOUR, "excavate", Ep2Configs.PRINTER_EXCAVATE);
         bool(Page.BEHAVIOUR, "replaceWrong", Ep2Configs.PRINTER_REPLACE_WRONG);
+        bool(Page.BEHAVIOUR, "water", Ep2Configs.PRINTER_WATER);
+        bool(Page.BEHAVIOUR, "waterMakeSource", Ep2Configs.PRINTER_WATER_MAKE_SOURCE);
 
         bool(Page.LOOK, "hud", Ep2Configs.PRINTER_HUD);
         bool(Page.LOOK, "glass", Ep2Configs.PRINTER_GLASS);

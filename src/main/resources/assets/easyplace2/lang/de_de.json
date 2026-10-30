@@ -440,5 +440,21 @@
     "easyplace2.config.comment.moduleInvseeChatClick": "Mittelklick auf eine Chat-Nachricht führt den Invsee-Befehl für den Absender aus (bei Teleport-Anfragen für den Spieler, von dem die Anfrage kommt).",
     "easyplace2.printer.opt.invseeChatClick": "Mittelklick im Chat",
     "easyplace2.printer.opt.invseeChatClick.desc": "Chat öffnen, Nachricht mittelklicken: /invsee für den Absender bzw. TPA-Spieler",
-    "easyplace2.module.invsee.chat_none": "Kein Spielername in dieser Nachricht gefunden."
+    "easyplace2.module.invsee.chat_none": "Kein Spielername in dieser Nachricht gefunden.",
+    "easyplace2.printer.state.watering": "Setzt Wasser",
+    "easyplace2.printer.opt.water": "Wasser setzen",
+    "easyplace2.printer.opt.water.desc": "Mit Eimern, zuletzt, nur wo nichts auslaufen kann",
+    "easyplace2.printer.opt.waterMakeSource": "Wasserquelle anlegen",
+    "easyplace2.printer.opt.waterMakeSource.desc": "Fehlt eine unendliche Quelle: 2x2 neben dem Bereich ausheben",
+    "easyplace2.config.name.printerWater": "printerWater",
+    "easyplace2.config.prettyName.printerWater": "Printer: Wasser setzen",
+    "easyplace2.config.comment.printerWater": "Wasser der Schematic mit Eimern setzen: zuletzt, von unten nach oben, und nur in Bereiche, die rundherum und unten dicht sind (sonst könnte es auslaufen). Nachgefüllt wird an unendlichen Quellen.",
+    "easyplace2.config.name.printerWaterMakeSource": "printerWaterMakeSource",
+    "easyplace2.config.prettyName.printerWaterMakeSource": "Printer: Wasserquelle anlegen",
+    "easyplace2.config.comment.printerWaterMakeSource": "Gibt es keine unendliche Wasserquelle in der Nähe, hebt der Printer direkt neben dem Bereich (nie darin) ein 2x2-Loch aus und macht daraus mit zwei Eimern eine.",
+    "easyplace2.printer.msg.water_blocked": "%s Wasser nicht gesetzt: dort würde es auslaufen (Bereich nicht dicht).",
+    "easyplace2.printer.msg.water_left": "%s Wasser nicht gesetzt: %s.",
+    "easyplace2.printer.water.no_bucket": "kein Eimer im Inventar",
+    "easyplace2.printer.water.no_source": "keine unendliche Wasserquelle in der Nähe (2 Wassereimer mitnehmen)",
+    "easyplace2.printer.water.out_of_reach": "nicht in Reichweite"
 }

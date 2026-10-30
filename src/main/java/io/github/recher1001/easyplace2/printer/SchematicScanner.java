@@ -15,6 +15,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import fi.dy.masa.litematica.data.DataManager;
@@ -43,7 +44,7 @@ public final class SchematicScanner
 
     public record Snapshot(List<Target> missing, int total, int done, int wrong, int unplaceable,
                            List<BlockPos> unloaded, Map<Item, Integer> neededItems, String names,
-                           List<BlockPos> scaffold, List<BlockPos> excavate)
+                           List<BlockPos> scaffold, List<BlockPos> excavate, List<BlockPos> water)
     {
         public double progress()
         {
@@ -65,6 +66,8 @@ public final class SchematicScanner
     private List<BlockPos> scaffold = new ArrayList<>();
     /** Bloecke, die weg muessen: wo die Schematic Luft will (Aushoehlen) oder falsche Bloecke (falls an). */
     private List<BlockPos> excavate = new ArrayList<>();
+    /** Wasserquellen der Schematic, die in der Welt noch fehlen (setzt der {@code WaterFiller} mit Eimern). */
+    private List<BlockPos> water = new ArrayList<>();
     private Set<Long> unloadedChunks = new HashSet<>();
     private int total, done, wrong, unplaceable;
     private String names = "";
@@ -98,7 +101,7 @@ public final class SchematicScanner
 
             if (this.regions.isEmpty())
             {
-                this.latest = new Snapshot(List.of(), 0, 0, 0, 0, List.of(), Map.of(), "", List.of(), List.of());
+                this.latest = new Snapshot(List.of(), 0, 0, 0, 0, List.of(), Map.of(), "", List.of(), List.of(), List.of());
                 return;
             }
         }
@@ -124,7 +127,8 @@ public final class SchematicScanner
             }
 
             this.latest = new Snapshot(List.copyOf(this.missing), this.total, this.done, this.wrong, this.unplaceable,
-                    unloaded, Map.copyOf(this.needed), this.names, List.copyOf(this.scaffold), List.copyOf(this.excavate));
+                    unloaded, Map.copyOf(this.needed), this.names, List.copyOf(this.scaffold), List.copyOf(this.excavate),
+                    List.copyOf(this.water));
 
             if (Ep2Configs.DEBUG.getBooleanValue() && this.latest.missing().size() != this.lastLoggedMissing)
             {
@@ -170,6 +174,7 @@ public final class SchematicScanner
         this.needed = new HashMap<>();
         this.scaffold = new ArrayList<>();
         this.excavate = new ArrayList<>();
+        this.water = new ArrayList<>();
         this.unloadedChunks = new HashSet<>();
         this.total = this.done = this.wrong = this.unplaceable = 0;
         this.names = String.join(", ", placementNames);
@@ -210,8 +215,39 @@ public final class SchematicScanner
             return;
         }
 
-        this.total++;
         BlockState current = level.getBlockState(pos);
+
+        // Wasser kommt mit Eimern (siehe WaterFiller); fliessendes Wasser entsteht von selbst
+        if (wanted.is(Blocks.WATER))
+        {
+            if (!wanted.getFluidState().isSource())
+            {
+                return;
+            }
+
+            this.total++;
+
+            if (current.is(Blocks.WATER) && current.getFluidState().isSource())
+            {
+                this.done++;
+            }
+            else if (current.isAir() || current.is(Blocks.WATER) || current.canBeReplaced())
+            {
+                this.water.add(pos.immutable());
+            }
+            else if (Ep2Configs.PRINTER_REPLACE_WRONG.getBooleanValue() && Excavation.canDig(level, pos, current))
+            {
+                this.excavate.add(pos.immutable());
+            }
+            else
+            {
+                this.wrong++;
+            }
+
+            return;
+        }
+
+        this.total++;
 
         if (StateMatcher.isComplete(current, wanted))
         {

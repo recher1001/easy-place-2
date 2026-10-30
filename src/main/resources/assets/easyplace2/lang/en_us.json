@@ -440,5 +440,21 @@
     "easyplace2.config.comment.moduleInvseeChatClick": "Middle-clicking a chat message runs the invsee command for its sender (for teleport requests: the player who sent the request).",
     "easyplace2.printer.opt.invseeChatClick": "Middle click in chat",
     "easyplace2.printer.opt.invseeChatClick.desc": "Open chat, middle-click a message: /invsee for its sender or TPA player",
-    "easyplace2.module.invsee.chat_none": "No player name found in this message."
+    "easyplace2.module.invsee.chat_none": "No player name found in this message.",
+    "easyplace2.printer.state.watering": "Placing water",
+    "easyplace2.printer.opt.water": "Place water",
+    "easyplace2.printer.opt.water.desc": "With buckets, last, only where nothing can leak",
+    "easyplace2.printer.opt.waterMakeSource": "Create water source",
+    "easyplace2.printer.opt.waterMakeSource.desc": "No infinite source nearby: dig a 2x2 next to the area",
+    "easyplace2.config.name.printerWater": "printerWater",
+    "easyplace2.config.prettyName.printerWater": "Printer: place water",
+    "easyplace2.config.comment.printerWater": "Place the schematic's water with buckets: last, bottom to top, and only into areas that are sealed at the sides and below (otherwise it could leak). Buckets are refilled at infinite sources.",
+    "easyplace2.config.name.printerWaterMakeSource": "printerWaterMakeSource",
+    "easyplace2.config.prettyName.printerWaterMakeSource": "Printer: create water source",
+    "easyplace2.config.comment.printerWaterMakeSource": "If there is no infinite water source nearby, the printer digs a 2x2 hole right next to the area (never inside it) and turns it into one with two buckets.",
+    "easyplace2.printer.msg.water_blocked": "%s water not placed: it would leak there (area not sealed).",
+    "easyplace2.printer.msg.water_left": "%s water not placed: %s.",
+    "easyplace2.printer.water.no_bucket": "no bucket in the inventory",
+    "easyplace2.printer.water.no_source": "no infinite water source nearby (bring 2 water buckets)",
+    "easyplace2.printer.water.out_of_reach": "not in reach"
 }

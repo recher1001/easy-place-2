@@ -172,6 +172,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testLaneExcavate(context, server);
             testMacro(context, server);
             testChatInvsee(context);
+            testWater(context, server);
         }
     }
 
@@ -978,6 +979,117 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         }
 
         System.out.println("[EP2-TEST] Mittelklick im Chat ok (TPA -> MqanYT, Nachricht -> 1tsFufu)");
+    }
+
+    /**
+     * Wasser: ein Becken (3x3, Steinwand) wird mit nur zwei Wassereimern gefuellt (diagonal setzen, dann aus der
+     * entstandenen unendlichen Quelle nachfuellen). Ein zweites Wasser ohne Wand darf nicht gesetzt werden,
+     * weil es auslaufen wuerde.
+     */
+    private static void testWater(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos basinMin = new BlockPos(20, Y - 1, 10);
+        BlockPos basinMax = new BlockPos(24, Y, 14);
+        BlockPos open = new BlockPos(26, Y, 12);
+
+        server.runCommand(String.format(Locale.ROOT, "fill 18 %d 8 29 %d 16 air", Y, Y + 3));
+        server.runCommand(String.format(Locale.ROOT, "fill 20 %d 10 24 %d 14 stone", Y, Y));
+        server.runCommand(String.format(Locale.ROOT, "fill 21 %d 11 23 %d 13 water", Y, Y));
+        // Das offene Wasser kurz mit Glas einsperren (das Glas liegt ausserhalb der Schematic)
+        server.runCommand(String.format(Locale.ROOT, "fill 25 %d 11 27 %d 13 glass", Y, Y));
+        server.runCommand(setblock(open, "water"));
+        context.waitFor(mc -> mc.level.getBlockState(open).is(Blocks.WATER) && mc.level.getBlockState(new BlockPos(22, Y, 12)).is(Blocks.WATER));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(basinMin, basinMax, "basin"), false);
+            area.addSubRegionBox(new Box(open, open, "open"), false);
+            area.setExplicitOrigin(basinMin);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "water", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Wasser-Schematic konnte nicht erstellt werden");
+            }
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, basinMin, "water", true, true), false);
+        });
+
+        server.runCommand(String.format(Locale.ROOT, "fill 21 %d 11 23 %d 13 air", Y, Y));
+        server.runCommand(String.format(Locale.ROOT, "fill 25 %d 11 27 %d 13 air", Y, Y));
+        server.runCommand("clear @a");
+        server.runCommand("give @a water_bucket 2");
+        // Auf der Wand stehen und ins Becken schauen
+        server.runCommand(String.format(Locale.ROOT, "tp @a 22.5 %d 10.5 0 60", Y + 1));
+        context.waitFor(mc -> mc.level.getBlockState(new BlockPos(22, Y, 12)).isAir() && mc.level.getBlockState(open).isAir() &&
+                              mc.player.getInventory().countItem(Items.WATER_BUCKET) == 2);
+        context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(new BlockPos(22, Y, 12)).is(Blocks.WATER), 200);
+
+        double[] margin = new double[1];
+        context.runOnClient(mc ->
+        {
+            margin[0] = Ep2Configs.PRINTER_REACH_MARGIN.getDoubleValue();
+            Ep2Configs.PRINTER_REACH_MARGIN.setDoubleValue(0.0);
+            Ep2Configs.PRINTER_LANE_MODE.setBooleanValue(false);
+            Ep2Configs.PRINTER_WATER.setBooleanValue(true);
+            PrinterController.INSTANCE.start();
+        });
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 2400);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-water-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Wasser haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + ")"));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+        finally
+        {
+            context.runOnClient(mc -> Ep2Configs.PRINTER_REACH_MARGIN.setDoubleValue(margin[0]));
+        }
+
+        context.waitTicks(20);
+        int filled = server.computeOnServer(s ->
+        {
+            int n = 0;
+
+            for (BlockPos p : BlockPos.betweenClosed(21, Y, 11, 23, Y, 13))
+            {
+                BlockState state = s.overworld().getBlockState(p);
+
+                if (state.is(Blocks.WATER) && state.getFluidState().isSource())
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        });
+
+        context.takeScreenshot("easyplace2-water-done");
+
+        if (filled != 9)
+        {
+            throw new AssertionError("Wasser: nur " + filled + " von 9 Feldern im Becken gefuellt");
+        }
+
+        assertBlock(server, open, BlockState::isAir, "Wasser ohne Wand haette nicht gesetzt werden duerfen (laeuft aus)");
+        assertBlock(server, open.east(), state -> state.getFluidState().isEmpty(), "Wasser ist ausgelaufen");
+        assertBlock(server, open.west(), state -> state.getFluidState().isEmpty(), "Wasser ist ausgelaufen");
+        System.out.println("[EP2-TEST] Wasser ok: Becken mit 2 Eimern gefuellt, offenes Wasser nicht gesetzt");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

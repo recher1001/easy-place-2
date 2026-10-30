@@ -45,6 +45,7 @@ import io.github.recher1001.easyplace2.printer.lanes.LaneWalker;
 import io.github.recher1001.easyplace2.printer.lanes.StarTool;
 import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldSource;
 import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
+import io.github.recher1001.easyplace2.printer.water.WaterFiller;
 
 /**
  * Der Printer: baut die aktiven Litematica-Schematics automatisch.
@@ -60,7 +61,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, LANE_WALKING, MOVING, AIMING, CLICKING, WAITING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, WATERING, LANE_WALKING, MOVING, AIMING, CLICKING, WAITING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -82,6 +83,7 @@ public final class PrinterController
     private final BlockDigger cleaner = new BlockDigger(new ScaffoldSource());
     private final Excavation excavation = new Excavation();
     private final BlockDigger excavator = new BlockDigger(this.excavation);
+    private final WaterFiller water = new WaterFiller(this.inventory);
     private final LaneMiner laneMiner = new LaneMiner();
     private final BuildLanes buildLanes = new BuildLanes();
     private final LaneWalker walker = new LaneWalker();
@@ -185,6 +187,7 @@ public final class PrinterController
         this.scanner.reset();
         this.cleaner.reset();
         this.excavator.reset();
+        this.water.reset();
         this.laneMiner.reset();
         this.buildLanes.reset();
         this.laneFailUntil = 0;
@@ -219,6 +222,7 @@ public final class PrinterController
         this.refill.cancel(mc);
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
+        this.water.cancel(mc);
         this.walker.cancel(mc);
         this.inventory.cancel(mc);
         BaritoneBridge.cancel();
@@ -479,6 +483,25 @@ public final class PrinterController
                     this.stateTicks = broke && digger == this.cleaner ? -(3 + this.random.nextInt(4)) : 0;
                 }
             }
+            case WATERING ->
+            {
+                int before = this.water.placed();
+
+                if (this.water.tick(mc, now))
+                {
+                    if (this.water.placed() > before)
+                    {
+                        this.watchdog.progress();
+                        this.placed++;
+                    }
+
+                    this.setState(State.SELECTING, "");
+                }
+                else
+                {
+                    this.detail = this.water.detail();
+                }
+            }
             case LANE_WALKING ->
             {
                 LaneWalker.Result result = this.walker.tick(mc);
@@ -593,6 +616,29 @@ public final class PrinterController
             }
         }
 
+        // Wasser zuletzt: erst wenn sonst nichts mehr zu setzen ist (ausser Seerosen, Seegras ...), und nur in
+        // Bereiche, aus denen es nicht herauslaufen kann
+        this.water.update(Ep2Configs.PRINTER_WATER.getBooleanValue() ? snap.water() : List.of());
+
+        if (!snap.water().isEmpty() && Ep2Configs.PRINTER_WATER.getBooleanValue() &&
+            open.stream().allMatch(t -> WaterFiller.needsWater(t.state())))
+        {
+            if (this.water.start(mc, player, level, schematic, now, this.canWalk()))
+            {
+                AimController.INSTANCE.stop();
+                this.setState(State.WATERING, this.water.detail());
+                return;
+            }
+
+            if (this.water.isSettling())
+            {
+                // Das Wasser breitet sich gerade aus (Quellen wachsen zusammen): kurz warten
+                this.setState(State.SELECTING, "water_settling");
+                this.stateTicks = -10;
+                return;
+            }
+        }
+
         if (open.isEmpty())
         {
             // Hier ist alles gebaut: erst alles Geruest wieder abbauen, dann fertig (oder zum naechsten Teil laufen)
@@ -612,8 +658,25 @@ public final class PrinterController
             {
                 // Uebersprungenes Geruest wird vorher noch einmal versucht (der Watchdog sorgt dafuer, dass das endet)
                 int left = (int) ScaffoldTracker.INSTANCE.positions().stream().filter(level::hasChunkAt).count();
+                int waterLeft = !Ep2Configs.PRINTER_WATER.getBooleanValue() ? 0 : (int) snap.water().stream()
+                        .filter(p -> !(level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.WATER) && level.getFluidState(p).isSource()))
+                        .count();
+                WaterFiller.Problem waterProblem = this.water.problem();
+                int waterBlocked = this.water.blockedCount();
                 this.setState(State.DONE, "");
                 this.stop(Component.translatable("easyplace2.printer.msg.done", snap.done(), snap.total(), snap.wrong()).withStyle(ChatFormatting.GREEN));
+
+                if (waterBlocked > 0)
+                {
+                    message(Component.translatable("easyplace2.printer.msg.water_blocked", waterBlocked).withStyle(ChatFormatting.GOLD));
+                }
+
+                if (waterLeft > waterBlocked)
+                {
+                    String why = waterProblem == WaterFiller.Problem.NONE ? "out_of_reach" : waterProblem.name().toLowerCase(java.util.Locale.ROOT);
+                    message(Component.translatable("easyplace2.printer.msg.water_left", waterLeft - waterBlocked,
+                            Component.translatable("easyplace2.printer.water." + why)).withStyle(ChatFormatting.GOLD));
+                }
 
                 if (left > 0)
                 {
@@ -1172,6 +1235,7 @@ public final class PrinterController
         this.refill.cancel(mc);
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
+        this.water.cancel(mc);
         this.walker.cancel(mc);
         this.inventory.cancel(mc);
     }

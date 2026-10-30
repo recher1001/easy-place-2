@@ -77,6 +77,8 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_STAR_TOOL   = new ConfigBoolean("printerStarTool", false).apply(KEY);
     public static final ConfigString  PRINTER_STAR_TOOL_NAME = new ConfigString("printerStarToolName", "star").apply(KEY);
     // Aushoehlen
+    public static final ConfigBoolean PRINTER_WATER       = new ConfigBoolean("printerWater", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_WATER_MAKE_SOURCE = new ConfigBoolean("printerWaterMakeSource", true).apply(KEY);
     public static final ConfigBoolean PRINTER_EXCAVATE    = new ConfigBoolean("printerExcavate", true).apply(KEY);
     public static final ConfigBoolean PRINTER_REPLACE_WRONG = new ConfigBoolean("printerReplaceWrong", false).apply(KEY);
     public static final ConfigInteger PRINTER_STUCK_SECONDS = new ConfigInteger("printerStuckSeconds", 90, 20, 600).apply(KEY);
@@ -104,6 +106,8 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_INV_DELAY_MIN,
             PRINTER_INV_DELAY_MAX,
             PRINTER_REACH_MARGIN,
+            PRINTER_WATER,
+            PRINTER_WATER_MAKE_SOURCE,
             PRINTER_USE_BARITONE,
             PRINTER_SPRINT,
             PRINTER_LAYER_RANGE,

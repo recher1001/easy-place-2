@@ -168,6 +168,26 @@ Drückst du **ESC**, schreibst im **Chat** oder hast das **Printer-Menü** offen
 - Nie angefasst werden: Kisten und andere Blöcke mit Inhalt oder Daten (Schilder, Spawner …),
   unzerstörbare Blöcke, Wasser und Lava und Blöcke direkt daneben (damit nichts überflutet wird).
 
+## Wasser
+
+Wasser in der Schematic setzt der Printer mit Eimern, so wie ein Spieler (Option **Wasser setzen** unter
+**Verhalten**):
+
+- **Nie auslaufen:** Ein Wasser-Bereich wird erst gefüllt, wenn er rundherum und unten dicht ist. Das heißt,
+  jeder Nachbar, in den das Wasser fließen könnte, ist schon ein fester Block. Luft, Gras, Fackeln oder Redstone
+  daneben zählen als undicht. Ist ein Bereich nicht dicht (z. B. offen zur Seite), bleibt das Wasser weg, und am
+  Ende steht im Chat, wie viel deshalb fehlt.
+- **Zuletzt und von unten nach oben:** Erst wird alles andere gebaut, dann kommt das Wasser Lage für Lage.
+  Seerosen, Seegras usw. kommen danach.
+- **Sparsam mit unendlichen Quellen:** Ein Feld zwischen zwei Wasserquellen (mit festem Boden) wird von selbst
+  zur Quelle. Der Printer wählt die Stellen so, dass davon möglichst viel passiert. Bei einer großen Fläche setzt
+  er zuerst zwei Eimer diagonal, das ergibt sofort eine unendliche Quelle. Daraus füllt er nach, und der Rest
+  wächst größtenteils von selbst zusammen. **Zwei Wassereimer und ein paar leere Eimer reichen.**
+- **Nachfüllen** nur an unendlichen Quellen: im Bereich selbst, in der Nähe (mit Baritone läuft er hin), oder
+  in einer **eigenen 2x2-Quelle**. Gibt es keine, hebt der Printer direkt neben dem Bereich (nie darin) ein
+  2x2-Loch im festen Boden aus und macht daraus mit zwei Eimern eine (abschaltbar: **Wasserquelle anlegen**).
+- Fließendes Wasser in der Schematic wird nicht gesetzt, das entsteht von selbst.
+
 ## Gerüst und Festhängen
 
 **Gerüst (Menü → Laufen → „Gerüst setzen“, standardmäßig an):** Kommt der Printer an einen Block vom Boden
