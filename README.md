@@ -26,6 +26,11 @@ bleibt unverändert und wird nicht gebraucht.
    - `easy-place-2-mc1.21.11-0.2.0.jar` (diese Mod, siehe unten „Wo bekomme ich die .jar?“)
 3. Minecraft mit dem Fabric-Profil starten.
 
+**Baritone ist schon dabei:** Die Mod bringt [Baritone](https://github.com/cabaletta/baritone) **1.17.0** für
+1.21.11 mit (nur zum Laufen), du musst es nicht extra installieren. Hast du selbst ein anderes Baritone im
+`mods`-Ordner, nimmt Fabric automatisch die neuere Version. Baritone steht unter der LGPL-3.0 und ist unverändert
+enthalten; den Quelltext gibt es auf GitHub. Benutzen kannst du es im Spiel auch selbst mit `#`-Befehlen.
+
 ## Benutzen
 
 1. Im Spiel Litematicas Menü öffnen (Standard: `M`) → **Konfiguration** → Reiter **„Easy Place 2.0“**.
@@ -56,9 +61,9 @@ Gut zu wissen:
 Der Printer baut alle aktiven Litematica-Placements selbstständig. Platziert wird dabei **immer über
 Easy Place 2.0 mit strengem Fadenkreuz**, also mit genau dem Rechtsklick, den du auch selbst machen würdest.
 
-**Zusätzlich installieren (optional, aber empfohlen):** [Baritone](https://github.com/cabaletta/baritone) für 1.21.11
-(eigenständige Fabric-Version oder z. B. das Baritone aus Meteor). Ohne Baritone baut der Printer nur, was du
-von deinem Standort aus erreichst.
+**Baritone** ist in der Mod enthalten: Damit läuft der Printer selbst zu Blöcken, die außer Reichweite sind.
+Abschalten kannst du das Laufen im Menü unter **Laufen**, dann baut er nur, was du von deinem Standort aus
+erreichst.
 
 **Bedienung:**
 1. Schematic in Litematica laden und platzieren.
@@ -186,6 +191,10 @@ Wasser in der Schematic setzt der Printer mit Eimern, so wie ein Spieler (Option
 - **Nachfüllen** nur an unendlichen Quellen: im Bereich selbst, in der Nähe (mit Baritone läuft er hin), oder
   in einer **eigenen 2x2-Quelle**. Gibt es keine, hebt der Printer direkt neben dem Bereich (nie darin) ein
   2x2-Loch im festen Boden aus und macht daraus mit zwei Eimern eine (abschaltbar: **Wasserquelle anlegen**).
+- **Wassergeloggte Blöcke** (Treppen, Stufen, Zäune, Laternen … mit Wasser drin): erst wird der Block gesetzt,
+  dann kippt der Printer einen Eimer direkt hinein. Auch hier wird vorher geprüft, dass nichts ausläuft; volle
+  Seiten (z. B. die Rückseite einer Treppe) zählen als dicht.
+- **Wasserpflanzen** (Seegras, Seetang …): dort kommt zuerst das Wasser hin, danach die Pflanze.
 - Fließendes Wasser in der Schematic wird nicht gesetzt, das entsteht von selbst.
 
 ## Gerüst und Festhängen
