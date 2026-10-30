@@ -346,9 +346,46 @@ public final class WaterFiller
             return true;
         }
 
+        if (Ep2Configs.DEBUG.getBooleanValue())
+        {
+            for (BlockPos p : open.subList(0, Math.min(3, open.size())))
+            {
+                EasyPlace2.LOGGER.info("[Printer] Wasser {} nicht erreichbar: Abstand {}, Ziel {}", p.toShortString(),
+                        String.format(java.util.Locale.ROOT, "%.2f", Vec3.atCenterOf(p).distanceTo(player.getEyePosition())), explainAim(player, level, p));
+            }
+        }
+
         this.problem = Problem.OUT_OF_REACH;
         this.detail = "out_of_reach";
         return false;
+    }
+
+    /** Fuer das Debug-Log: warum es fuer diese Stelle keinen Zielpunkt gibt. */
+    private static String explainAim(LocalPlayer player, Level level, BlockPos cell)
+    {
+        StringBuilder sb = new StringBuilder();
+
+        for (Direction dir : new Direction[] { Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST })
+        {
+            BlockPos n = cell.relative(dir);
+            BlockState state = level.getBlockState(n);
+            sb.append(dir.getSerializedName()).append('=').append(MacroName.of(state))
+              .append(state.blocksMotion() ? "" : "(weich)")
+              .append(state.getBlock() instanceof LiquidBlockContainer ? "(container)" : "")
+              .append(InteractiveBlocks.isInteractive(state.getBlock()) ? "(benutzbar)" : "")
+              .append(RefillUtil.visiblePoints(player, level, null, n, dir.getOpposite()).isEmpty() ? "(nicht sichtbar)" : "(sichtbar)")
+              .append(' ');
+        }
+
+        return sb.toString();
+    }
+
+    private static final class MacroName
+    {
+        static String of(BlockState state)
+        {
+            return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+        }
     }
 
     /** Fehlt hier noch Wasser, und kann es jetzt hinein? */
