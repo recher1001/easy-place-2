@@ -78,12 +78,14 @@ public final class WaterFiller
     private static final int WALK_TIMEOUT = 20 * 30;
     private static final int SEARCH_RADIUS = 24;
     private static final long FAIL_COOLDOWN = 20 * 15;
+    /** "Noch nie geplant" (bewusst kein Long.MIN_VALUE: now - MIN_VALUE laeuft ueber und wird negativ). */
+    private static final long NEVER = -1_000_000L;
 
     private final InventoryManager inventory;
 
     private List<BlockPos> targets = List.of();
     private Plan plan = Plan.EMPTY;
-    private long planTick = Long.MIN_VALUE;
+    private long planTick = NEVER;
     private final Map<BlockPos, Long> failed = new HashMap<>();
 
     private Step step = Step.IDLE;
@@ -122,7 +124,7 @@ public final class WaterFiller
         if (targets.size() != this.targets.size() || !targets.equals(this.targets))
         {
             this.targets = targets;
-            this.planTick = Long.MIN_VALUE;
+            this.planTick = NEVER;
         }
     }
 
@@ -130,7 +132,7 @@ public final class WaterFiller
     {
         this.targets = List.of();
         this.plan = Plan.EMPTY;
-        this.planTick = Long.MIN_VALUE;
+        this.planTick = NEVER;
         this.failed.clear();
         this.siteDig.clear();
         this.sitePour.clear();
@@ -1063,7 +1065,7 @@ public final class WaterFiller
                 if (this.target != null && isWaterSource(level, this.target))
                 {
                     this.placed++;
-                    this.planTick = Long.MIN_VALUE;
+                    this.planTick = NEVER;
                     this.go(Step.IDLE);
                     return true;
                 }
