@@ -952,9 +952,16 @@ public final class WaterFiller
 
         List<BlockPos> spots = StandSpots.find(level, schematic, nearest, RefillUtil.maxDistance(player), player.position(),
                 feet -> !open.contains(feet) && level.getFluidState(feet).isEmpty());
+        boolean going = !spots.isEmpty() && BaritoneBridge.goToAny(spots.stream()
+                .sorted(Comparator.comparingDouble(p -> p.distSqr(player.blockPosition()))).toList());
 
-        if (!spots.isEmpty() && BaritoneBridge.goToAny(spots.stream()
-                .sorted(Comparator.comparingDouble(p -> p.distSqr(player.blockPosition()))).toList()))
+        if (Ep2Configs.DEBUG.getBooleanValue())
+        {
+            EasyPlace2.LOGGER.info("[Printer] Wasser: zu {} laufen: {} Stehplaetze, Baritone {}", nearest.toShortString(), spots.size(),
+                    going ? "laeuft" : "nicht gestartet");
+        }
+
+        if (going)
         {
             this.detail = "walk";
             this.go(Step.WALK);

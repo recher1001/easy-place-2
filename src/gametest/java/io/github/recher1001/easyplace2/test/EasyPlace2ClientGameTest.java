@@ -174,6 +174,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testChatInvsee(context);
             testWater(context, server);
             testFlowingWater(context, server);
+            testBaritoneWalk(context, server);
         }
     }
 
@@ -1143,7 +1144,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.runCommand("give @a water_bucket 1");
         server.runCommand(String.format(Locale.ROOT, "tp @a 40.5 %d 37.5 0 50", Y));
         context.waitFor(mc -> !mc.level.getBlockState(new BlockPos(43, Y, 40)).is(Blocks.WATER) &&
-                              mc.player.getInventory().countItem(Items.WATER_BUCKET) == 1);
+                              mc.player.getInventory().countItem(Items.WATER_BUCKET) == 1 &&
+                              mc.player.position().distanceTo(new Vec3(40.5, Y, 37.5)) < 0.5);
         context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
                               SchematicWorldHandler.getSchematicWorld().getBlockState(center).is(Blocks.WATER), 200);
         context.runOnClient(mc -> PrinterController.INSTANCE.start());
@@ -1166,6 +1168,69 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         assertBlock(server, new BlockPos(47, Y, 40), state -> state.is(Blocks.WATER), "Wasser ist nicht wie in der Schematic geflossen");
         assertBlock(server, new BlockPos(48, Y, 40), state -> state.getFluidState().isEmpty(), "Wasser ist weiter geflossen als in der Schematic");
         System.out.println("[EP2-TEST] Fliessendes Wasser wie in der Schematic ok");
+    }
+
+    /**
+     * Baritone (in der Mod mitgeliefert): ein Block 12 Bloecke entfernt, also ausser Reichweite. Der Printer
+     * muss mit Baritone hinlaufen und ihn setzen.
+     */
+    private static void testBaritoneWalk(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos target = new BlockPos(70, Y, 60);
+        server.runCommand(String.format(Locale.ROOT, "fill 55 %d 55 75 %d 65 air", Y, Y + 3));
+        server.runCommand(setblock(target, "stone"));
+        context.waitFor(mc -> mc.level.getBlockState(target).is(Blocks.STONE));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(target, target, "walk"), false);
+            area.setExplicitOrigin(target);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "walk", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Lauf-Schematic konnte nicht erstellt werden");
+            }
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, target, "walk", true, true), false);
+        });
+
+        server.runCommand(setblock(target, "air"));
+        server.runCommand("clear @a");
+        server.runCommand("give @a stone 4");
+        server.runCommand(String.format(Locale.ROOT, "tp @a 58.5 %d 60.5 -90 0", Y));
+        context.waitFor(mc -> mc.level.getBlockState(target).isAir() && mc.player.position().distanceTo(new Vec3(58.5, Y, 60.5)) < 0.5 &&
+                              SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(target).is(Blocks.STONE), 200);
+        context.runOnClient(mc ->
+        {
+            Ep2Configs.PRINTER_USE_BARITONE.setBooleanValue(true);
+            PrinterController.INSTANCE.start();
+        });
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 60);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-baritone-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Baritone haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Spieler " + mc.player.position()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        assertBlock(server, target, state -> state.is(Blocks.STONE), "Printer ist mit Baritone nicht hingelaufen");
+        System.out.println("[EP2-TEST] Mit Baritone hingelaufen und gesetzt ok");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */
