@@ -24,6 +24,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
@@ -107,9 +108,10 @@ public final class WaterFiller
     /** Ein zusammenhaengender Wasser-Bereich der Schematic. */
     private record Body(Set<BlockPos> cells, boolean sealed, List<BlockPos> targets) {}
 
-    private record Plan(List<Body> bodies, int blocked)
+    /** @param logged Ziele, die ein wasserloggbarer Block sind (Treppe, Stufe, Zaun ...): Eimer direkt hinein */
+    private record Plan(List<Body> bodies, int blocked, Set<BlockPos> logged)
     {
-        static final Plan EMPTY = new Plan(List.of(), 0);
+        static final Plan EMPTY = new Plan(List.of(), 0, Set.of());
     }
 
     public WaterFiller(InventoryManager inventory)
@@ -268,7 +270,9 @@ public final class WaterFiller
         }
 
         // Was ohnehin von selbst zur Quelle wird, braucht keinen Eimer
+        // Wassergeloggte Bloecke fuellen sich nie von selbst, sie brauchen immer einen Eimer
         Set<BlockPos> layerSet = new HashSet<>(layer);
+        layerSet.removeAll(this.plan.logged());
         Set<BlockPos> sources = sourcesAround(level, layerSet);
         Set<BlockPos> willFill = closure(level, layerSet, sources, null);
         List<BlockPos> notFilling = layer.stream().filter(p -> !willFill.contains(p)).toList();
@@ -315,7 +319,7 @@ public final class WaterFiller
 
         if (water == 2 && !infinite && remaining > 2)
         {
-            BlockPos[] pair = this.diagonalPair(player, level, layerSet, open);
+            BlockPos[] pair = this.diagonalPair(player, level, layerSet, open.stream().filter(layerSet::contains).toList());
 
             if (pair != null)
             {
@@ -347,6 +351,20 @@ public final class WaterFiller
         return false;
     }
 
+    /** Fehlt hier noch Wasser, und kann es jetzt hinein? */
+    private boolean needsFill(Level level, BlockPos p)
+    {
+        BlockState state = level.getBlockState(p);
+
+        if (this.plan.logged().contains(p))
+        {
+            // Erst muss der Block selbst stehen (setzt der Printer vorher), dann Wasser hinein
+            return state.hasProperty(BlockStateProperties.WATERLOGGED) && !state.getValue(BlockStateProperties.WATERLOGGED);
+        }
+
+        return !isWaterSource(level, p) && canHoldWater(level, p);
+    }
+
     /** Die unterste noch offene Lage des naechsten dichten Bereichs. */
     private List<BlockPos> nextLayer(LocalPlayer player, Level level)
     {
@@ -361,7 +379,7 @@ public final class WaterFiller
                 continue;
             }
 
-            List<BlockPos> open = body.targets().stream().filter(p -> !isWaterSource(level, p) && canHoldWater(level, p)).toList();
+            List<BlockPos> open = body.targets().stream().filter(p -> this.needsFill(level, p)).toList();
 
             if (open.isEmpty())
             {
@@ -386,7 +404,16 @@ public final class WaterFiller
     {
         List<Body> bodies = new ArrayList<>();
         Set<BlockPos> seen = new HashSet<>();
+        Set<BlockPos> logged = new HashSet<>();
         int blocked = 0;
+
+        for (BlockPos t : this.targets)
+        {
+            if (schematic.getBlockState(t).hasProperty(BlockStateProperties.WATERLOGGED))
+            {
+                logged.add(t);
+            }
+        }
 
         for (BlockPos start : this.targets)
         {
@@ -408,7 +435,8 @@ public final class WaterFiller
                 {
                     BlockPos n = p.relative(dir);
 
-                    if (!cells.contains(n) && schematic.getBlockState(n).is(Blocks.WATER))
+                    // Wasser, wassergeloggte Bloecke und Wasserpflanzen gehoeren zum selben Bereich
+                    if (!cells.contains(n) && schematic.getFluidState(n).is(net.minecraft.tags.FluidTags.WATER))
                     {
                         cells.add(n);
                         queue.add(n);
@@ -417,7 +445,7 @@ public final class WaterFiller
             }
 
             seen.addAll(cells);
-            boolean sealed = cells.size() < BODY_LIMIT && isSealed(level, cells);
+            boolean sealed = cells.size() < BODY_LIMIT && isSealed(level, schematic, cells);
             List<BlockPos> bodyTargets = this.targets.stream().filter(cells::contains).toList();
 
             if (!sealed)
@@ -433,19 +461,22 @@ public final class WaterFiller
             EasyPlace2.LOGGER.info("[Printer] {} Wasser nicht dicht (wuerde auslaufen)", blocked);
         }
 
-        return new Plan(bodies, blocked);
+        return new Plan(bodies, blocked, logged);
     }
 
     /** Kann aus dem Bereich nirgends Wasser herauslaufen (zur Seite oder nach unten)? */
-    private static boolean isSealed(Level level, Set<BlockPos> cells)
+    private static boolean isSealed(Level level, Level schematic, Set<BlockPos> cells)
     {
         for (BlockPos p : cells)
         {
+            BlockState own = schematic.getBlockState(p);
+
             for (Direction dir : new Direction[] { Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST, Direction.DOWN })
             {
                 BlockPos n = p.relative(dir);
 
-                if (cells.contains(n))
+                // Aus einem wassergeloggten Block fliesst nichts durch eine volle Seite (z. B. Rueckseite einer Treppe)
+                if (cells.contains(n) || (!own.is(Blocks.WATER) && own.isFaceSturdy(schematic, p, dir)))
                 {
                     continue;
                 }
@@ -671,6 +702,20 @@ public final class WaterFiller
     @Nullable
     private static Aim placeAim(LocalPlayer player, Level level, BlockPos cell)
     {
+        BlockState own = level.getBlockState(cell);
+
+        // Wasserloggbarer Block: den Block selbst anklicken, dann geht das Wasser hinein
+        if (own.hasProperty(BlockStateProperties.WATERLOGGED))
+        {
+            if (own.getValue(BlockStateProperties.WATERLOGGED))
+            {
+                return null;
+            }
+
+            List<BlockHitResult> points = RefillUtil.visiblePoints(player, level, null, cell, null);
+            return points.isEmpty() ? null : new Aim(cell, points.get(0).getDirection(), points.get(0).getLocation());
+        }
+
         for (Direction dir : new Direction[] { Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST })
         {
             BlockPos n = cell.relative(dir);
@@ -1062,7 +1107,7 @@ public final class WaterFiller
             }
             case CONFIRM_PLACE ->
             {
-                if (this.target != null && isWaterSource(level, this.target))
+                if (this.target != null && countsAsSource(level, this.target))
                 {
                     this.placed++;
                     this.planTick = NEVER;
@@ -1147,6 +1192,12 @@ public final class WaterFiller
         if (fill)
         {
             return isInfinite(level, hit.getBlockPos());
+        }
+
+        if (this.neighbor != null && this.neighbor.equals(this.target))
+        {
+            // Wasserloggen: der Block selbst ist getroffen
+            return hit.getBlockPos().equals(this.target);
         }
 
         return hit.getBlockPos().equals(this.neighbor) && hit.getBlockPos().relative(hit.getDirection()).equals(this.target);

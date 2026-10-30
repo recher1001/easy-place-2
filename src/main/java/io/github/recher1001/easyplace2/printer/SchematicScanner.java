@@ -17,6 +17,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 import fi.dy.masa.litematica.data.DataManager;
 import fi.dy.masa.litematica.materials.MaterialCache;
@@ -251,8 +252,23 @@ public final class SchematicScanner
 
         if (StateMatcher.isComplete(current, wanted))
         {
+            // Steht, soll aber Wasser enthalten (wassergeloggt): der WaterFiller kippt einen Eimer hinein
+            if (wanted.hasProperty(BlockStateProperties.WATERLOGGED) && wanted.getValue(BlockStateProperties.WATERLOGGED) &&
+                current.hasProperty(BlockStateProperties.WATERLOGGED) && !current.getValue(BlockStateProperties.WATERLOGGED))
+            {
+                this.water.add(pos.immutable());
+                return;
+            }
+
             this.done++;
             return;
+        }
+
+        // Wasserpflanzen (Seegras, Seetang ...) brauchen dort erst Wasser
+        if (!wanted.hasProperty(BlockStateProperties.WATERLOGGED) && wanted.getFluidState().isSource() &&
+            current.getFluidState().isEmpty() && (current.isAir() || current.canBeReplaced()))
+        {
+            this.water.add(pos.immutable());
         }
 
         // Falsche Bloecke werden nur gezaehlt. Ausnahmen: eigenes Geruest wird ersetzt, und mit

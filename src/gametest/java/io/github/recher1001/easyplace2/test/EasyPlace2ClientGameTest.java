@@ -995,6 +995,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.runCommand(String.format(Locale.ROOT, "fill 18 %d 8 29 %d 16 air", Y, Y + 3));
         server.runCommand(String.format(Locale.ROOT, "fill 20 %d 10 24 %d 14 stone", Y, Y));
         server.runCommand(String.format(Locale.ROOT, "fill 21 %d 11 23 %d 13 water", Y, Y));
+        // Eine wassergeloggte Stufe im Becken: erst Stufe setzen, dann Wasser hinein
+        server.runCommand(setblock(new BlockPos(23, Y, 13), "oak_slab[type=bottom,waterlogged=true]"));
         // Das offene Wasser kurz mit Glas einsperren (das Glas liegt ausserhalb der Schematic)
         server.runCommand(String.format(Locale.ROOT, "fill 25 %d 11 27 %d 13 glass", Y, Y));
         server.runCommand(setblock(open, "water"));
@@ -1027,6 +1029,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.runCommand(String.format(Locale.ROOT, "fill 25 %d 11 27 %d 13 air", Y, Y));
         server.runCommand("clear @a");
         server.runCommand("give @a water_bucket 2");
+        server.runCommand("give @a oak_slab 1");
         // Auf der Wand stehen und ins Becken schauen
         server.runCommand(String.format(Locale.ROOT, "tp @a 22.5 %d 10.5 0 60", Y + 1));
         context.waitFor(mc -> mc.level.getBlockState(new BlockPos(22, Y, 12)).isAir() && mc.level.getBlockState(open).isAir() &&
@@ -1070,7 +1073,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             {
                 BlockState state = s.overworld().getBlockState(p);
 
-                if (state.is(Blocks.WATER) && state.getFluidState().isSource())
+                if (state.getFluidState().is(net.minecraft.tags.FluidTags.WATER) && state.getFluidState().isSource())
                 {
                     n++;
                 }
@@ -1086,10 +1089,13 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             throw new AssertionError("Wasser: nur " + filled + " von 9 Feldern im Becken gefuellt");
         }
 
+        assertBlock(server, new BlockPos(23, Y, 13), state -> state.is(Blocks.OAK_SLAB) &&
+                state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED),
+                "Stufe wurde nicht gesetzt oder nicht mit Wasser gefuellt");
         assertBlock(server, open, BlockState::isAir, "Wasser ohne Wand haette nicht gesetzt werden duerfen (laeuft aus)");
         assertBlock(server, open.east(), state -> state.getFluidState().isEmpty(), "Wasser ist ausgelaufen");
         assertBlock(server, open.west(), state -> state.getFluidState().isEmpty(), "Wasser ist ausgelaufen");
-        System.out.println("[EP2-TEST] Wasser ok: Becken mit 2 Eimern gefuellt, offenes Wasser nicht gesetzt");
+        System.out.println("[EP2-TEST] Wasser ok: Becken mit 2 Eimern gefuellt, Stufe wassergeloggt, offenes Wasser nicht gesetzt");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

@@ -46,10 +46,13 @@ jobs:
             if unzip -l "$j" 2>/dev/null | grep -q 'net/minecraft/client/gui/Font.class'; then JAR="$j"; break; fi
           done
           echo "JAR=$JAR"
-          echo "=== meteor maven"; curl -s https://maven.meteordev.org/snapshots/meteordevelopment/baritone/maven-metadata.xml | head -60
-          echo "=== meteor releases"; curl -s https://maven.meteordev.org/releases/meteordevelopment/baritone/maven-metadata.xml | head -60
-          echo "=== github"; curl -s "https://api.github.com/repos/cabaletta/baritone/releases?per_page=8" | grep -E '"tag_name"|"browser_download_url"' | head -60
-          echo "=== modrinth"; curl -s "https://api.modrinth.com/v2/search?query=baritone&facets=%5B%5B%22versions:1.21.11%22%5D%5D" | head -c 3000; echo
+          for v in 1.20.0 1.12.0; do
+            echo "=== baritone $v"
+            curl -sL -o /tmp/b.jar "https://github.com/cabaletta/baritone/releases/download/v$v/baritone-standalone-fabric-$v.jar" && ls -la /tmp/b.jar
+            unzip -p /tmp/b.jar fabric.mod.json | head -40
+            unzip -l /tmp/b.jar | tail -2
+          done
+          curl -s "https://api.github.com/repos/cabaletta/baritone/releases/tags/v1.20.0" | grep -E '"name"|"body"|"published_at"' | head -5
       # Ist der Artifact-Speicher auf GitHub voll, bleibt der Build trotzdem gruen
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
