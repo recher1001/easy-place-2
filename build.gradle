@@ -20,7 +20,7 @@ repositories {
 		name = 'BaritoneReleases'
 		url = 'https://github.com/'
 		patternLayout {
-			artifact '[organisation]/[module]/releases/download/v[revision]/[module]-standalone-fabric-[revision].[ext]'
+			artifact '[organisation]/[module]/releases/download/v[revision]/[module]-api-fabric-[revision].[ext]'
 		}
 		metadataSources { artifact() }
 		content { includeGroup('cabaletta') }
@@ -42,6 +42,7 @@ dependencies {
 	modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
 
 	// Baritone (nur zum Laufen) wird mit in die .jar gepackt, man muss es nicht extra installieren.
+	// Die "api"-Variante, denn nur sie hat die Schnittstelle baritone.api (bei "standalone" ist alles verschleiert).
 	// Angesprochen wird es weiter per Reflection (BaritoneBridge). LGPL-3.0, unveraendert.
 	modLocalRuntime "cabaletta:baritone:${project.baritone_version}"
 	include "cabaletta:baritone:${project.baritone_version}"
