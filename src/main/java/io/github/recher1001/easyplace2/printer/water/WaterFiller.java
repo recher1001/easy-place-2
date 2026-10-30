@@ -470,13 +470,18 @@ public final class WaterFiller
         for (BlockPos p : cells)
         {
             BlockState own = schematic.getBlockState(p);
+            FluidState fluid = schematic.getFluidState(p);
+            // Fliessendes Wasser der Schematic darf genau so fliessen, wie es dort steht. Weiter zur Seite fliesst es
+            // nur, wenn es noch "Kraft" hat (die letzte Stufe nicht) und nicht gerade nach unten weiterfaellt.
+            boolean spreadsSideways = fluid.isSource() || (fluid.getAmount() > 1 && !cells.contains(p.below()));
 
             for (Direction dir : new Direction[] { Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST, Direction.DOWN })
             {
                 BlockPos n = p.relative(dir);
 
                 // Aus einem wassergeloggten Block fliesst nichts durch eine volle Seite (z. B. Rueckseite einer Treppe)
-                if (cells.contains(n) || (!own.is(Blocks.WATER) && own.isFaceSturdy(schematic, p, dir)))
+                if (cells.contains(n) || (!own.is(Blocks.WATER) && own.isFaceSturdy(schematic, p, dir)) ||
+                    (dir != Direction.DOWN && !spreadsSideways))
                 {
                     continue;
                 }

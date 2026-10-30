@@ -182,6 +182,9 @@ Wasser in der Schematic setzt der Printer mit Eimern, so wie ein Spieler (Option
   jeder Nachbar, in den das Wasser fließen könnte, ist schon ein fester Block. Luft, Gras, Fackeln oder Redstone
   daneben zählen als undicht. Ist ein Bereich nicht dicht (z. B. offen zur Seite), bleibt das Wasser weg, und am
   Ende steht im Chat, wie viel deshalb fehlt.
+- **Fließt das Wasser so, wie es in der Schematic steht** (z. B. eine Quelle, deren Wasser 7 Blöcke weit über den
+  Boden läuft, oder ein Wasserfall), ist das kein Auslaufen: dorthin darf es fließen. Geprüft wird nur, ob es
+  irgendwo *weiter* fließen würde als in der Schematic.
 - **Zuletzt und von unten nach oben:** Erst wird alles andere gebaut, dann kommt das Wasser Lage für Lage.
   Seerosen, Seegras usw. kommen danach.
 - **Sparsam mit unendlichen Quellen:** Ein Feld zwischen zwei Wasserquellen (mit festem Boden) wird von selbst

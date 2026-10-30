@@ -173,6 +173,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testMacro(context, server);
             testChatInvsee(context);
             testWater(context, server);
+            testFlowingWater(context, server);
         }
     }
 
@@ -1096,6 +1097,75 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         assertBlock(server, open.east(), state -> state.getFluidState().isEmpty(), "Wasser ist ausgelaufen");
         assertBlock(server, open.west(), state -> state.getFluidState().isEmpty(), "Wasser ist ausgelaufen");
         System.out.println("[EP2-TEST] Wasser ok: Becken mit 2 Eimern gefuellt, Stufe wassergeloggt, offenes Wasser nicht gesetzt");
+    }
+
+    /**
+     * Fliessendes Wasser, das genau so in der Schematic steht (eine Quelle, die 7 Bloecke weit ueber den Boden
+     * laeuft), ist kein Auslaufen: die Quelle wird gesetzt, und das Wasser fliesst nicht weiter als in der Schematic.
+     */
+    private static void testFlowingWater(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos center = new BlockPos(40, Y, 40);
+        server.runCommand(String.format(Locale.ROOT, "fill 31 %d 31 49 %d 49 air", Y, Y + 3));
+        server.runCommand(setblock(center, "water"));
+        // Ausbreiten lassen (7 Bloecke, je 5 Ticks)
+        context.waitTicks(80);
+        context.waitFor(mc -> mc.level.getBlockState(new BlockPos(47, Y, 40)).is(Blocks.WATER));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            BlockPos min = new BlockPos(32, Y - 1, 32);
+            area.addSubRegionBox(new Box(min, new BlockPos(48, Y, 48), "flow"), false);
+            area.setExplicitOrigin(min);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "flow", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Schematic mit fliessendem Wasser konnte nicht erstellt werden");
+            }
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, min, "flow", true, true), false);
+        });
+
+        server.runCommand(setblock(center, "air"));
+        server.runCommand(String.format(Locale.ROOT, "fill 31 %d 31 49 %d 49 air replace water", Y, Y));
+        context.waitTicks(60);
+        server.runCommand(String.format(Locale.ROOT, "fill 31 %d 31 49 %d 49 air replace water", Y, Y));
+        server.runCommand("clear @a");
+        server.runCommand("give @a water_bucket 1");
+        server.runCommand(String.format(Locale.ROOT, "tp @a 40.5 %d 37.5 0 50", Y));
+        context.waitFor(mc -> !mc.level.getBlockState(new BlockPos(43, Y, 40)).is(Blocks.WATER) &&
+                              mc.player.getInventory().countItem(Items.WATER_BUCKET) == 1);
+        context.waitFor(mc -> SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(center).is(Blocks.WATER), 200);
+        context.runOnClient(mc -> PrinterController.INSTANCE.start());
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 1200);
+        }
+        catch (AssertionError e)
+        {
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Fliessendes Wasser haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + ")"));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        context.waitTicks(80);
+        assertBlock(server, center, state -> state.is(Blocks.WATER) && state.getFluidState().isSource(),
+                "Quelle mit fliessendem Wasser wie in der Schematic wurde nicht gesetzt");
+        assertBlock(server, new BlockPos(47, Y, 40), state -> state.is(Blocks.WATER), "Wasser ist nicht wie in der Schematic geflossen");
+        assertBlock(server, new BlockPos(48, Y, 40), state -> state.getFluidState().isEmpty(), "Wasser ist weiter geflossen als in der Schematic");
+        System.out.println("[EP2-TEST] Fliessendes Wasser wie in der Schematic ok");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */
