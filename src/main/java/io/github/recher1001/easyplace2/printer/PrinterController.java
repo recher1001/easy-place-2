@@ -1988,7 +1988,10 @@ public final class PrinterController
             BlockPos top = cells.get(cells.size() - 1);
             BlockPos feet = player.blockPosition();
 
-            if (player.onGround() && feet.getX() == top.getX() && feet.getZ() == top.getZ() && feet.getY() == top.getY() + 1)
+            // Mittig oben drauf (sonst steht man halb auf dem Nachbarblock und faellt beim Abbauen nicht mit)
+            boolean centered = Math.abs(player.getX() - (top.getX() + 0.5)) < 0.2 && Math.abs(player.getZ() - (top.getZ() + 0.5)) < 0.2;
+
+            if (player.onGround() && centered && feet.getX() == top.getX() && feet.getZ() == top.getZ() && feet.getY() == top.getY() + 1)
             {
                 Set<BlockPos> set = new HashSet<>(cells);
 

@@ -44,6 +44,8 @@ public final class PathWalker
     private Vec3 lastPos = Vec3.ZERO;
     private boolean sprint;
     private boolean keysDown;
+    /** Genau auf dem Stehplatz anhalten (mittig), z. B. oben auf einem Turm. */
+    private boolean exact;
 
     private PathWalker()
     {
@@ -64,7 +66,7 @@ public final class PathWalker
 
         List<BlockPos> list = spots.size() > 64 ? spots.subList(0, 64) : List.copyOf(spots);
         java.util.Set<BlockPos> set = new java.util.HashSet<>(list);
-        return this.go(new PathFinder.Goal()
+        boolean ok = this.go(new PathFinder.Goal()
         {
             @Override
             public boolean reached(BlockPos feet)
@@ -85,6 +87,8 @@ public final class PathWalker
                 return best;
             }
         });
+        this.exact = true;
+        return ok;
     }
 
     /** Laeuft irgendwohin, wo die Fuesse hoechstens {@code range} Bloecke von {@code pos} entfernt sind. */
@@ -137,6 +141,7 @@ public final class PathWalker
         }
 
         this.release(mc.options);
+        this.exact = false;
         this.goal = goal;
         this.replans = 0;
         this.sprint = Ep2Configs.PRINTER_SPRINT.getBooleanValue();
@@ -232,7 +237,25 @@ public final class PathWalker
 
         if (this.goal != null && player.onGround() && this.goal.reached(feet))
         {
-            this.cancel();
+            double cx = feet.getX() + 0.5 - player.getX(), cz = feet.getZ() + 0.5 - player.getZ();
+
+            if (!this.exact || cx * cx + cz * cz < 0.12 * 0.12)
+            {
+                this.cancel();
+                return;
+            }
+
+            // Genau in die Mitte des Platzes, langsam (schleichend), damit man nicht halb auf dem Nachbarblock steht
+            this.press(options, player.getYRot(), cx, cz, false);
+            options.keyShift.setDown(true);
+            options.keyJump.setDown(false);
+            this.keysDown = true;
+
+            if (++this.stillTicks > 40)
+            {
+                this.cancel();
+            }
+
             return;
         }
 
@@ -317,10 +340,8 @@ public final class PathWalker
             right = (rx * mx + rz * mz) / len;
         }
 
-        options.keyUp.setDown(forward > 0.38);
-        options.keyDown.setDown(forward < -0.38);
-        options.keyRight.setDown(right > 0.38);
-        options.keyLeft.setDown(right < -0.38);
+        this.press(options, player.getYRot(), mx, mz, false);
+        options.keyShift.setDown(false);
 
         // Sprinten nur geradeaus und nicht kurz vor dem Ziel
         boolean straight = forward > 0.92 && this.path.size() - this.index > 3;
@@ -331,6 +352,27 @@ public final class PathWalker
         boolean up = node.getY() > prev.getY() && len < 1.6;
         options.keyJump.setDown(player.onGround() && (up || (player.horizontalCollision && len > 0.2 && node.getY() >= feet.getY())));
         this.keysDown = true;
+    }
+
+    /** Die Lauftasten druecken, die (beim aktuellen Blick) in Richtung (mx, mz) fuehren. */
+    private void press(Options options, float yaw, double mx, double mz, boolean unused)
+    {
+        double len = Math.sqrt(mx * mx + mz * mz);
+        double forward = 0, right = 0;
+
+        if (len > 1.0E-3)
+        {
+            double rad = Math.toRadians(yaw);
+            double fx = -Math.sin(rad), fz = Math.cos(rad);
+            double rx = -Math.cos(rad), rz = -Math.sin(rad);
+            forward = (fx * mx + fz * mz) / len;
+            right = (rx * mx + rz * mz) / len;
+        }
+
+        options.keyUp.setDown(forward > 0.38);
+        options.keyDown.setDown(forward < -0.38);
+        options.keyRight.setDown(right > 0.38);
+        options.keyLeft.setDown(right < -0.38);
     }
 
     private void release(Options options)
@@ -346,6 +388,7 @@ public final class PathWalker
         options.keyRight.setDown(false);
         options.keyJump.setDown(false);
         options.keySprint.setDown(false);
+        options.keyShift.setDown(false);
         AimController.INSTANCE.stop();
         this.keysDown = false;
     }
