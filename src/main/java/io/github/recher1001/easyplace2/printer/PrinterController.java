@@ -1110,7 +1110,12 @@ public final class PrinterController
         }
 
         // Die Schematic faengt weiter oben an: nicht unten herumlaufen und Wege suchen, sondern in der Naehe hochbauen
-        if (lowest - player.getBlockY() >= TowerUp.MIN_HEIGHT && this.tryTower(mc, player, level, schematic, snap, layer, lowest, now))
+        // (auch schon ab 2 Bloecken, wenn der Weg zu so einem Block gerade nicht ging: vom Boden aus sieht man die
+        // Oberseite darunter nicht, und das eigene Laufen setzt unterwegs keine Bloecke)
+        int gap = lowest - player.getBlockY();
+        boolean stuckBelow = gap >= 2 && layer.stream().anyMatch(t -> t.pos().getY() == lowest && this.nearFailedArea(t.pos()));
+
+        if ((gap >= TowerUp.MIN_HEIGHT || stuckBelow) && this.tryTower(mc, player, level, schematic, snap, layer, lowest, now))
         {
             return;
         }
