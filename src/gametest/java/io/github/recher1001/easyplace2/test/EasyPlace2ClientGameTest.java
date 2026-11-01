@@ -175,6 +175,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testWater(context, server);
             testFlowingWater(context, server);
             testBaritoneWalk(context, server);
+            testBridge(context, server);
         }
     }
 
@@ -1258,6 +1259,101 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         }
 
         System.out.println(String.format(Locale.ROOT, "[EP2-TEST] Mit Baritone zu 4 Bloecken gelaufen und gesetzt ok (%.1f s)", seconds));
+    }
+
+    /**
+     * Bauen ueber Luft: auf einer Saeule stehend eine Linie von 6 Bloecken hinaus bauen (darunter ist Luft).
+     * Der Printer muss schleichend an die Kante gehen und jeweils an die Seite des letzten Blocks setzen,
+     * ohne herunterzufallen.
+     */
+    private static void testBridge(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos pillarTop = new BlockPos(100, Y + 2, 70);
+        BlockPos last = new BlockPos(106, Y + 2, 70);
+        server.runCommand(String.format(Locale.ROOT, "fill 95 %d 65 112 %d 75 air", Y, Y + 6));
+        server.runCommand(String.format(Locale.ROOT, "fill 100 %d 70 106 %d 70 stone", Y + 2, Y + 2));
+        server.runCommand(String.format(Locale.ROOT, "fill 100 %d 70 100 %d 70 stone", Y, Y + 2));
+        context.waitFor(mc -> mc.level.getBlockState(last).is(Blocks.STONE));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(pillarTop, last, "bridge"), false);
+            area.setExplicitOrigin(pillarTop);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "bridge", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            if (schematic == null)
+            {
+                throw new AssertionError("Bruecken-Schematic konnte nicht erstellt werden");
+            }
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, pillarTop, "bridge", true, true), false);
+        });
+
+        server.runCommand(String.format(Locale.ROOT, "fill 101 %d 70 106 %d 70 air", Y + 2, Y + 2));
+        server.runCommand("clear @a");
+        server.runCommand("give @a stone 16");
+        server.runCommand(String.format(Locale.ROOT, "tp @a 100.5 %d 70.5 90 30", Y + 3));
+        context.waitFor(mc -> mc.level.getBlockState(last).isAir() && mc.player.position().distanceTo(new Vec3(100.5, Y + 3, 70.5)) < 0.5 &&
+                              SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(last).is(Blocks.STONE), 200);
+        context.runOnClient(mc -> PrinterController.INSTANCE.start());
+        long startNs = System.nanoTime();
+        double[] lowestY = { Double.MAX_VALUE };
+
+        try
+        {
+            context.waitFor(mc ->
+            {
+                lowestY[0] = Math.min(lowestY[0], mc.player.getY());
+                return !PrinterController.INSTANCE.isRunning();
+            }, 20 * 90);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-bridge-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Bruecke haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Spieler " + mc.player.position()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        double seconds = (System.nanoTime() - startNs) / 1.0E9;
+        context.takeScreenshot("easyplace2-bridge-done");
+        context.runOnClient(mc -> mc.options.keyShift.setDown(false));
+        int placed = server.computeOnServer(srv ->
+        {
+            int n = 0;
+
+            for (int x = 101; x <= 106; x++)
+            {
+                if (srv.overworld().getBlockState(new BlockPos(x, Y + 2, 70)).is(Blocks.STONE))
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        });
+
+        if (placed != 6)
+        {
+            throw new AssertionError("Bruecke: nur " + placed + " von 6 Bloecken ueber der Luft gesetzt");
+        }
+
+        if (lowestY[0] < Y + 2.9)
+        {
+            throw new AssertionError("Bruecke: der Spieler ist heruntergefallen (tiefstes y = " + lowestY[0] + ")");
+        }
+
+        System.out.println(String.format(Locale.ROOT, "[EP2-TEST] Bruecke ueber Luft (schleichend an der Kante) ok (%.1f s)", seconds));
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

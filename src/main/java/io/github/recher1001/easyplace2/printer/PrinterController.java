@@ -62,7 +62,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, WATERING, LANE_WALKING, MOVING, AIMING, CLICKING, WAITING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, WATERING, BRIDGING, LANE_WALKING, MOVING, AIMING, CLICKING, WAITING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -114,6 +114,9 @@ public final class PrinterController
     private boolean walkingNear;
     /** Bloecke, die von "irgendwo in der Naehe" nicht gingen (z. B. Treppe falsch herum): genau planen. */
     private final Set<BlockPos> preciseWalk = new HashSet<>();
+    /** Bauen ueber Luft: an die Kante schleichen und an die Seite setzen. */
+    private final EdgeBridge bridge = new EdgeBridge();
+    private final Map<BlockPos, Integer> bridgeAttempts = new HashMap<>();
     private long moveStartTick;
     private Vec3 moveStartPos = Vec3.ZERO;
     private final Map<BlockPos, Integer> unloadedAttempts = new HashMap<>();
@@ -202,6 +205,7 @@ public final class PrinterController
         this.blacklist.clear();
         this.moveAttempts.clear();
         this.preciseWalk.clear();
+        this.bridgeAttempts.clear();
         this.missingMaterials.clear();
         this.pending.clear();
         this.placed = 0;
@@ -229,6 +233,7 @@ public final class PrinterController
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
         this.water.cancel(mc);
+        this.bridge.stop(mc);
         this.walker.cancel(mc);
         this.inventory.cancel(mc);
         BaritoneBridge.cancel();
@@ -506,6 +511,18 @@ public final class PrinterController
                 else
                 {
                     this.detail = this.water.detail();
+                }
+            }
+            case BRIDGING ->
+            {
+                EdgeBridge.Result result = this.bridge.tick(mc, this.canWalk());
+
+                if (result != EdgeBridge.Result.RUNNING)
+                {
+                    // An der Kante angekommen: jetzt normal setzen (die Schleichtaste bleibt gedrueckt)
+                    this.bridge.finish();
+                    this.setState(State.SELECTING, "");
+                    this.stateTicks = 1;
                 }
             }
             case LANE_WALKING ->
@@ -862,6 +879,20 @@ public final class PrinterController
             return;
         }
 
+        // Ueber Luft (kein Boden darunter): an die Kante schleichen und an die Seite des letzten Blocks setzen,
+        // wie ein Spieler, der eine Bruecke baut. Geht auch ohne Baritone, wenn man schon auf der Linie steht.
+        EdgeBridge.Plan bridgePlan = EdgeBridge.find(player, level, layer.stream().map(SchematicScanner.Target::pos)
+                .filter(p -> this.bridgeAttempts.getOrDefault(p, 0) < 3 && !this.blacklist.containsKey(p)).toList());
+
+        if (bridgePlan != null)
+        {
+            this.bridgeAttempts.merge(bridgePlan.target(), 1, Integer::sum);
+            this.bridge.start(bridgePlan);
+            AimController.INSTANCE.stop();
+            this.setState(State.BRIDGING, bridgePlan.target().toShortString());
+            return;
+        }
+
         // Nichts in Reichweite: in Bahnen zum naechsten Platz mit Arbeit (geht auch ohne Baritone, wenn geradeaus)
         if (Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() && now >= this.laneFailUntil)
         {
@@ -898,14 +929,17 @@ public final class PrinterController
         }
 
         // Schnell: einfach zum naechsten Block laufen; Baritone sucht den Weg, angehalten wird, sobald er in Reichweite ist
+        // Nur Bloecke, die wirklich ausser Reichweite sind: die nahen gingen von hier aus ja gerade nicht
         SchematicScanner.Target nearest = layer.stream()
-                .filter(t -> !this.preciseWalk.contains(t.pos()) && this.moveAttempts.getOrDefault(t.pos(), 0) < 2)
+                .filter(t -> !this.preciseWalk.contains(t.pos()) && this.moveAttempts.getOrDefault(t.pos(), 0) < 2 &&
+                             Vec3.atCenterOf(t.pos()).distanceTo(eye) > maxDist)
                 .min(Comparator.comparingDouble(t -> t.pos().distToCenterSqr(eye)))
                 .orElse(null);
         int nearRange = Math.max(2, (int) Math.floor(maxDist - 1.0));
 
         if (nearest != null && StandSpots.anyStandable(level, nearest.pos(), nearRange) && BaritoneBridge.goNear(nearest.pos(), nearRange))
         {
+            this.bridge.release(Minecraft.getInstance());
             AimController.INSTANCE.stop();
             this.moveTarget = nearest.pos();
             this.walkingNear = true;
@@ -964,6 +998,7 @@ public final class PrinterController
 
             if (BaritoneBridge.goToAny(spots))
             {
+                this.bridge.release(Minecraft.getInstance());
                 AimController.INSTANCE.stop();
                 this.moveTarget = t.pos();
                 this.walkingNear = false;
@@ -1026,7 +1061,7 @@ public final class PrinterController
         }
 
         // Baritone braucht einen Moment, bis der Weg berechnet ist
-        if (this.stateTicks < 10 || BaritoneBridge.isBusy())
+        if (this.stateTicks < 4 || BaritoneBridge.isBusy())
         {
             // Zu lange unterwegs oder seit Sekunden kein Stueck weitergekommen: anderes Ziel nehmen
             boolean stuck = this.stateTicks >= 10 && this.watchdog.stuckWhileMoving(player.position());
@@ -1280,6 +1315,7 @@ public final class PrinterController
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
         this.water.cancel(mc);
+        this.bridge.stop(mc);
         this.walker.cancel(mc);
         this.inventory.cancel(mc);
     }
