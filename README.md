@@ -180,8 +180,11 @@ Drückst du **ESC**, schreibst im **Chat** oder hast das **Printer-Menü** offen
 ## Repeater, Komparatoren und falsche Ausrichtung
 
 - **Einstellen** (Menü → Verhalten → „Repeater & Komparatoren einstellen“, standardmäßig an): Repeater-
-  Verzögerung, Komparator-Modus (vergleichen/subtrahieren), Ton von Notenblöcken und umgekehrte
-  Tageslichtsensoren stellt der Printer per Rechtsklick so ein wie in der Schematic. Das macht er gleich,
+  Verzögerung, Komparator-Modus (vergleichen/subtrahieren), Ton von Notenblöcken, umgekehrte
+  Tageslichtsensoren, Hebel (an/aus) sowie Türen, Falltüren und Zauntore (offen/zu) stellt der Printer per
+  Rechtsklick so ein wie in der Schematic. Türen, die gerade Redstone offen hält, und Eisentüren lässt er
+  in Ruhe. Knöpfe drückt er nicht, die gehen nach einer Sekunde von selbst wieder aus (ihre Ausrichtung
+  wird aber geprüft). Das macht er gleich,
   solange sie in Reichweite sind, und am Ende auch bei denen weiter weg. Wie ein Spieler: hinschauen,
   normaler Rechtsklick, nie schleichend.
 - **Ausrichtung korrigieren** (standardmäßig an): Steht der richtige Block falsch herum (Repeater in die
@@ -219,6 +222,22 @@ Wasser in der Schematic setzt der Printer mit Eimern, so wie ein Spieler (Option
 - **Wasserpflanzen** (Seegras, Seetang …): dort kommt zuerst das Wasser hin, danach die Pflanze.
 - Fließendes Wasser in der Schematic wird nicht gesetzt, das entsteht von selbst.
 
+## Hochbauen, wenn die Schematic weiter oben ist
+
+Fängt die Schematic 4 oder mehr Blöcke über deinen Füßen an, läuft der Printer nicht unten herum, sondern
+baut sich hoch, wie ein Spieler:
+
+1. Er sucht einen Platz in deiner Nähe, direkt neben den untersten Blöcken der Schematic (nie darunter,
+   nur wo die Schematic Luft will).
+2. Er läuft hin, schaut senkrecht nach unten, springt und setzt im Sprung einen Gerüst-Block unter sich,
+   bis er auf Höhe der untersten Schicht steht.
+3. Dann baut er von dort aus los. Der oberste Turm-Block liegt direkt neben dem ersten Block, daran wird
+   gleich gesetzt.
+4. Am Ende stellt er sich oben auf den Turm und baut ihn Block für Block nach unten ab.
+
+Dafür braucht er Gerüst-Blöcke aus `printerScaffoldItems` (Erde, Bruchstein, Netherrack …), etwa so viele, wie
+der Turm hoch ist. Fehlen sie, sagt er es im Chat.
+
 ## Gerüst und Festhängen
 
 **Gerüst (Menü → Laufen → „Gerüst setzen“, standardmäßig an):** Kommt der Printer an einen Block vom Boden
@@ -239,8 +258,8 @@ der Schematic.
 
 **Nie endlos im Kreis:** Ein Aufpasser prüft die ganze Zeit, ob es vorangeht.
 
-- Steckt der Spieler beim Laufen fest (2 Sekunden kein Stück weiter), nimmt der Printer ein anderes
-  Ziel. Findet Baritone keinen Weg, zählt das als Fehlversuch, und nach ein paar Versuchen wird der Block
+- Steckt der Spieler beim Laufen fest (2 Sekunden kein Stück weiter) oder kommt er dem Ziel 4 Sekunden lang
+  nicht näher (Baritone irrt herum), nimmt der Printer ein anderes Ziel. Findet Baritone keinen Weg, zählt das als Fehlversuch, und nach ein paar Versuchen wird der Block
   übersprungen.
 - Wird eine Zeit lang (Menü → Laufen → „Feststecken nach“, Standard 90 s) weder ein Block gesetzt noch Gerüst
   abgebaut, greift er stufenweise ein:

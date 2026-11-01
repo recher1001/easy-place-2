@@ -7,6 +7,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.BlockHitResult;
@@ -19,7 +24,8 @@ import io.github.recher1001.easyplace2.printer.refill.RefillUtil;
 
 /**
  * Einstellungen, die man nach dem Setzen per Rechtsklick waehlt: Repeater-Verzoegerung, Komparator-Modus
- * (vergleichen/subtrahieren), Ton eines Notenblocks, Tageslichtsensor umgekehrt.
+ * (vergleichen/subtrahieren), Ton eines Notenblocks, Tageslichtsensor umgekehrt, Hebel an/aus, Tueren,
+ * Falltueren und Zauntore offen/zu. Knoepfe nicht: die gehen nach einer Sekunde von selbst wieder aus.
  * <p>
  * Wie ein Spieler: auf den Block schauen, das echte Fadenkreuz muss darauf liegen, normaler Rechtsklick
  * (nie schleichend, sonst wuerde das Item in der Hand gesetzt). Nach jedem Klick wird der neue Zustand
@@ -79,6 +85,27 @@ public final class BlockAdjuster
         if (wanted.hasProperty(BlockStateProperties.INVERTED))
         {
             return current.getValue(BlockStateProperties.INVERTED).equals(wanted.getValue(BlockStateProperties.INVERTED)) ? 0 : 1;
+        }
+
+        // Hebel: an oder aus
+        if (wanted.getBlock() instanceof LeverBlock)
+        {
+            return current.getValue(BlockStateProperties.POWERED).equals(wanted.getValue(BlockStateProperties.POWERED)) ? 0 : 1;
+        }
+
+        // Tueren, Falltueren, Zauntore: offen oder zu. Nicht, wenn Redstone sie gerade haelt (oder in der Schematic
+        // hielt), das stellt sich von selbst ein. Eisentueren gehen per Hand gar nicht.
+        if (wanted.hasProperty(BlockStateProperties.OPEN) &&
+            (wanted.getBlock() instanceof DoorBlock || wanted.getBlock() instanceof TrapDoorBlock || wanted.getBlock() instanceof FenceGateBlock) &&
+            !wanted.is(Blocks.IRON_DOOR) && !wanted.is(Blocks.IRON_TRAPDOOR))
+        {
+            if (wanted.hasProperty(BlockStateProperties.POWERED) &&
+                (current.getValue(BlockStateProperties.POWERED) || wanted.getValue(BlockStateProperties.POWERED)))
+            {
+                return 0;
+            }
+
+            return current.getValue(BlockStateProperties.OPEN).equals(wanted.getValue(BlockStateProperties.OPEN)) ? 0 : 1;
         }
 
         return 0;

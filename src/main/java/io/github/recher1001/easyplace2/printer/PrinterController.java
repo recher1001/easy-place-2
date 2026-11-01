@@ -62,7 +62,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, FIXING, ADJUSTING, WATERING, BRIDGING, SUPPORTING, LANE_WALKING, MOVING, AIMING, CLICKING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, FIXING, ADJUSTING, WATERING, BRIDGING, SUPPORTING, TOWERING, LANE_WALKING, MOVING, AIMING, CLICKING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -85,6 +85,8 @@ public final class PrinterController
     private static final int NO_START_TICKS = 25;
     /** Steht der Spieler waehrend des Laufens so lange (Ticks) still: abbrechen und anders probieren. */
     private static final int STUCK_WALK_TICKS = 40;
+    /** Kommt der Spieler so lange (Ticks) dem Ziel nicht naeher (Baritone irrt herum): anders probieren. */
+    private static final int NO_CLOSER_TICKS = 20 * 4;
 
     private final SchematicScanner scanner = new SchematicScanner();
     private final InventoryManager inventory = new InventoryManager();
@@ -105,6 +107,15 @@ public final class PrinterController
     private final Map<BlockPos, Long> failedAreas = new HashMap<>();
     private int adjusted;
     @Nullable private BlockPos reorienterTarget;
+    /** Hochbauen, wenn die Schematic weiter oben anfaengt. */
+    private final TowerUp tower = new TowerUp();
+    @Nullable private TowerUp.Plan towerPlan;
+    /** Gebaute Tuerme (am Ende von oben nach unten wieder abbauen, dabei oben draufstellen). */
+    private final List<TowerUp.Plan> towers = new ArrayList<>();
+    private final Map<TowerUp.Plan, Integer> towerWalks = new HashMap<>();
+    private boolean towerHintShown;
+    private double bestMoveDist;
+    private long bestMoveTick;
     private final LaneMiner laneMiner = new LaneMiner();
     private final BuildLanes buildLanes = new BuildLanes();
     private final LaneWalker walker = new LaneWalker();
@@ -230,6 +241,10 @@ public final class PrinterController
         this.injected.clear();
         this.failedAreas.clear();
         this.adjusted = 0;
+        this.towerPlan = null;
+        this.towers.clear();
+        this.towerWalks.clear();
+        this.towerHintShown = false;
         this.laneMiner.reset();
         this.buildLanes.reset();
         this.laneFailUntil = 0;
@@ -273,6 +288,7 @@ public final class PrinterController
         this.water.cancel(mc);
         this.reorienter.cancel(mc);
         this.adjuster.cancel();
+        this.tower.stop(mc);
         this.bridge.stop(mc);
         this.support.cancel();
         this.walker.cancel(mc);
@@ -559,6 +575,30 @@ public final class PrinterController
                     this.detail = this.reorienter.detail();
                 }
             }
+            case TOWERING ->
+            {
+                int before = this.tower.placed();
+                TowerUp.Result result = this.tower.tick(mc);
+
+                if (this.tower.placed() > before)
+                {
+                    this.watchdog.progress();
+                }
+
+                if (result != TowerUp.Result.RUNNING)
+                {
+                    if (result == TowerUp.Result.FAILED && this.towerPlan != null)
+                    {
+                        // Hier geht es nicht hoch: woanders probieren
+                        debug("Hochbauen ging nicht bei {}", this.towerPlan.ground().toShortString());
+                        this.blacklist.put(this.towerPlan.ground(), now + BLACKLIST_TICKS);
+                    }
+
+                    this.towerPlan = null;
+                    this.setState(State.SELECTING, "");
+                    this.stateTicks = 1;
+                }
+            }
             case ADJUSTING ->
             {
                 BlockPos at = this.adjuster.pos();
@@ -804,6 +844,13 @@ public final class PrinterController
                 return;
             }
 
+            // Tuerme: oben draufstellen und Block fuer Block nach unten abbauen (nie von der Seite, sonst kommt man
+            // vom gebauten Teil nicht mehr herunter)
+            if (snap.missing().isEmpty() && this.descendTower(player, level, schematic, now))
+            {
+                return;
+            }
+
             // Hier ist alles gebaut: erst alles Geruest wieder abbauen, dann fertig (oder zum naechsten Teil laufen)
             if (snap.missing().isEmpty() && this.cleaner.start(player, level, schematic, p -> true, now))
             {
@@ -1023,6 +1070,12 @@ public final class PrinterController
         // Hier gibt es gerade nichts zu setzen: bevor weitergelaufen wird, falsch herum stehende Bloecke in der Naehe
         // abbauen (danach werden sie gleich richtig gesetzt)
         if (this.tryReorient(mc, player, level, schematic, now, false))
+        {
+            return;
+        }
+
+        // Die Schematic faengt weiter oben an: nicht unten herumlaufen und Wege suchen, sondern in der Naehe hochbauen
+        if (lowest - player.getBlockY() >= TowerUp.MIN_HEIGHT && this.tryTower(mc, player, level, schematic, snap, layer, lowest, now))
         {
             return;
         }
@@ -1268,6 +1321,29 @@ public final class PrinterController
             return;
         }
 
+        // Kommt er dem Ziel seit Sekunden nicht naeher (Baritone irrt z. B. unten herum, obwohl das Ziel oben ist):
+        // nicht endlos weiterlaufen, sondern etwas anderes probieren
+        if (this.moveTarget != null)
+        {
+            double dist = Vec3.atCenterOf(this.moveTarget).distanceTo(player.position());
+
+            if (this.stateTicks <= 1 || dist < this.bestMoveDist - 0.5)
+            {
+                this.bestMoveDist = dist;
+                this.bestMoveTick = now;
+            }
+            else if (now - this.bestMoveTick > NO_CLOSER_TICKS)
+            {
+                debug("Laufen abgebrochen (kommt nicht naeher), Ziel {}", this.moveTarget.toShortString());
+                BaritoneBridge.cancel();
+                BaritoneBridge.setScaffold(false, List.of());
+                this.markFailed(this.moveTarget, now);
+                this.setState(State.SELECTING, "");
+                this.stateTicks = 1;
+                return;
+            }
+        }
+
         // Baritone braucht einen Moment, bis der Weg berechnet ist
         if (this.stateTicks < 4 || BaritoneBridge.isBusy())
         {
@@ -1293,7 +1369,8 @@ public final class PrinterController
         BaritoneBridge.setScaffold(false, List.of());
 
         // Kein Weg gefunden (kaum vom Fleck gekommen): zaehlt als Fehlversuch, und erst einmal etwas anderes probieren
-        if (this.moveTarget != null && player.position().distanceTo(this.moveStartPos) < 1.0)
+        if (this.moveTarget != null && player.position().distanceTo(this.moveStartPos) < 1.0 &&
+            Vec3.atBottomCenterOf(this.moveTarget).distanceTo(player.position()) > 1.5)
         {
             this.moveAttempts.merge(this.moveTarget, 1, Integer::sum);
             this.markFailed(this.moveTarget, now);
@@ -1496,6 +1573,7 @@ public final class PrinterController
         this.water.cancel(mc);
         this.reorienter.cancel(mc);
         this.adjuster.cancel();
+        this.tower.stop(mc);
         this.bridge.stop(mc);
         this.support.cancel();
         this.walker.cancel(mc);
@@ -1735,6 +1813,162 @@ public final class PrinterController
     public int getAdjusted()
     {
         return this.adjusted;
+    }
+
+    /**
+     * Hochbauen: einen Platz neben den untersten Bloecken suchen (nah am Spieler), hinlaufen, Turm bauen.
+     *
+     * @return true, wenn etwas gestartet wurde
+     */
+    private boolean tryTower(Minecraft mc, LocalPlayer player, ClientLevel level, Level schematic, SchematicScanner.Snapshot snap,
+                             List<SchematicScanner.Target> layer, int lowest, long now)
+    {
+        TowerUp.Plan plan = this.towerPlan;
+
+        if (plan == null || plan.topFeetY() != lowest + 1 || this.blacklist.containsKey(plan.ground()))
+        {
+            List<BlockPos> cells = layer.stream().map(SchematicScanner.Target::pos).filter(p -> p.getY() == lowest).toList();
+            plan = TowerUp.find(player, level, schematic, cells, lowest, this.blacklist::containsKey);
+        }
+
+        if (plan == null)
+        {
+            debug("Kein Platz zum Hochbauen gefunden (unterste Schicht y={})", lowest);
+            return false;
+        }
+
+        this.towerPlan = plan;
+        Item item = SupportBlocks.item(player);
+        int height = plan.topFeetY() - Math.max(plan.ground().getY(), TowerUp.atGround(player, plan) ? player.getBlockY() : plan.ground().getY());
+
+        if (item == null || InventoryManager.countItem(player, item) < height)
+        {
+            if (!this.towerHintShown)
+            {
+                this.towerHintShown = true;
+                message(Component.translatable("easyplace2.printer.msg.no_tower_item", Math.max(1, height)).withStyle(ChatFormatting.GOLD));
+            }
+
+            this.towerPlan = null;
+            return false;
+        }
+
+        if (TowerUp.atGround(player, plan))
+        {
+            if (!player.getMainHandItem().is(item))
+            {
+                if (this.inventory.request(player, item, snap.neededItems().keySet()))
+                {
+                    this.setState(State.FETCHING_ITEM, new ItemStack(item).getHoverName().getString());
+                    return true;
+                }
+
+                return false;
+            }
+
+            this.bridge.release(mc);
+            AimController.INSTANCE.stop();
+            this.tower.start(plan);
+
+            if (!this.towers.contains(plan))
+            {
+                this.towers.add(plan);
+            }
+
+            this.setState(State.TOWERING, String.valueOf(height));
+            return true;
+        }
+
+        // Erst hinlaufen (am Boden, also ein Weg, den Baritone sofort findet)
+        if (this.canWalk() && BaritoneBridge.goToAny(List.of(plan.ground())))
+        {
+            this.bridge.release(mc);
+            AimController.INSTANCE.stop();
+            this.moveTarget = plan.ground();
+            this.walkingNear = false;
+            this.moveStartTick = now;
+            this.moveStartPos = player.position();
+            this.watchdog.startMoving(player.position());
+            this.setState(State.MOVING, plan.ground().toShortString());
+            return true;
+        }
+
+        if (LaneWalker.directWalkable(level, player.position(), plan.ground(), 0.3))
+        {
+            this.bridge.release(mc);
+            AimController.INSTANCE.stop();
+            this.directWalk = true;
+            this.walker.startToward(plan.ground(), player, 0.3, Ep2Configs.PRINTER_SPRINT.getBooleanValue());
+            this.setState(State.LANE_WALKING, plan.ground().toShortString());
+            return true;
+        }
+
+        this.blacklist.put(plan.ground(), now + TRY_OTHER_TICKS);
+        this.towerPlan = null;
+        return false;
+    }
+
+    /**
+     * Am Ende: auf den zuletzt gebauten Turm stellen und ihn von oben nach unten abbauen.
+     *
+     * @return true, wenn etwas gestartet wurde
+     */
+    private boolean descendTower(LocalPlayer player, ClientLevel level, Level schematic, long now)
+    {
+        Set<BlockPos> tracked = ScaffoldTracker.INSTANCE.positions();
+
+        while (!this.towers.isEmpty())
+        {
+            TowerUp.Plan plan = this.towers.get(this.towers.size() - 1);
+            List<BlockPos> cells = new ArrayList<>();
+
+            for (int y = plan.ground().getY(); y < plan.topFeetY(); y++)
+            {
+                BlockPos p = new BlockPos(plan.ground().getX(), y, plan.ground().getZ());
+
+                if (tracked.contains(p) && !level.getBlockState(p).isAir())
+                {
+                    cells.add(p);
+                }
+            }
+
+            if (cells.isEmpty())
+            {
+                this.towers.remove(this.towers.size() - 1);
+                continue;
+            }
+
+            BlockPos top = cells.get(cells.size() - 1);
+            BlockPos feet = player.blockPosition();
+
+            if (player.onGround() && feet.getX() == top.getX() && feet.getZ() == top.getZ() && feet.getY() == top.getY() + 1)
+            {
+                Set<BlockPos> set = new HashSet<>(cells);
+
+                if (this.cleaner.start(player, level, schematic, set::contains, now))
+                {
+                    AimController.INSTANCE.stop();
+                    this.setState(State.CLEANING, this.cleaner.detail());
+                    return true;
+                }
+            }
+            else if (this.towerWalks.merge(plan, 1, Integer::sum) <= 3 && this.canWalk() && BaritoneBridge.goToAny(List.of(top.above())))
+            {
+                AimController.INSTANCE.stop();
+                this.moveTarget = top.above();
+                this.walkingNear = false;
+                this.moveStartTick = now;
+                this.moveStartPos = player.position();
+                this.watchdog.startMoving(player.position());
+                this.setState(State.MOVING, top.above().toShortString());
+                return true;
+            }
+
+            // Geht nicht: der normale Geruest-Abbau kuemmert sich darum
+            this.towers.remove(this.towers.size() - 1);
+        }
+
+        return false;
     }
 
     /** Welche Geruest-Items Baritone verbauen darf: im Inventar und nicht als Baumaterial gebraucht. */

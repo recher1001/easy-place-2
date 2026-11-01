@@ -181,6 +181,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testBaritoneDetour(context, server);
             testSupportBlocks(context, server);
             testAdjustAndReorient(context, server);
+            testTowerUp(context, server);
         }
     }
 
@@ -1489,7 +1490,11 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         BlockPos delay = new BlockPos(143, Y, 89);
         BlockPos mode = new BlockPos(143, Y, 91);
         BlockPos turned = new BlockPos(143, Y, 90);
+        BlockPos lever = new BlockPos(143, Y, 92);
+        BlockPos trapdoor = new BlockPos(143, Y, 94);
         server.runCommand(String.format(Locale.ROOT, "fill 136 %d 84 150 %d 96 air", Y, Y + 4));
+        server.runCommand(setblock(lever, "lever[face=floor,facing=west,powered=true]"));
+        server.runCommand(setblock(trapdoor, "oak_trapdoor[facing=west,half=bottom,open=true]"));
         server.runCommand(setblock(delay, "repeater[facing=west,delay=3]"));
         server.runCommand(setblock(mode, "comparator[facing=west,mode=subtract]"));
         server.runCommand(setblock(turned, "repeater[facing=west,delay=1]"));
@@ -1499,7 +1504,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         {
             PrinterController.INSTANCE.stop(null);
             AreaSelection area = new AreaSelection();
-            area.addSubRegionBox(new Box(delay, mode, "redstone"), false);
+            area.addSubRegionBox(new Box(delay, trapdoor, "redstone"), false);
             area.setExplicitOrigin(delay);
             LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
                     new LitematicaSchematic.SchematicSaveInfo(false, true), "redstone", msg -> System.out.println("[EP2-TEST] " + msg));
@@ -1516,6 +1521,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.runCommand(setblock(delay, "repeater[facing=west,delay=1]"));
         server.runCommand(setblock(mode, "comparator[facing=west,mode=compare]"));
         server.runCommand(setblock(turned, "repeater[facing=north,delay=1]"));
+        server.runCommand(setblock(lever, "lever[face=floor,facing=west,powered=false]"));
+        server.runCommand(setblock(trapdoor, "oak_trapdoor[facing=west,half=bottom,open=false]"));
         server.runCommand("clear @a");
         server.runCommand("give @a repeater 4");
         server.runCommand(String.format(Locale.ROOT, "tp @a 140.5 %d 90.5 -90 30", Y));
@@ -1547,7 +1554,92 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
                 "Komparator-Modus wurde nicht eingestellt");
         assertBlock(server, turned, state -> state.is(Blocks.REPEATER) && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == Direction.WEST,
                 "Falsch herum stehender Repeater wurde nicht richtig neu gesetzt");
+        assertBlock(server, lever, state -> state.is(Blocks.LEVER) && state.getValue(BlockStateProperties.POWERED), "Hebel wurde nicht umgelegt");
+        assertBlock(server, trapdoor, state -> state.is(Blocks.OAK_TRAPDOOR) && state.getValue(BlockStateProperties.OPEN), "Falltuer wurde nicht geoeffnet");
         System.out.println("[EP2-TEST] Einstellen und Ausrichtung korrigieren ok (" + (System.currentTimeMillis() - started) + " ms)");
+    }
+
+    /**
+     * Die Schematic faengt 8 Bloecke ueber dem Boden an: der Printer soll nicht unten herumlaufen, sondern daneben
+     * hochbauen, die Reihe setzen und den Turm am Ende von oben nach unten wieder abbauen.
+     */
+    private static void testTowerUp(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos a = new BlockPos(164, Y + 8, 90);
+        BlockPos c = new BlockPos(166, Y + 8, 90);
+        server.runCommand(String.format(Locale.ROOT, "fill 156 %d 84 172 %d 96 air", Y, Y + 14));
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", a.getX(), a.getY(), a.getZ(), c.getX(), c.getY(), c.getZ()));
+        context.waitFor(mc -> mc.level.getBlockState(c).is(Blocks.STONE));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(a, c, "high"), false);
+            area.setExplicitOrigin(a);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "high", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, a, "high", true, true), false);
+        });
+
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", a.getX(), a.getY(), a.getZ(), c.getX(), c.getY(), c.getZ()));
+        server.runCommand("clear @a");
+        server.runCommand("give @a stone 3");
+        server.runCommand("give @a dirt 16");
+        server.runCommand(String.format(Locale.ROOT, "tp @a 160.5 %d 90.5 -90 0", Y));
+        context.waitFor(mc -> mc.level.getBlockState(a).isAir() && mc.player.position().distanceTo(new Vec3(160.5, Y, 90.5)) < 0.5 &&
+                              SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(c).is(Blocks.STONE), 200);
+        long started = System.currentTimeMillis();
+        context.runOnClient(mc -> PrinterController.INSTANCE.start());
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 90);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-tower-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Hochbauen haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Spieler bei " + mc.player.blockPosition().toShortString()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        context.takeScreenshot("easyplace2-tower-done");
+
+        for (int x = a.getX(); x <= c.getX(); x++)
+        {
+            assertBlock(server, new BlockPos(x, Y + 8, 90), state -> state.is(Blocks.STONE), "Block oben wurde nicht gesetzt");
+        }
+
+        int left = server.computeOnServer(s ->
+        {
+            int n = 0;
+
+            for (BlockPos p : BlockPos.betweenClosed(new BlockPos(156, Y, 84), new BlockPos(172, Y + 14, 96)))
+            {
+                if (s.overworld().getBlockState(p).is(Blocks.DIRT))
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        });
+
+        if (left > 0)
+        {
+            throw new AssertionError("Turm wurde nicht ganz abgebaut: noch " + left + " Erde");
+        }
+
+        System.out.println("[EP2-TEST] Hochbauen, oben bauen und Turm abbauen ok (" + (System.currentTimeMillis() - started) + " ms)");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

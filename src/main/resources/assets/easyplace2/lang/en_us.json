@@ -470,5 +470,7 @@
     "easyplace2.config.comment.printerAdjustStates": "Repeater delay, comparator mode, note block pitch and daylight sensor are right-clicked to match the schematic.",
     "easyplace2.config.name.printerFixRotation": "printerFixRotation",
     "easyplace2.config.prettyName.printerFixRotation": "Printer: fix orientation",
-    "easyplace2.config.comment.printerFixRotation": "If the right block faces the wrong way, it is broken and placed correctly. Only orientation counts (not on/off or power). Done when nothing else is nearby. Blocks with contents only if the printer placed them itself."
+    "easyplace2.config.comment.printerFixRotation": "If the right block faces the wrong way, it is broken and placed correctly. Only orientation counts (not on/off or power). Done when nothing else is nearby. Blocks with contents only if the printer placed them itself.",
+    "easyplace2.printer.state.towering": "Towering up",
+    "easyplace2.printer.msg.no_tower_item": "The schematic starts higher up: to tower up the printer needs about %s scaffold blocks (dirt, cobblestone, netherrack …)."
 }

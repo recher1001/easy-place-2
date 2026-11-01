@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.ComparatorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
@@ -178,6 +179,13 @@ public final class Reorient implements BlockDigger.Source
         {
             if (!wanted.hasProperty(property) || !current.hasProperty(property) ||
                 current.getValue(property).equals(wanted.getValue(property)))
+            {
+                continue;
+            }
+
+            // Zauntore drehen sich beim Oeffnen zum Spieler hin: dieselbe Achse ist richtig
+            if (property == BlockStateProperties.HORIZONTAL_FACING && wanted.getBlock() instanceof FenceGateBlock &&
+                current.getValue(BlockStateProperties.HORIZONTAL_FACING).getAxis() == wanted.getValue(BlockStateProperties.HORIZONTAL_FACING).getAxis())
             {
                 continue;
             }

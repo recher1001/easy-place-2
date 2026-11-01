@@ -470,5 +470,7 @@
     "easyplace2.config.comment.printerAdjustStates": "Repeater-Verzögerung, Komparator-Modus, Notenblock-Ton und Tageslichtsensor werden per Rechtsklick so eingestellt wie in der Schematic.",
     "easyplace2.config.name.printerFixRotation": "printerFixRotation",
     "easyplace2.config.prettyName.printerFixRotation": "Printer: Ausrichtung korrigieren",
-    "easyplace2.config.comment.printerFixRotation": "Steht der richtige Block falsch herum, wird er abgebaut und richtig neu gesetzt. Nur die Ausrichtung zählt (nicht an/aus oder Strom). Das passiert erst, wenn in der Nähe nichts anderes zu setzen ist. Blöcke mit Inhalt nur, wenn der Printer sie selbst gesetzt hat."
+    "easyplace2.config.comment.printerFixRotation": "Steht der richtige Block falsch herum, wird er abgebaut und richtig neu gesetzt. Nur die Ausrichtung zählt (nicht an/aus oder Strom). Das passiert erst, wenn in der Nähe nichts anderes zu setzen ist. Blöcke mit Inhalt nur, wenn der Printer sie selbst gesetzt hat.",
+    "easyplace2.printer.state.towering": "Baut sich hoch",
+    "easyplace2.printer.msg.no_tower_item": "Die Schematic fängt weiter oben an: zum Hochbauen braucht der Printer etwa %s Gerüst-Blöcke (Erde, Bruchstein, Netherrack …)."
 }

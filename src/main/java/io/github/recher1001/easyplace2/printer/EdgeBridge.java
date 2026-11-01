@@ -27,7 +27,7 @@ public final class EdgeBridge
 
     private enum Phase { GET_ON, EDGE }
 
-    private static final int GET_ON_TIMEOUT = 20 * 20;
+    private static final int GET_ON_TIMEOUT = 20 * 8;
     private static final int EDGE_TIMEOUT = 20 * 4;
     /** So weit (Bloecke) ragt der Spieler beim Schleichen ueber die Kante hinaus (die Hitbox ist 0,6 breit). */
     private static final double OVERHANG = 0.2;
@@ -82,6 +82,12 @@ public final class EdgeBridge
             for (Direction dir : Direction.Plane.HORIZONTAL)
             {
                 BlockPos support = p.relative(dir.getOpposite());
+
+                // Nur auf einer Hoehe, auf die man laufen kann (sonst sucht Baritone ewig einen Weg nach oben)
+                if (Math.abs(support.getY() + 1 - player.getBlockY()) > 1)
+                {
+                    continue;
+                }
 
                 if (!level.getBlockState(support).isFaceSturdy(level, support, dir) ||
                     !level.getBlockState(support).blocksMotion() ||

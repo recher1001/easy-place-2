@@ -31,7 +31,8 @@ public class StateMatcher
             BlockStateProperties.DELAY,
             BlockStateProperties.NOTE,
             BlockStateProperties.BITES,
-            BlockStateProperties.STAIRS_SHAPE
+            BlockStateProperties.STAIRS_SHAPE,
+            BlockStateProperties.POWERED
     );
 
     /** Mengen-Eigenschaften: mehrere Klicks auf dieselbe Stelle erhoehen die Anzahl um eins. */
