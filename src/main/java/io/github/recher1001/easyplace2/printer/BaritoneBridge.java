@@ -86,6 +86,50 @@ public final class BaritoneBridge
         }
     }
 
+    /**
+     * Laeuft irgendwohin, wo man hoechstens {@code range} Bloecke von {@code pos} entfernt ist. Viel schneller als
+     * genaue Stehplaetze: Baritone nimmt einfach den kuerzesten Weg.
+     */
+    public static boolean goNear(BlockPos pos, int range)
+    {
+        if (!isAvailable())
+        {
+            return false;
+        }
+
+        try
+        {
+            Class<?> goalClass = Class.forName("baritone.api.pathing.goals.Goal");
+            Class<?> nearClass = Class.forName("baritone.api.pathing.goals.GoalNear");
+            Object goal = null;
+
+            for (java.lang.reflect.Constructor<?> c : nearClass.getConstructors())
+            {
+                Class<?>[] params = c.getParameterTypes();
+
+                if (params.length == 2 && params[1] == int.class && params[0].isInstance(pos))
+                {
+                    goal = c.newInstance(pos, range);
+                    break;
+                }
+            }
+
+            if (goal == null)
+            {
+                return false;
+            }
+
+            Object process = call(baritone(), "getCustomGoalProcess");
+            process.getClass().getMethod("setGoalAndPath", goalClass).invoke(process, goal);
+            return true;
+        }
+        catch (Throwable t)
+        {
+            EasyPlace2.LOGGER.warn("Baritone-Ziel konnte nicht gesetzt werden", t);
+            return false;
+        }
+    }
+
     /** Laeuft in die Naehe einer X/Z-Position, z. B. zu einem Teil der Schematic, der noch nicht geladen ist. */
     public static boolean goToXZ(int x, int z)
     {

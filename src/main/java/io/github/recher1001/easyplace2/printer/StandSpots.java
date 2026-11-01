@@ -146,6 +146,20 @@ public final class StandSpots
         return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty() && level.getFluidState(pos).isEmpty();
     }
 
+    /** Gibt es in diesem Umkreis um {@code target} irgendeinen Platz, auf dem man stehen kann? (schnell) */
+    public static boolean anyStandable(Level level, BlockPos target, int range)
+    {
+        for (BlockPos feet : BlockPos.betweenClosed(target.offset(-range, -range, -range), target.offset(range, range, range)))
+        {
+            if (feet.distSqr(target) <= range * range && !feet.equals(target) && !feet.above().equals(target) && canStand(level, feet))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static boolean canStand(Level level, BlockPos feet)
     {
         BlockPos below = feet.below();

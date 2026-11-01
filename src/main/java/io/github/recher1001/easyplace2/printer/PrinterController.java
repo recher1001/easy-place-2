@@ -39,6 +39,7 @@ import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
 import io.github.recher1001.easyplace2.placement.EasyPlace2Handler;
 import io.github.recher1001.easyplace2.placement.StateMatcher;
 import io.github.recher1001.easyplace2.printer.refill.RefillManager;
+import io.github.recher1001.easyplace2.printer.refill.RefillUtil;
 import io.github.recher1001.easyplace2.printer.lanes.BuildLanes;
 import io.github.recher1001.easyplace2.printer.lanes.LaneMiner;
 import io.github.recher1001.easyplace2.printer.lanes.LaneWalker;
@@ -109,6 +110,10 @@ public final class PrinterController
     private int selectRound;
 
     @Nullable private BlockPos moveTarget;
+    /** Laeuft der Printer gerade nur "in die Naehe" (schnell), statt zu einem genau berechneten Stehplatz? */
+    private boolean walkingNear;
+    /** Bloecke, die von "irgendwo in der Naehe" nicht gingen (z. B. Treppe falsch herum): genau planen. */
+    private final Set<BlockPos> preciseWalk = new HashSet<>();
     private long moveStartTick;
     private Vec3 moveStartPos = Vec3.ZERO;
     private final Map<BlockPos, Integer> unloadedAttempts = new HashMap<>();
@@ -196,6 +201,7 @@ public final class PrinterController
         this.failures.clear();
         this.blacklist.clear();
         this.moveAttempts.clear();
+        this.preciseWalk.clear();
         this.missingMaterials.clear();
         this.pending.clear();
         this.placed = 0;
@@ -883,6 +889,33 @@ public final class PrinterController
         }
 
         double maxDist = reach - Ep2Configs.PRINTER_REACH_MARGIN.getDoubleValue();
+
+        // War der Printer schon "in der Naehe" und konnte trotzdem nicht setzen, braucht dieser Block einen genau
+        // berechneten Stehplatz (z. B. Treppen, die nur von einer Seite richtig herum gesetzt werden)
+        if (this.moveTarget != null && this.walkingNear && Vec3.atCenterOf(this.moveTarget).distanceTo(eye) <= maxDist + 0.5)
+        {
+            this.preciseWalk.add(this.moveTarget);
+        }
+
+        // Schnell: einfach zum naechsten Block laufen; Baritone sucht den Weg, angehalten wird, sobald er in Reichweite ist
+        SchematicScanner.Target nearest = layer.stream()
+                .filter(t -> !this.preciseWalk.contains(t.pos()) && this.moveAttempts.getOrDefault(t.pos(), 0) < 2)
+                .min(Comparator.comparingDouble(t -> t.pos().distToCenterSqr(eye)))
+                .orElse(null);
+        int nearRange = Math.max(2, (int) Math.floor(maxDist - 1.0));
+
+        if (nearest != null && StandSpots.anyStandable(level, nearest.pos(), nearRange) && BaritoneBridge.goNear(nearest.pos(), nearRange))
+        {
+            AimController.INSTANCE.stop();
+            this.moveTarget = nearest.pos();
+            this.walkingNear = true;
+            this.moveStartTick = now;
+            this.moveStartPos = player.position();
+            this.watchdog.startMoving(player.position());
+            this.setState(State.MOVING, blockName(nearest.state()));
+            return;
+        }
+
         int planned = 0;
 
         // Darf Baritone Geruest setzen? Dann muss ein Stapel davon in der Hotbar liegen (Baritone nimmt nur von dort)
@@ -933,6 +966,7 @@ public final class PrinterController
             {
                 AimController.INSTANCE.stop();
                 this.moveTarget = t.pos();
+                this.walkingNear = false;
                 this.moveStartTick = now;
                 this.moveStartPos = player.position();
                 this.watchdog.startMoving(player.position());
@@ -981,6 +1015,16 @@ public final class PrinterController
 
     private void tickMoving(LocalPlayer player, long now)
     {
+        // Schon in Reichweite: sofort anhalten und setzen, nicht erst bis zum Ende des Weges laufen
+        if (this.walkingNear && this.moveTarget != null && this.stateTicks >= 2 && player.onGround() &&
+            Vec3.atCenterOf(this.moveTarget).distanceTo(player.getEyePosition()) <= RefillUtil.maxDistance(player) - 0.3)
+        {
+            BaritoneBridge.cancel();
+            this.setState(State.SELECTING, "");
+            this.stateTicks = 1;
+            return;
+        }
+
         // Baritone braucht einen Moment, bis der Weg berechnet ist
         if (this.stateTicks < 10 || BaritoneBridge.isBusy())
         {
@@ -1013,8 +1057,8 @@ public final class PrinterController
             this.moveAttempts.merge(this.moveTarget, 1, Integer::sum);
         }
 
-        // Angekommen: kurz "umschauen", dann neu planen
-        this.settleTicks = 3 + this.random.nextInt(5);
+        // Angekommen: ganz kurz "umschauen", dann neu planen
+        this.settleTicks = 1 + this.random.nextInt(2);
         this.setState(State.SELECTING, "");
         this.stateTicks = -this.settleTicks;
     }
