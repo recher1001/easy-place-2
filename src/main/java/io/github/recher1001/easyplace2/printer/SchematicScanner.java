@@ -45,7 +45,8 @@ public final class SchematicScanner
 
     public record Snapshot(List<Target> missing, int total, int done, int wrong, int unplaceable,
                            List<BlockPos> unloaded, Map<Item, Integer> neededItems, String names,
-                           List<BlockPos> scaffold, List<BlockPos> excavate, List<BlockPos> water)
+                           List<BlockPos> scaffold, List<BlockPos> excavate, List<BlockPos> water,
+                           List<BlockPos> adjust, List<BlockPos> reorient)
     {
         public double progress()
         {
@@ -69,6 +70,10 @@ public final class SchematicScanner
     private List<BlockPos> excavate = new ArrayList<>();
     /** Wasserquellen der Schematic, die in der Welt noch fehlen (setzt der {@code WaterFiller} mit Eimern). */
     private List<BlockPos> water = new ArrayList<>();
+    /** Richtiger Block, aber noch per Rechtsklick einzustellen (Repeater-Verzoegerung, Komparator-Modus ...). */
+    private List<BlockPos> adjust = new ArrayList<>();
+    /** Richtiger Block, aber falsch ausgerichtet: abbauen und neu setzen (siehe {@link Reorient}). */
+    private List<BlockPos> reorient = new ArrayList<>();
     private Set<Long> unloadedChunks = new HashSet<>();
     private int total, done, wrong, unplaceable;
     private String names = "";
@@ -102,7 +107,7 @@ public final class SchematicScanner
 
             if (this.regions.isEmpty())
             {
-                this.latest = new Snapshot(List.of(), 0, 0, 0, 0, List.of(), Map.of(), "", List.of(), List.of(), List.of());
+                this.latest = new Snapshot(List.of(), 0, 0, 0, 0, List.of(), Map.of(), "", List.of(), List.of(), List.of(), List.of(), List.of());
                 return;
             }
         }
@@ -129,7 +134,7 @@ public final class SchematicScanner
 
             this.latest = new Snapshot(List.copyOf(this.missing), this.total, this.done, this.wrong, this.unplaceable,
                     unloaded, Map.copyOf(this.needed), this.names, List.copyOf(this.scaffold), List.copyOf(this.excavate),
-                    List.copyOf(this.water));
+                    List.copyOf(this.water), List.copyOf(this.adjust), List.copyOf(this.reorient));
 
             if (Ep2Configs.DEBUG.getBooleanValue() && this.latest.missing().size() != this.lastLoggedMissing)
             {
@@ -176,6 +181,8 @@ public final class SchematicScanner
         this.scaffold = new ArrayList<>();
         this.excavate = new ArrayList<>();
         this.water = new ArrayList<>();
+        this.adjust = new ArrayList<>();
+        this.reorient = new ArrayList<>();
         this.unloadedChunks = new HashSet<>();
         this.total = this.done = this.wrong = this.unplaceable = 0;
         this.names = String.join(", ", placementNames);
@@ -261,7 +268,30 @@ public final class SchematicScanner
                 return;
             }
 
+            // Steht richtig, muss aber noch eingestellt werden (Repeater-Verzoegerung, Komparator-Modus ...)
+            if (Ep2Configs.PRINTER_ADJUST.getBooleanValue() && BlockAdjuster.clicksNeeded(current, wanted) > 0)
+            {
+                this.adjust.add(pos.immutable());
+                return;
+            }
+
             this.done++;
+            return;
+        }
+
+        // Derselbe Block, aber so nicht durch Setzen zu beheben (z. B. falsch herum): nur neu setzen hilft
+        if (current.getBlock() == wanted.getBlock() && !StateMatcher.completableByPlacing(current, wanted))
+        {
+            if (Ep2Configs.PRINTER_FIX_ROTATION.getBooleanValue() && Reorient.needsFix(current, wanted) &&
+                Reorient.canBreak(level, pos, current))
+            {
+                this.reorient.add(pos.immutable());
+            }
+            else
+            {
+                this.wrong++;
+            }
+
             return;
         }
 

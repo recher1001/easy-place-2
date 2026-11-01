@@ -98,6 +98,13 @@ public final class BlockDigger
         this.skipped.clear();
     }
 
+    /** Der Block, der gerade dran ist, oder null. */
+    @Nullable
+    public BlockPos target()
+    {
+        return this.target;
+    }
+
     public String detail()
     {
         return this.target != null ? this.target.toShortString() : "";

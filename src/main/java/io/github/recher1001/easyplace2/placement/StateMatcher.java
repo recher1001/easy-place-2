@@ -9,6 +9,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.block.state.properties.SlabType;
 
 import fi.dy.masa.litematica.util.PlacementHandler;
 
@@ -106,6 +107,42 @@ public class StateMatcher
                 !current.getValue(property).equals(target.getValue(property)))
             {
                 return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Steht schon der richtige Block, aber nicht ganz fertig, und laesst sich das durch weiteres Setzen an derselben
+     * Stelle beheben (eine Kerze mehr, die zweite Stufen-Haelfte ...)? Alles andere (falsche Ausrichtung, zu viele
+     * Kerzen ...) geht nur durch Abbauen.
+     */
+    public static boolean completableByPlacing(BlockState current, BlockState target)
+    {
+        if (current.getBlock() != target.getBlock())
+        {
+            return false;
+        }
+
+        for (Property<?> property : target.getProperties())
+        {
+            if (COUNTS.contains(property))
+            {
+                IntegerProperty count = (IntegerProperty) property;
+
+                if (current.getValue(count) > target.getValue(count))
+                {
+                    return false;
+                }
+            }
+            else if (MUST_MATCH.contains(property) && !current.getValue(property).equals(target.getValue(property)))
+            {
+                // Eine halbe Stufe wird durch die zweite Haelfte zur doppelten
+                if (!(property == BlockStateProperties.SLAB_TYPE && target.getValue(BlockStateProperties.SLAB_TYPE) == SlabType.DOUBLE))
+                {
+                    return false;
+                }
             }
         }
 

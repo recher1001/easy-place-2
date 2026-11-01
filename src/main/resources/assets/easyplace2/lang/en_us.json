@@ -241,7 +241,6 @@
     "easyplace2.printer.state.moving": "Walking",
     "easyplace2.printer.state.aiming": "Aiming",
     "easyplace2.printer.state.clicking": "Clicking",
-    "easyplace2.printer.state.waiting": "Waiting",
     "easyplace2.printer.state.paused": "Paused",
     "easyplace2.printer.state.paused_screen": "Menu open",
     "easyplace2.printer.state.missing_material": "Missing material",
@@ -459,5 +458,17 @@
     "easyplace2.printer.water.out_of_reach": "not in reach",
     "easyplace2.printer.state.bridging": "Building over air",
     "easyplace2.printer.state.supporting": "Placing helper block",
-    "easyplace2.printer.msg.no_support_item": "Blocks floating in the air need helper blocks: bring dirt, cobblestone or netherrack (configurable via printerScaffoldItems)."
+    "easyplace2.printer.msg.no_support_item": "Blocks floating in the air need helper blocks: bring dirt, cobblestone or netherrack (configurable via printerScaffoldItems).",
+    "easyplace2.printer.opt.adjustStates": "Set repeaters & comparators",
+    "easyplace2.printer.opt.adjustStates.desc": "Right-click delay, comparator mode, note block pitch and daylight sensor to match the schematic",
+    "easyplace2.printer.opt.fixRotation": "Fix orientation",
+    "easyplace2.printer.opt.fixRotation.desc": "Break blocks that face the wrong way and place them correctly (later, when nothing else is nearby)",
+    "easyplace2.printer.state.adjusting": "Adjusting",
+    "easyplace2.printer.state.fixing": "Fixing orientation",
+    "easyplace2.config.name.printerAdjustStates": "printerAdjustStates",
+    "easyplace2.config.prettyName.printerAdjustStates": "Printer: set repeaters & comparators",
+    "easyplace2.config.comment.printerAdjustStates": "Repeater delay, comparator mode, note block pitch and daylight sensor are right-clicked to match the schematic.",
+    "easyplace2.config.name.printerFixRotation": "printerFixRotation",
+    "easyplace2.config.prettyName.printerFixRotation": "Printer: fix orientation",
+    "easyplace2.config.comment.printerFixRotation": "If the right block faces the wrong way, it is broken and placed correctly. Only orientation counts (not on/off or power). Done when nothing else is nearby. Blocks with contents only if the printer placed them itself."
 }

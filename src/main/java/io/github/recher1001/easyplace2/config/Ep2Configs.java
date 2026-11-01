@@ -81,6 +81,8 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_WATER_MAKE_SOURCE = new ConfigBoolean("printerWaterMakeSource", true).apply(KEY);
     public static final ConfigBoolean PRINTER_EXCAVATE    = new ConfigBoolean("printerExcavate", true).apply(KEY);
     public static final ConfigBoolean PRINTER_REPLACE_WRONG = new ConfigBoolean("printerReplaceWrong", false).apply(KEY);
+    public static final ConfigBoolean PRINTER_ADJUST      = new ConfigBoolean("printerAdjustStates", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_FIX_ROTATION = new ConfigBoolean("printerFixRotation", true).apply(KEY);
     public static final ConfigInteger PRINTER_STUCK_SECONDS = new ConfigInteger("printerStuckSeconds", 90, 20, 600).apply(KEY);
     // Module
     public static final ConfigHotkey  MODULE_INVSEE       = new ConfigHotkey("moduleInvseeHotkey", "").apply(KEY);
@@ -133,6 +135,8 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_STAR_TOOL,
             PRINTER_STAR_TOOL_NAME,
             PRINTER_REPLACE_WRONG,
+            PRINTER_ADJUST,
+            PRINTER_FIX_ROTATION,
             MODULE_INVSEE,
             MODULE_INVSEE_ANGLE,
             MODULE_INVSEE_RANGE,

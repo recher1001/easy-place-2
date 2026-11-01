@@ -62,7 +62,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, WATERING, BRIDGING, SUPPORTING, LANE_WALKING, MOVING, AIMING, CLICKING, WAITING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, FIXING, ADJUSTING, WATERING, BRIDGING, SUPPORTING, LANE_WALKING, MOVING, AIMING, CLICKING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -77,6 +77,14 @@ public final class PrinterController
     private static final int ESCAPE_DISTANCE = 10;
     /** Im Notfall: Geruest in diesem Umkreis wird abgebaut. */
     private static final double CLEAR_RADIUS = 6.0;
+    /** Ging ein Weg nicht: so lange (Ticks) wird diese Ecke gemieden und erst etwas anderes ausprobiert. */
+    private static final int TRY_OTHER_TICKS = 20 * 10;
+    /** Um eine gescheiterte Stelle herum (Bloecke) wird erst einmal nichts anderes angelaufen. */
+    private static final double FAILED_AREA_RADIUS = 2.5;
+    /** Kommt der Spieler so lange (Ticks) nach dem Losgehen nicht vom Fleck: gleich das naechste Ziel probieren. */
+    private static final int NO_START_TICKS = 25;
+    /** Steht der Spieler waehrend des Laufens so lange (Ticks) still: abbrechen und anders probieren. */
+    private static final int STUCK_WALK_TICKS = 40;
 
     private final SchematicScanner scanner = new SchematicScanner();
     private final InventoryManager inventory = new InventoryManager();
@@ -85,6 +93,18 @@ public final class PrinterController
     private final Excavation excavation = new Excavation();
     private final BlockDigger excavator = new BlockDigger(this.excavation);
     private final WaterFiller water = new WaterFiller(this.inventory);
+    /** Falsch ausgerichtete Bloecke: abbauen, danach wird der richtige gesetzt. */
+    private final Reorient reorient = new Reorient();
+    private final BlockDigger reorienter = new BlockDigger(this.reorient);
+    /** Repeater, Komparatoren ... per Rechtsklick einstellen. */
+    private final BlockAdjuster adjuster = new BlockAdjuster();
+    private final Map<BlockPos, Integer> adjustAttempts = new HashMap<>();
+    /** Gerade abgebaut (Ausrichtung): sofort neu setzen, ohne auf den naechsten Scan zu warten. */
+    private final List<SchematicScanner.Target> injected = new ArrayList<>();
+    /** Stellen, zu denen der Weg gerade nicht ging (bis wann sie gemieden werden). */
+    private final Map<BlockPos, Long> failedAreas = new HashMap<>();
+    private int adjusted;
+    @Nullable private BlockPos reorienterTarget;
     private final LaneMiner laneMiner = new LaneMiner();
     private final BuildLanes buildLanes = new BuildLanes();
     private final LaneWalker walker = new LaneWalker();
@@ -203,6 +223,13 @@ public final class PrinterController
         this.cleaner.reset();
         this.excavator.reset();
         this.water.reset();
+        this.reorient.reset();
+        this.reorienter.reset();
+        this.adjuster.cancel();
+        this.adjustAttempts.clear();
+        this.injected.clear();
+        this.failedAreas.clear();
+        this.adjusted = 0;
         this.laneMiner.reset();
         this.buildLanes.reset();
         this.laneFailUntil = 0;
@@ -244,6 +271,8 @@ public final class PrinterController
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
         this.water.cancel(mc);
+        this.reorienter.cancel(mc);
+        this.adjuster.cancel();
         this.bridge.stop(mc);
         this.support.cancel();
         this.walker.cancel(mc);
@@ -506,6 +535,56 @@ public final class PrinterController
                     this.stateTicks = broke && digger == this.cleaner ? -(3 + this.random.nextInt(4)) : 0;
                 }
             }
+            case FIXING ->
+            {
+                BlockPos fixing = this.reorienter.isActive() ? this.reorienterTarget : null;
+                int before = this.reorienter.broken();
+
+                if (this.reorienter.tick(mc, now, this.canWalk()))
+                {
+                    if (this.reorienter.broken() > before && fixing != null)
+                    {
+                        // Abgebaut: gleich richtig herum neu setzen
+                        this.watchdog.progress();
+                        this.reorient.brokeAt(fixing);
+                        this.inject(fixing, schematic);
+                    }
+
+                    this.reorienterTarget = null;
+                    this.setState(State.SELECTING, "");
+                    this.stateTicks = 1;
+                }
+                else
+                {
+                    this.detail = this.reorienter.detail();
+                }
+            }
+            case ADJUSTING ->
+            {
+                BlockPos at = this.adjuster.pos();
+                BlockAdjuster.Result result = this.adjuster.tick(mc, now);
+
+                if (result != BlockAdjuster.Result.RUNNING)
+                {
+                    if (result == BlockAdjuster.Result.DONE)
+                    {
+                        this.watchdog.progress();
+                        this.adjusted++;
+
+                        if (at != null)
+                        {
+                            this.adjustAttempts.remove(at);
+                        }
+                    }
+                    else if (at != null)
+                    {
+                        this.adjustAttempts.merge(at, 1, Integer::sum);
+                    }
+
+                    this.setState(State.SELECTING, "");
+                    this.stateTicks = 1;
+                }
+            }
             case WATERING ->
             {
                 int before = this.water.placed();
@@ -580,7 +659,6 @@ public final class PrinterController
             case MOVING -> this.tickMoving(player, now);
             case AIMING -> this.tickAiming(level);
             case CLICKING -> this.tickClicking(mc, player, level, now);
-            case WAITING -> this.tickWaiting(level);
             default -> {}
         }
     }
@@ -611,9 +689,18 @@ public final class PrinterController
         }
 
         this.updateScaffoldItems(player, snap);
+        this.reorient.update(snap.reorient(), now);
+        this.failedAreas.values().removeIf(until -> until <= now);
+        this.injected.removeIf(t -> !isStillMissing(level, t));
         List<SchematicScanner.Target> open = new ArrayList<>();
+        List<SchematicScanner.Target> all = this.injected.isEmpty() ? snap.missing() : new ArrayList<>(snap.missing());
 
-        for (SchematicScanner.Target t : snap.missing())
+        if (!this.injected.isEmpty())
+        {
+            all.addAll(this.injected);
+        }
+
+        for (SchematicScanner.Target t : all)
         {
             if (!this.blacklist.containsKey(t.pos()) && isStillMissing(level, t))
             {
@@ -674,6 +761,12 @@ public final class PrinterController
             }
         }
 
+        // Repeater, Komparatoren ... einstellen: nur ein paar Rechtsklicks, deshalb gleich, solange sie in Reichweite sind
+        if (this.tryAdjust(mc, player, level, schematic, snap, now, false))
+        {
+            return;
+        }
+
         // Wasser zuletzt: erst wenn sonst nichts mehr zu setzen ist (ausser Seerosen, Seegras ...), und nur in
         // Bereiche, aus denen es nicht herauslaufen kann
         this.water.update(Ep2Configs.PRINTER_WATER.getBooleanValue() ? snap.water() : List.of());
@@ -699,6 +792,18 @@ public final class PrinterController
 
         if (open.isEmpty())
         {
+            // Alles gesetzt: jetzt die falsch herum stehenden Bloecke neu setzen und den Rest einstellen (auch weiter weg)
+            if (this.tryReorient(mc, player, level, schematic, now, true) || this.tryAdjust(mc, player, level, schematic, snap, now, true))
+            {
+                return;
+            }
+
+            if (this.reorient.hasWaiting(level, schematic))
+            {
+                this.setState(State.SELECTING, "");
+                return;
+            }
+
             // Hier ist alles gebaut: erst alles Geruest wieder abbauen, dann fertig (oder zum naechsten Teil laufen)
             if (snap.missing().isEmpty() && this.cleaner.start(player, level, schematic, p -> true, now))
             {
@@ -722,7 +827,8 @@ public final class PrinterController
                 WaterFiller.Problem waterProblem = this.water.problem();
                 int waterBlocked = this.water.blockedCount();
                 this.setState(State.DONE, "");
-                this.stop(Component.translatable("easyplace2.printer.msg.done", snap.done(), snap.total(), snap.wrong()).withStyle(ChatFormatting.GREEN));
+                int wrong = snap.wrong() + this.reorient.remaining(level, schematic);
+                this.stop(Component.translatable("easyplace2.printer.msg.done", snap.done(), snap.total(), wrong).withStyle(ChatFormatting.GREEN));
 
                 if (waterBlocked > 0)
                 {
@@ -914,6 +1020,13 @@ public final class PrinterController
             return;
         }
 
+        // Hier gibt es gerade nichts zu setzen: bevor weitergelaufen wird, falsch herum stehende Bloecke in der Naehe
+        // abbauen (danach werden sie gleich richtig gesetzt)
+        if (this.tryReorient(mc, player, level, schematic, now, false))
+        {
+            return;
+        }
+
         // Frei in der Luft (nichts daneben, an das man setzen koennte): erst Hilfsbloecke bis zu einem vorhandenen
         // Block setzen, dann den Block daran; die Hilfsbloecke werden am Ende wie Geruest wieder abgebaut
         for (SchematicScanner.Target t : reachable)
@@ -1014,7 +1127,7 @@ public final class PrinterController
         // Schnell: einfach zum naechsten Block laufen; Baritone sucht den Weg, angehalten wird, sobald er in Reichweite ist
         // Nur Bloecke, die wirklich ausser Reichweite sind: die nahen gingen von hier aus ja gerade nicht
         SchematicScanner.Target nearest = layer.stream()
-                .filter(t -> !this.preciseWalk.contains(t.pos()) && this.moveAttempts.getOrDefault(t.pos(), 0) < 2 &&
+                .filter(t -> !this.preciseWalk.contains(t.pos()) && this.moveAttempts.getOrDefault(t.pos(), 0) < 2 && !this.nearFailedArea(t.pos()) &&
                              Vec3.atCenterOf(t.pos()).distanceTo(eye) > maxDist)
                 .min(Comparator.comparingDouble(t -> t.pos().distToCenterSqr(eye)))
                 .orElse(null);
@@ -1158,22 +1271,20 @@ public final class PrinterController
         // Baritone braucht einen Moment, bis der Weg berechnet ist
         if (this.stateTicks < 4 || BaritoneBridge.isBusy())
         {
-            // Zu lange unterwegs oder seit Sekunden kein Stueck weitergekommen: anderes Ziel nehmen
-            boolean stuck = this.stateTicks >= 10 && this.watchdog.stuckWhileMoving(player.position());
+            // Nicht lange ueberlegen, einfach ausprobieren: kommt er gar nicht erst los, steht er unterwegs still oder
+            // dauert es zu lange, wird gleich ein anderes Ziel probiert (diese Ecke spaeter noch einmal)
+            boolean noStart = this.stateTicks >= NO_START_TICKS && player.position().distanceTo(this.moveStartPos) < 0.3;
+            boolean stuck = this.stateTicks >= 10 && this.watchdog.stuckWhileMoving(player.position(), STUCK_WALK_TICKS);
 
-            if (now - this.moveStartTick > MOVE_TIMEOUT_TICKS || stuck)
+            if (now - this.moveStartTick > MOVE_TIMEOUT_TICKS || stuck || noStart)
             {
-                debug("Laufen abgebrochen ({}), Ziel {}", stuck ? "steckt fest" : "dauert zu lange",
+                debug("Laufen abgebrochen ({}), Ziel {}", noStart ? "kommt nicht los" : stuck ? "steckt fest" : "dauert zu lange",
                         this.moveTarget != null ? this.moveTarget.toShortString() : "-");
                 BaritoneBridge.cancel();
                 BaritoneBridge.setScaffold(false, List.of());
-
-                if (this.moveTarget != null)
-                {
-                    this.blacklist.put(this.moveTarget, now + BLACKLIST_TICKS);
-                }
-
+                this.markFailed(this.moveTarget, now);
                 this.setState(State.SELECTING, "");
+                this.stateTicks = 1;
             }
 
             return;
@@ -1181,10 +1292,14 @@ public final class PrinterController
 
         BaritoneBridge.setScaffold(false, List.of());
 
-        // Kein Weg gefunden (kaum vom Fleck gekommen): zaehlt als Fehlversuch fuer diesen Block
+        // Kein Weg gefunden (kaum vom Fleck gekommen): zaehlt als Fehlversuch, und erst einmal etwas anderes probieren
         if (this.moveTarget != null && player.position().distanceTo(this.moveStartPos) < 1.0)
         {
             this.moveAttempts.merge(this.moveTarget, 1, Integer::sum);
+            this.markFailed(this.moveTarget, now);
+            this.setState(State.SELECTING, "");
+            this.stateTicks = 1;
+            return;
         }
 
         // Angekommen: ganz kurz "umschauen", dann neu planen
@@ -1260,19 +1375,13 @@ public final class PrinterController
 
         ((MinecraftAccessor) mc).easyplace2$startUseItem();
 
-        if (Ep2Configs.PRINTER_FAST_BUILD.getBooleanValue())
-        {
-            // So schnell wie gehaltene rechte Maustaste; ob der Server den Block behaelt, wird nebenbei geprueft,
-            // waehrend schon der naechste Block angepeilt wird
-            this.nextClickTick = now + Ep2Configs.DELAY_TICKS.getIntegerValue();
-            this.pending.add(new Pending(t, now));
-            this.current = null;
-            this.setState(State.SELECTING, "");
-            return;
-        }
-
-        this.nextClickTick = now + Ep2Configs.DELAY_TICKS.getIntegerValue() + this.random.nextInt(Ep2Configs.PRINTER_EXTRA_DELAY.getIntegerValue() + 1);
-        this.setState(State.WAITING, this.detail);
+        // Ob der Server den Block behaelt, wird nebenbei geprueft, waehrend schon der naechste Block angepeilt wird
+        // (wie ein Spieler, der nach dem Klick gleich weiterschaut). Die Pause bis zum naechsten Klick bleibt.
+        int extra = Ep2Configs.PRINTER_FAST_BUILD.getBooleanValue() ? 0 : this.random.nextInt(Ep2Configs.PRINTER_EXTRA_DELAY.getIntegerValue() + 1);
+        this.nextClickTick = now + Ep2Configs.DELAY_TICKS.getIntegerValue() + extra;
+        this.pending.add(new Pending(t, now));
+        this.current = null;
+        this.setState(State.SELECTING, "");
     }
 
     /** Gesetzte Bloecke, bei denen noch geprueft wird, ob der Server sie behaelt. */
@@ -1296,6 +1405,7 @@ public final class PrinterController
 
             if (StateMatcher.isComplete(level.getBlockState(pos), p.target().state()))
             {
+                Reorient.placedByPrinter(pos);
                 this.placed++;
                 this.watchdog.progress();
                 this.failures.remove(pos);
@@ -1306,32 +1416,6 @@ public final class PrinterController
                 this.fail(pos, now);
             }
         }
-    }
-
-    private void tickWaiting(ClientLevel level)
-    {
-        SchematicScanner.Target t = this.current;
-
-        // Der Client setzt den Block sofort; ein paar Ticks warten, falls der Server ihn zuruecknimmt
-        if (this.stateTicks < 3 || t == null)
-        {
-            return;
-        }
-
-        if (StateMatcher.isComplete(level.getBlockState(t.pos()), t.state()))
-        {
-            this.placed++;
-            this.watchdog.progress();
-            this.failures.remove(t.pos());
-            this.moveAttempts.remove(t.pos());
-        }
-        else
-        {
-            this.fail(t.pos(), level.getGameTime());
-        }
-
-        this.current = null;
-        this.setState(State.SELECTING, "");
     }
 
     private void nextAimPoint(long now)
@@ -1410,6 +1494,8 @@ public final class PrinterController
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
         this.water.cancel(mc);
+        this.reorienter.cancel(mc);
+        this.adjuster.cancel();
         this.bridge.stop(mc);
         this.support.cancel();
         this.walker.cancel(mc);
@@ -1494,6 +1580,161 @@ public final class PrinterController
                         .withStyle(ChatFormatting.GOLD));
             }
         }
+    }
+
+    // ---------------------------------------------------------------- Einstellen, Ausrichtung, Ausprobieren
+
+    /**
+     * Repeater, Komparatoren, Notenbloecke, Tageslichtsensoren einstellen.
+     *
+     * @param walk auch zu weiter entfernten hinlaufen (am Ende), sonst nur, was von hier aus anklickbar ist
+     */
+    private boolean tryAdjust(Minecraft mc, LocalPlayer player, ClientLevel level, Level schematic, SchematicScanner.Snapshot snap,
+                              long now, boolean walk)
+    {
+        if (!Ep2Configs.PRINTER_ADJUST.getBooleanValue() || snap.adjust().isEmpty())
+        {
+            return false;
+        }
+
+        Vec3 eye = player.getEyePosition();
+        double reach = RefillUtil.maxDistance(player) + 0.5;
+        BlockPos nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+
+        for (BlockPos p : snap.adjust())
+        {
+            if (this.adjustAttempts.getOrDefault(p, 0) >= 3 || !level.hasChunkAt(p))
+            {
+                continue;
+            }
+
+            BlockState wanted = schematic.getBlockState(p);
+
+            if (BlockAdjuster.clicksNeeded(level.getBlockState(p), wanted) == 0)
+            {
+                continue;
+            }
+
+            double dist = Vec3.atCenterOf(p).distanceTo(eye);
+
+            if (dist <= reach && this.adjuster.start(player, level, p, wanted))
+            {
+                // Nie schleichend klicken (sonst wuerde das Item in der Hand gesetzt)
+                this.bridge.release(mc);
+                this.setState(State.ADJUSTING, blockName(wanted));
+                return true;
+            }
+
+            if (dist < nearestDist && !this.nearFailedArea(p))
+            {
+                nearestDist = dist;
+                nearest = p;
+            }
+        }
+
+        if (walk && nearest != null && this.canWalk())
+        {
+            // Jeder Anlauf zaehlt, damit es nie endlos hin und her geht
+            this.adjustAttempts.merge(nearest, 1, Integer::sum);
+            return this.walkNear(mc, player, level, nearest, now, blockName(schematic.getBlockState(nearest)));
+        }
+
+        return false;
+    }
+
+    /**
+     * Falsch herum stehende Bloecke abbauen (danach werden sie gleich richtig gesetzt).
+     *
+     * @param walk auch weiter entfernte (am Ende), sonst nur die in Reichweite
+     */
+    private boolean tryReorient(Minecraft mc, LocalPlayer player, ClientLevel level, Level schematic, long now, boolean walk)
+    {
+        if (!Ep2Configs.PRINTER_FIX_ROTATION.getBooleanValue())
+        {
+            return false;
+        }
+
+        Vec3 eye = player.getEyePosition();
+        double reach = RefillUtil.maxDistance(player) + 0.5;
+
+        if (this.reorienter.start(player, level, schematic, p -> walk || Vec3.atCenterOf(p).distanceTo(eye) <= reach, now))
+        {
+            this.reorienterTarget = this.reorienter.target();
+            this.bridge.release(mc);
+            AimController.INSTANCE.stop();
+            this.setState(State.FIXING, this.reorienter.detail());
+            return true;
+        }
+
+        return false;
+    }
+
+    /** Diese Stelle gleich wieder setzen, ohne auf den naechsten Scan zu warten. */
+    private void inject(BlockPos pos, Level schematic)
+    {
+        BlockState wanted = schematic.getBlockState(pos);
+        ItemStack required = fi.dy.masa.litematica.materials.MaterialCache.getInstance().getRequiredBuildItemForState(wanted, schematic, pos);
+
+        if (!required.isEmpty() && required.getItem() instanceof BlockItem)
+        {
+            this.injected.removeIf(t -> t.pos().equals(pos));
+            this.injected.add(new SchematicScanner.Target(pos.immutable(), wanted, required.getItem()));
+        }
+    }
+
+    /** Schnell in die Naehe laufen (Baritone nimmt den kuerzesten Weg, angehalten wird in Reichweite). */
+    private boolean walkNear(Minecraft mc, LocalPlayer player, ClientLevel level, BlockPos pos, long now, String detail)
+    {
+        int range = Math.max(2, (int) Math.floor(RefillUtil.maxDistance(player) - 1.0));
+
+        if (!StandSpots.anyStandable(level, pos, range) || !BaritoneBridge.goNear(pos, range))
+        {
+            this.markFailed(pos, now);
+            return false;
+        }
+
+        this.bridge.release(mc);
+        AimController.INSTANCE.stop();
+        this.moveTarget = pos;
+        this.walkingNear = true;
+        this.moveStartTick = now;
+        this.moveStartPos = player.position();
+        this.watchdog.startMoving(player.position());
+        this.setState(State.MOVING, detail);
+        return true;
+    }
+
+    /** Der Weg dorthin ging gerade nicht: diese Ecke eine Weile meiden und erst etwas anderes ausprobieren. */
+    private void markFailed(@Nullable BlockPos pos, long now)
+    {
+        if (pos == null)
+        {
+            return;
+        }
+
+        this.failedAreas.put(pos.immutable(), now + TRY_OTHER_TICKS);
+        this.blacklist.put(pos.immutable(), now + TRY_OTHER_TICKS);
+    }
+
+    /** Liegt die Stelle dort, wo der Weg gerade nicht ging? */
+    private boolean nearFailedArea(BlockPos pos)
+    {
+        for (BlockPos failed : this.failedAreas.keySet())
+        {
+            if (failed.distSqr(pos) <= FAILED_AREA_RADIUS * FAILED_AREA_RADIUS)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Wie viele Bloecke seit dem Start per Rechtsklick eingestellt wurden. */
+    public int getAdjusted()
+    {
+        return this.adjusted;
     }
 
     /** Welche Geruest-Items Baritone verbauen darf: im Inventar und nicht als Baumaterial gebraucht. */

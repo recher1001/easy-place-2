@@ -121,9 +121,13 @@ erreichst.
 ## Tempo und Reihenfolge beim Bauen
 
 - **Schnell bauen** (Menü → Timing, standardmäßig an): Der Printer klickt so schnell wie eine gehaltene
-  rechte Maustaste (Abstand „Verzögerung“, Vanilla 4 Ticks), ohne Reaktionszeit und Extra-Pause. Ob der
-  Server den Block behält, prüft er nebenbei, während er schon den nächsten anpeilt. Die Pausen im Inventar
-  sind halb so lang.
+  rechte Maustaste (Abstand „Verzögerung“, Vanilla 4 Ticks), ohne Reaktionszeit und Extra-Pause. Die Pausen
+  im Inventar sind halb so lang.
+- Ob der Server einen Block behält, prüft er immer nebenbei, während er sich schon zum nächsten dreht (auch
+  ohne „Schnell bauen“; die Pause zwischen zwei Klicks bleibt).
+- **Laufen: ausprobieren statt lange überlegen.** Er geht einfach zum nächsten Block los. Kommt er nicht los
+  (gut 1 Sekunde), steht er unterwegs 2 Sekunden still oder findet Baritone keinen Weg, probiert er sofort
+  ein Ziel in einer anderen Ecke. Die gescheiterte Ecke versucht er 10 Sekunden später noch einmal.
 - **Reihenfolge**, nicht zufällig:
   1. von unten nach oben,
   2. in einer Schicht von hinten nach vorne (damit nichts verdeckt wird),
@@ -173,6 +177,21 @@ Drückst du **ESC**, schreibst im **Chat** oder hast das **Printer-Menü** offen
 - Nie angefasst werden: Kisten und andere Blöcke mit Inhalt oder Daten (Schilder, Spawner …),
   unzerstörbare Blöcke, Wasser und Lava und Blöcke direkt daneben (damit nichts überflutet wird).
 
+## Repeater, Komparatoren und falsche Ausrichtung
+
+- **Einstellen** (Menü → Verhalten → „Repeater & Komparatoren einstellen“, standardmäßig an): Repeater-
+  Verzögerung, Komparator-Modus (vergleichen/subtrahieren), Ton von Notenblöcken und umgekehrte
+  Tageslichtsensoren stellt der Printer per Rechtsklick so ein wie in der Schematic. Das macht er gleich,
+  solange sie in Reichweite sind, und am Ende auch bei denen weiter weg. Wie ein Spieler: hinschauen,
+  normaler Rechtsklick, nie schleichend.
+- **Ausrichtung korrigieren** (standardmäßig an): Steht der richtige Block falsch herum (Repeater in die
+  falsche Richtung, Treppe oben statt unten, Stamm quer …), baut er ihn ab und setzt ihn richtig neu.
+  - Nur die Ausrichtung zählt. An/aus, mit Strom, gesperrt, verbunden usw. ignoriert er, das ändert sich von selbst.
+  - Das hat keine Eile: Er macht es erst, wenn er in der Nähe gerade nichts zu setzen hat, und den Rest
+    am Ende. Ein Block muss außerdem 2 Sekunden lang falsch sein.
+  - Blöcke mit Inhalt (Trichter, Spender, Kisten …) nur, wenn der Printer sie selbst gesetzt hat. Komparatoren gehen immer.
+  - Pro Stelle höchstens zweimal, damit nichts endlos hin und her geht.
+
 ## Wasser
 
 Wasser in der Schematic setzt der Printer mit Eimern, so wie ein Spieler (Option **Wasser setzen** unter
@@ -220,7 +239,7 @@ der Schematic.
 
 **Nie endlos im Kreis:** Ein Aufpasser prüft die ganze Zeit, ob es vorangeht.
 
-- Steckt der Spieler beim Laufen fest (mehrere Sekunden kein Stück weiter), nimmt der Printer ein anderes
+- Steckt der Spieler beim Laufen fest (2 Sekunden kein Stück weiter), nimmt der Printer ein anderes
   Ziel. Findet Baritone keinen Weg, zählt das als Fehlversuch, und nach ein paar Versuchen wird der Block
   übersprungen.
 - Wird eine Zeit lang (Menü → Laufen → „Feststecken nach“, Standard 90 s) weder ein Block gesetzt noch Gerüst

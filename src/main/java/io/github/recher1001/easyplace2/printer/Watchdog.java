@@ -77,6 +77,12 @@ public final class Watchdog
     /** Waehrend Baritone laeuft: steckt der Spieler fest? */
     public boolean stuckWhileMoving(Vec3 pos)
     {
+        return this.stuckWhileMoving(pos, STUCK_TICKS);
+    }
+
+    /** Wie {@link #stuckWhileMoving(Vec3)}, aber schon nach {@code ticks} Ticks ohne Fortschritt. */
+    public boolean stuckWhileMoving(Vec3 pos, int ticks)
+    {
         if (pos.distanceTo(this.anchor) > STUCK_DISTANCE)
         {
             this.anchor = pos;
@@ -84,7 +90,7 @@ public final class Watchdog
             return false;
         }
 
-        return ++this.anchorTicks > STUCK_TICKS;
+        return ++this.anchorTicks > ticks;
     }
 
     public void startMoving(Vec3 pos)

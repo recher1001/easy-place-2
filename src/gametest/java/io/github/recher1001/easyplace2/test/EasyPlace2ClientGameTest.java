@@ -17,6 +17,8 @@ import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.properties.ComparatorMode;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -178,6 +180,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testBridge(context, server);
             testBaritoneDetour(context, server);
             testSupportBlocks(context, server);
+            testAdjustAndReorient(context, server);
         }
     }
 
@@ -1475,6 +1478,76 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         assertBlock(server, target.below(), BlockState::isAir, "Hilfsblock wurde nicht wieder abgebaut");
         assertBlock(server, target.below(2), BlockState::isAir, "Hilfsblock wurde nicht wieder abgebaut");
         System.out.println("[EP2-TEST] Hilfsbloecke fuer einen Block in der Luft ok");
+    }
+
+    /**
+     * Repeater-Verzoegerung und Komparator-Modus per Rechtsklick einstellen, und ein falsch herum stehender Repeater
+     * wird abgebaut und richtig neu gesetzt.
+     */
+    private static void testAdjustAndReorient(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos delay = new BlockPos(143, Y, 89);
+        BlockPos mode = new BlockPos(143, Y, 91);
+        BlockPos turned = new BlockPos(143, Y, 90);
+        server.runCommand(String.format(Locale.ROOT, "fill 136 %d 84 150 %d 96 air", Y, Y + 4));
+        server.runCommand(setblock(delay, "repeater[facing=west,delay=3]"));
+        server.runCommand(setblock(mode, "comparator[facing=west,mode=subtract]"));
+        server.runCommand(setblock(turned, "repeater[facing=west,delay=1]"));
+        context.waitFor(mc -> mc.level.getBlockState(turned).is(Blocks.REPEATER) && mc.level.getBlockState(mode).is(Blocks.COMPARATOR));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(delay, mode, "redstone"), false);
+            area.setExplicitOrigin(delay);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "redstone", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, delay, "redstone", true, true), false);
+        });
+
+        // Falsch eingestellt bzw. falsch herum
+        server.runCommand(setblock(delay, "repeater[facing=west,delay=1]"));
+        server.runCommand(setblock(mode, "comparator[facing=west,mode=compare]"));
+        server.runCommand(setblock(turned, "repeater[facing=north,delay=1]"));
+        server.runCommand("clear @a");
+        server.runCommand("give @a repeater 4");
+        server.runCommand(String.format(Locale.ROOT, "tp @a 140.5 %d 90.5 -90 30", Y));
+        context.waitFor(mc -> mc.level.getBlockState(turned).is(Blocks.REPEATER) &&
+                              mc.level.getBlockState(turned).getValue(BlockStateProperties.HORIZONTAL_FACING) == Direction.NORTH &&
+                              mc.player.position().distanceTo(new Vec3(140.5, Y, 90.5)) < 0.5 &&
+                              SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(mode).is(Blocks.COMPARATOR), 200);
+        long started = System.currentTimeMillis();
+        context.runOnClient(mc -> PrinterController.INSTANCE.start());
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 60);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-adjust-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Einstellen haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + ")"));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        context.takeScreenshot("easyplace2-adjust-done");
+        assertBlock(server, delay, state -> state.is(Blocks.REPEATER) && state.getValue(BlockStateProperties.DELAY) == 3,
+                "Repeater-Verzoegerung wurde nicht eingestellt");
+        assertBlock(server, mode, state -> state.is(Blocks.COMPARATOR) && state.getValue(BlockStateProperties.MODE_COMPARATOR) == ComparatorMode.SUBTRACT,
+                "Komparator-Modus wurde nicht eingestellt");
+        assertBlock(server, turned, state -> state.is(Blocks.REPEATER) && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == Direction.WEST,
+                "Falsch herum stehender Repeater wurde nicht richtig neu gesetzt");
+        System.out.println("[EP2-TEST] Einstellen und Ausrichtung korrigieren ok (" + (System.currentTimeMillis() - started) + " ms)");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

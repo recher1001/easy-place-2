@@ -69,8 +69,14 @@ public final class Excavation implements BlockDigger.Source
     /** Darf dieser Block gefahrlos abgebaut werden? */
     public static boolean canDig(Level level, BlockPos pos, BlockState state)
     {
+        return canDig(level, pos, state, false);
+    }
+
+    /** Wie {@link #canDig(Level, BlockPos, BlockState)}; {@code allowBlockEntity}: der Aufrufer hat das schon geprueft. */
+    public static boolean canDig(Level level, BlockPos pos, BlockState state, boolean allowBlockEntity)
+    {
         // Auch keine Bloecke mit Wasser darin (sonst bleibt eine Wasserquelle stehen)
-        if (state.isAir() || state.getBlock() instanceof LiquidBlock || state.hasBlockEntity() ||
+        if (state.isAir() || state.getBlock() instanceof LiquidBlock || (state.hasBlockEntity() && !allowBlockEntity) ||
             !state.getFluidState().isEmpty() || state.getDestroySpeed(level, pos) < 0)
         {
             return false;
