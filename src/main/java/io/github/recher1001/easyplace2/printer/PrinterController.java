@@ -1833,7 +1833,13 @@ public final class PrinterController
         }
 
         this.failedAreas.put(pos.immutable(), now + TRY_OTHER_TICKS);
-        this.blacklist.put(pos.immutable(), now + TRY_OTHER_TICKS);
+        LocalPlayer player = Minecraft.getInstance().player;
+
+        // Liegt die Stelle 2+ Bloecke ueber den Fuessen, nicht sperren: dann wird dort hochgebaut (siehe select)
+        if (player == null || pos.getY() - player.getBlockY() < 2)
+        {
+            this.blacklist.put(pos.immutable(), now + TRY_OTHER_TICKS);
+        }
     }
 
     /** Liegt die Stelle dort, wo der Weg gerade nicht ging? */
