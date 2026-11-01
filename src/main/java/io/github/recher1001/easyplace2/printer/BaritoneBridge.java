@@ -202,24 +202,44 @@ public final class BaritoneBridge
             return;
         }
 
-        Map<String, Boolean> wanted = Map.of("allowBreak", false, "allowPlace", false, "freeLook", false, "allowSprint", sprint,
-                                             "allowParkourPlace", false);
+        // Schnell losgehen statt lange rechnen: nach 0,15 s mit dem besten Teilweg loslaufen (der Rest wird
+        // unterwegs geplant), nach 1 s ohne Weg aufgeben (dann versucht der Printer etwas anderes), und etwas
+        // "gieriger" suchen (minimal laengere Wege, dafuer viel schneller gefunden)
+        Map<String, Object> wanted = new java.util.LinkedHashMap<>();
+        wanted.put("allowBreak", false);
+        wanted.put("allowPlace", false);
+        wanted.put("freeLook", false);
+        wanted.put("allowSprint", sprint);
+        wanted.put("allowParkourPlace", false);
+        wanted.put("primaryTimeoutMS", 150L);
+        wanted.put("failureTimeoutMS", 1000L);
+        wanted.put("planAheadPrimaryTimeoutMS", 1000L);
+        wanted.put("planAheadFailureTimeoutMS", 2000L);
+        wanted.put("costHeuristic", 4.5D);
 
-        for (String name : FORCED_SETTINGS)
+        for (Map.Entry<String, Object> entry : wanted.entrySet())
         {
-            Object setting = setting(name);
+            Object setting = setting(entry.getKey());
 
             if (setting != null)
             {
                 try
                 {
                     Field value = setting.getClass().getField("value");
-                    savedSettings.putIfAbsent(name, value.get(setting));
-                    value.set(setting, wanted.get(name));
+                    Object current = value.get(setting);
+
+                    // Nur passende Typen setzen (falls eine Baritone-Version eine Einstellung anders fuehrt)
+                    if (current != null && current.getClass() != entry.getValue().getClass())
+                    {
+                        continue;
+                    }
+
+                    savedSettings.putIfAbsent(entry.getKey(), current);
+                    value.set(setting, entry.getValue());
                 }
                 catch (Throwable t)
                 {
-                    EasyPlace2.LOGGER.warn("Baritone-Einstellung '{}' nicht gesetzt", name, t);
+                    EasyPlace2.LOGGER.warn("Baritone-Einstellung '{}' nicht gesetzt", entry.getKey(), t);
                 }
             }
         }

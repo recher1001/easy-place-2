@@ -114,6 +114,9 @@ public final class PrinterController
     private boolean walkingNear;
     /** Bloecke, die von "irgendwo in der Naehe" nicht gingen (z. B. Treppe falsch herum): genau planen. */
     private final Set<BlockPos> preciseWalk = new HashSet<>();
+    /** Laeuft der Printer gerade selbst geradeaus (ohne Baritone) zum naechsten Block? */
+    private boolean directWalk;
+    private long directFailUntil;
     /** Bauen ueber Luft: an die Kante schleichen und an die Seite setzen. */
     private final EdgeBridge bridge = new EdgeBridge();
     private final Map<BlockPos, Integer> bridgeAttempts = new HashMap<>();
@@ -205,6 +208,8 @@ public final class PrinterController
         this.blacklist.clear();
         this.moveAttempts.clear();
         this.preciseWalk.clear();
+        this.directWalk = false;
+        this.directFailUntil = 0;
         this.bridgeAttempts.clear();
         this.missingMaterials.clear();
         this.pending.clear();
@@ -528,6 +533,21 @@ public final class PrinterController
             case LANE_WALKING ->
             {
                 LaneWalker.Result result = this.walker.tick(mc);
+
+                if (result != LaneWalker.Result.RUNNING && this.directWalk)
+                {
+                    // Geradeaus hat nicht geklappt (Hindernis): eine Weile Baritone nehmen
+                    this.directWalk = false;
+
+                    if (result == LaneWalker.Result.FAILED)
+                    {
+                        this.directFailUntil = now + 20 * 5;
+                    }
+
+                    this.setState(State.SELECTING, "");
+                    this.stateTicks = 1;
+                    return;
+                }
 
                 if (result == LaneWalker.Result.FAILED)
                 {
@@ -936,6 +956,18 @@ public final class PrinterController
                 .min(Comparator.comparingDouble(t -> t.pos().distToCenterSqr(eye)))
                 .orElse(null);
         int nearRange = Math.max(2, (int) Math.floor(maxDist - 1.0));
+
+        // Freier, ebener Weg geradeaus: selbst hinlaufen (sprinten), ganz ohne Wegberechnung
+        if (nearest != null && now >= this.directFailUntil &&
+            LaneWalker.directWalkable(level, player.position(), nearest.pos(), maxDist - 0.3))
+        {
+            this.bridge.release(Minecraft.getInstance());
+            AimController.INSTANCE.stop();
+            this.directWalk = true;
+            this.walker.startToward(nearest.pos(), player, maxDist - 0.3, Ep2Configs.PRINTER_SPRINT.getBooleanValue());
+            this.setState(State.LANE_WALKING, blockName(nearest.state()));
+            return;
+        }
 
         if (nearest != null && StandSpots.anyStandable(level, nearest.pos(), nearRange) && BaritoneBridge.goNear(nearest.pos(), nearRange))
         {

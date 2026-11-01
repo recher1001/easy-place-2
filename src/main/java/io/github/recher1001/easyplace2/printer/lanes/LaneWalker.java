@@ -21,16 +21,27 @@ public final class LaneWalker
     public enum Result { RUNNING, DONE, FAILED }
 
     private static final double ARRIVED = 0.3;
-    private static final int TIMEOUT = 20 * 6;
+    private static final int TIMEOUT = 20 * 10;
     private static final int STUCK_TICKS = 20;
 
     @Nullable private BlockPos target;
     private int ticks;
     private Vec3 lastPos = Vec3.ZERO;
     private int stillTicks;
+    /** Groesser 0: anhalten, sobald das Ziel so nah ist (Abstand Augen zur Blockmitte), statt bis hin zu laufen. */
+    private double stopDistance;
+    private boolean sprint;
 
     public void start(BlockPos target, LocalPlayer player)
     {
+        this.startToward(target, player, -1, false);
+    }
+
+    /** Geradeaus auf {@code target} zu, bis es in Reichweite ist (ohne Baritone, ohne Wegberechnung). */
+    public void startToward(BlockPos target, LocalPlayer player, double stopDistance, boolean sprint)
+    {
+        this.stopDistance = stopDistance;
+        this.sprint = sprint;
         this.target = target.immutable();
         this.ticks = 0;
         this.stillTicks = 0;
@@ -57,7 +68,9 @@ public final class LaneWalker
         double dz = center.z - player.getZ();
         double dist = Math.sqrt(dx * dx + dz * dz);
 
-        if (dist < ARRIVED)
+        boolean inReach = this.stopDistance > 0 && player.getEyePosition().distanceTo(Vec3.atCenterOf(this.target)) <= this.stopDistance;
+
+        if (dist < ARRIVED || inReach)
         {
             this.cancel(mc);
             return Result.DONE;
@@ -79,6 +92,7 @@ public final class LaneWalker
         double yawWanted = Math.toDegrees(Math.atan2(-dx, dz));
         boolean facing = Math.abs(Mth.wrapDegrees(yawWanted - player.getYRot())) < 35;
         mc.options.keyUp.setDown(facing);
+        mc.options.keySprint.setDown(facing && this.sprint);
         return Result.RUNNING;
     }
 
@@ -87,6 +101,7 @@ public final class LaneWalker
         if (this.target != null)
         {
             mc.options.keyUp.setDown(false);
+            mc.options.keySprint.setDown(false);
         }
 
         this.target = null;
@@ -118,6 +133,49 @@ public final class LaneWalker
         }
 
         return p.equals(to);
+    }
+
+    /**
+     * Kann man von {@code from} (beliebige Richtung, nicht nur gerade Linien) auf gleicher Hoehe geradeaus laufen,
+     * bis {@code target} hoechstens {@code stopDistance} von den Augen entfernt ist? Geprueft wird ein Streifen in
+     * Koerperbreite: ueberall frei, fester Boden, kein Wasser oder Lava.
+     */
+    public static boolean directWalkable(Level level, Vec3 from, BlockPos target, double stopDistance)
+    {
+        Vec3 goal = Vec3.atBottomCenterOf(target);
+        double dx = goal.x - from.x, dz = goal.z - from.z;
+        double total = Math.sqrt(dx * dx + dz * dz);
+
+        if (total < 0.01 || total > 48)
+        {
+            return false;
+        }
+
+        double ux = dx / total, uz = dz / total;
+        int y = (int) Math.floor(from.y + 0.01);
+        Vec3 center = Vec3.atCenterOf(target);
+
+        for (double t = 0; t <= total; t += 0.3)
+        {
+            double px = from.x + ux * t, pz = from.z + uz * t;
+
+            if (new Vec3(px, from.y + 1.62, pz).distanceTo(center) <= stopDistance)
+            {
+                return true;
+            }
+
+            for (double off : new double[] { -0.3, 0.0, 0.3 })
+            {
+                BlockPos feet = BlockPos.containing(px - uz * off, y, pz + ux * off);
+
+                if (!standable(level, feet))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** Kann man hier stehen? Fuesse und Kopf frei, fester Boden darunter, keine Fluessigkeit. */
