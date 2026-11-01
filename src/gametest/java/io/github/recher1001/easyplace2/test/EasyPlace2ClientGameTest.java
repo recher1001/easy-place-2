@@ -176,6 +176,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testFlowingWater(context, server);
             testBaritoneWalk(context, server);
             testBridge(context, server);
+            testBaritoneDetour(context, server);
         }
     }
 
@@ -1354,6 +1355,67 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         }
 
         System.out.println(String.format(Locale.ROOT, "[EP2-TEST] Bruecke ueber Luft (schleichend an der Kante) ok (%.1f s)", seconds));
+    }
+
+    /** Ein Block hinter einer Mauer: geradeaus geht nicht, Baritone muss einen Umweg finden (schnell). */
+    private static void testBaritoneDetour(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos target = new BlockPos(66, Y, 80);
+        server.runCommand(String.format(Locale.ROOT, "fill 55 %d 74 75 %d 86 air", Y, Y + 4));
+        server.runCommand(setblock(target, "stone"));
+        context.waitFor(mc -> mc.level.getBlockState(target).is(Blocks.STONE));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(target, target, "detour"), false);
+            area.setExplicitOrigin(target);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "detour", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, target, "detour", true, true), false);
+        });
+
+        // Mauer (3 hoch, 7 breit) zwischen Spieler und Block
+        server.runCommand(setblock(target, "air"));
+        server.runCommand(String.format(Locale.ROOT, "fill 62 %d 77 62 %d 83 cobblestone", Y, Y + 2));
+        server.runCommand("clear @a");
+        server.runCommand("give @a stone 4");
+        server.runCommand(String.format(Locale.ROOT, "tp @a 58.5 %d 80.5 -90 0", Y));
+        context.waitFor(mc -> mc.level.getBlockState(target).isAir() && mc.level.getBlockState(new BlockPos(62, Y + 2, 80)).is(Blocks.COBBLESTONE) &&
+                              mc.player.position().distanceTo(new Vec3(58.5, Y, 80.5)) < 0.5 &&
+                              SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(target).is(Blocks.STONE), 200);
+        context.runOnClient(mc -> PrinterController.INSTANCE.start());
+        long startNs = System.nanoTime();
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 60);
+        }
+        catch (AssertionError e)
+        {
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Umweg haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Spieler " + mc.player.position()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        double seconds = (System.nanoTime() - startNs) / 1.0E9;
+        assertBlock(server, target, state -> state.is(Blocks.STONE), "Printer hat den Block hinter der Mauer nicht erreicht");
+
+        if (seconds > 20)
+        {
+            throw new AssertionError(String.format(Locale.ROOT, "Umweg zu langsam: %.1f s", seconds));
+        }
+
+        System.out.println(String.format(Locale.ROOT, "[EP2-TEST] Umweg um eine Mauer mit Baritone ok (%.1f s)", seconds));
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */
