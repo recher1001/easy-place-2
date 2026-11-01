@@ -62,7 +62,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, FIXING, ADJUSTING, WATERING, BRIDGING, SUPPORTING, TOWERING, LANE_WALKING, MOVING, AIMING, CLICKING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, FIXING, ADJUSTING, WATERING, BRIDGING, SUPPORTING, TOWERING, TUNNELING, LANE_WALKING, MOVING, AIMING, CLICKING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -119,6 +119,8 @@ public final class PrinterController
     private final LaneMiner laneMiner = new LaneMiner();
     private final BuildLanes buildLanes = new BuildLanes();
     private final LaneWalker walker = new LaneWalker();
+    /** Star-Spitzhacke: geradeaus durch die Bahn graben. */
+    private final io.github.recher1001.easyplace2.printer.lanes.StarTunnel tunnel = new io.github.recher1001.easyplace2.printer.lanes.StarTunnel();
     /** Ging das Laufen in der Bahn schief, eine Weile normal weitermachen. */
     private long laneFailUntil;
     private final Watchdog watchdog = new Watchdog();
@@ -289,6 +291,7 @@ public final class PrinterController
         this.reorienter.cancel(mc);
         this.adjuster.cancel();
         this.tower.stop(mc);
+        this.tunnel.stop(mc);
         this.bridge.stop(mc);
         this.support.cancel();
         this.walker.cancel(mc);
@@ -575,6 +578,29 @@ public final class PrinterController
                     this.detail = this.reorienter.detail();
                 }
             }
+            case TUNNELING ->
+            {
+                int before = this.tunnel.broken();
+                io.github.recher1001.easyplace2.printer.lanes.StarTunnel.Result result = this.tunnel.tick(mc);
+
+                if (this.tunnel.broken() > before)
+                {
+                    this.watchdog.progress();
+                }
+
+                if (result != io.github.recher1001.easyplace2.printer.lanes.StarTunnel.Result.RUNNING)
+                {
+                    if (result == io.github.recher1001.easyplace2.printer.lanes.StarTunnel.Result.FAILED && this.tunnel.broken() == before)
+                    {
+                        debug("Star-Tunnel ging nicht weiter, eine Weile normal weiter");
+                        this.laneFailUntil = now + 20 * 10;
+                        this.laneMiner.reset();
+                    }
+
+                    this.setState(State.SELECTING, "");
+                    this.stateTicks = 1;
+                }
+            }
             case TOWERING ->
             {
                 int before = this.tower.placed();
@@ -783,6 +809,14 @@ public final class PrinterController
                         this.setState(State.EXCAVATING, this.excavator.detail());
                         return;
                     }
+                }
+                else if (action.kind() == LaneMiner.Kind.TUNNEL)
+                {
+                    this.bridge.release(mc);
+                    this.tunnel.start(action.run(), p -> this.excavation.stillWanted(level, schematic, p) && !this.excavator.isSkipped(p, now),
+                            action.forceSlot());
+                    this.setState(State.TUNNELING, action.run().get(0).pos().toShortString());
+                    return;
                 }
                 else if (action.kind() == LaneMiner.Kind.WALK && action.walkTo() != null && this.walkLane(player, level, action.walkTo(), now))
                 {
@@ -1574,6 +1608,7 @@ public final class PrinterController
         this.reorienter.cancel(mc);
         this.adjuster.cancel();
         this.tower.stop(mc);
+        this.tunnel.stop(mc);
         this.bridge.stop(mc);
         this.support.cancel();
         this.walker.cancel(mc);

@@ -182,6 +182,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testSupportBlocks(context, server);
             testAdjustAndReorient(context, server);
             testTowerUp(context, server);
+            testStarTunnel(context, server);
         }
     }
 
@@ -1640,6 +1641,153 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         }
 
         System.out.println("[EP2-TEST] Hochbauen, oben bauen und Turm abbauen ok (" + (System.currentTimeMillis() - started) + " ms)");
+    }
+
+    /** Nachgebaute Server-Spitzhacke: wer mit einem "Star"-Item abbaut, baut die ganze 3x3-Wand ab. */
+    private static volatile boolean emulateStar;
+    private static boolean starHookRegistered;
+    private static final java.util.concurrent.atomic.AtomicInteger STAR_HITS = new java.util.concurrent.atomic.AtomicInteger();
+
+    private static void registerStarHook()
+    {
+        if (starHookRegistered)
+        {
+            return;
+        }
+
+        starHookRegistered = true;
+        net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) ->
+        {
+            if (!emulateStar || !player.getMainHandItem().getHoverName().getString().toLowerCase(Locale.ROOT).contains("star"))
+            {
+                return;
+            }
+
+            STAR_HITS.incrementAndGet();
+            boolean flat = Math.abs(player.getXRot()) > 50.0f;
+            Direction facing = player.getDirection();
+
+            for (int a = -1; a <= 1; a++)
+            {
+                for (int b = -1; b <= 1; b++)
+                {
+                    BlockPos p = flat ? pos.offset(a, 0, b) : pos.above(a).relative(facing.getClockWise(), b);
+
+                    if (!p.equals(pos) && !world.getBlockState(p).isAir())
+                    {
+                        world.destroyBlock(p, false);
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Star-Spitzhacke: eine 3 breite, 3 hohe, 9 lange Wand aus Stein, wo die Schematic Luft will (ganz hinten soll
+     * ein Block stehen bleiben). Der Printer soll geradeaus schauen, auf die Mitte schlagen und vorgehen.
+     */
+    private static void testStarTunnel(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        registerStarHook();
+        BlockPos min = new BlockPos(180, Y, 89);
+        BlockPos max = new BlockPos(188, Y + 2, 91);
+        BlockPos keep = new BlockPos(188, Y, 90);
+        server.runCommand(String.format(Locale.ROOT, "fill 174 %d 84 194 %d 96 air", Y, Y + 5));
+        server.runCommand(setblock(keep, "stone"));
+        context.waitFor(mc -> mc.level.getBlockState(keep).is(Blocks.STONE));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(min, max, "star"), false);
+            area.setExplicitOrigin(min);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "star", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, min, "star", true, true), false);
+        });
+
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand("clear @a");
+        server.computeOnServer(s ->
+        {
+            ServerPlayer p = s.getPlayerList().getPlayers().get(0);
+            net.minecraft.world.item.ItemStack star = new net.minecraft.world.item.ItemStack(Items.DIAMOND_PICKAXE);
+            star.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Star Pickaxe"));
+            p.getInventory().setItem(0, star);
+            p.getInventory().setItem(1, new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE));
+            return true;
+        });
+        server.runCommand(String.format(Locale.ROOT, "tp @a 179.5 %d 90.5 -90 0", Y));
+        context.waitFor(mc -> mc.level.getBlockState(new BlockPos(187, Y + 2, 91)).is(Blocks.STONE) &&
+                              mc.player.position().distanceTo(new Vec3(179.5, Y, 90.5)) < 0.5 &&
+                              mc.player.getInventory().getItem(0).is(Items.DIAMOND_PICKAXE) &&
+                              SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(keep).is(Blocks.STONE), 200);
+        STAR_HITS.set(0);
+        emulateStar = true;
+        long started = System.currentTimeMillis();
+        context.runOnClient(mc ->
+        {
+            Ep2Configs.PRINTER_EXCAVATE.setBooleanValue(true);
+            Ep2Configs.PRINTER_LANE_MODE.setBooleanValue(true);
+            Ep2Configs.PRINTER_STAR_TOOL.setBooleanValue(true);
+            PrinterController.INSTANCE.start();
+        });
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 90);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-star-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Star-Tunnel haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Spieler bei " + mc.player.blockPosition().toShortString()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+        finally
+        {
+            emulateStar = false;
+            context.runOnClient(mc -> Ep2Configs.PRINTER_STAR_TOOL.setBooleanValue(false));
+        }
+
+        context.takeScreenshot("easyplace2-star-done");
+        int left = server.computeOnServer(s ->
+        {
+            int n = 0;
+
+            for (BlockPos p : BlockPos.betweenClosed(min, max))
+            {
+                if (!p.equals(keep) && !s.overworld().getBlockState(p).isAir())
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        });
+
+        assertBlock(server, keep, state -> state.is(Blocks.STONE), "Block, der stehen bleiben soll, wurde abgebaut");
+
+        if (left > 0)
+        {
+            throw new AssertionError("Star-Tunnel nicht fertig: noch " + left + " Bloecke");
+        }
+
+        if (STAR_HITS.get() < 6)
+        {
+            throw new AssertionError("Star-Spitzhacke kaum benutzt: nur " + STAR_HITS.get() + " Schlaege");
+        }
+
+        System.out.println("[EP2-TEST] Star-Tunnel ok: " + STAR_HITS.get() + " 3x3-Schlaege (" + (System.currentTimeMillis() - started) + " ms)");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

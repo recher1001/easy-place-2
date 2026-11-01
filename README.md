@@ -148,7 +148,9 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
 **Star-Tool** (Menü → Laufen → „Star-Tool (3x3)“): für eine Spitzhacke vom Server, die 3x3 abbaut.
 
 - Die Gänge sind 3 breit und 3 hoch, die Bahnen liegen 3 auseinander.
-- Der Spieler steht in der Mitte und schlägt auf den mittleren Block vor sich, der Server baut die ganze 3x3-Wand ab.
+- Er arbeitet wie ein Spieler: Er steht in der Mitte, schaut geradeaus auf den mittleren Block der Wand vor
+  sich und hält Linksklick, der Server baut die ganze 3x3-Wand ab. Dann geht er einen Schritt vor und schlägt
+  wieder, bis zum Ende der Bahn, ohne nach jedem Block neu zu planen oder sich umzuschauen.
 - Nach unten schlägt er dreimal auf den Block unter den Füßen.
 - Erkannt wird die Spitzhacke am Namen in der Hotbar (`printerStarToolName`, Standard „star“).
 - Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll (Rand der Schematic, Kisten …), baut er dort

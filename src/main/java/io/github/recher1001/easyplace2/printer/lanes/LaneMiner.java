@@ -29,20 +29,26 @@ import io.github.recher1001.easyplace2.printer.refill.RefillUtil;
  */
 public final class LaneMiner
 {
-    public enum Kind { DIG, WALK, NONE }
+    public enum Kind { DIG, WALK, TUNNEL, NONE }
 
-    public record Action(Kind kind, Set<BlockPos> dig, @Nullable BlockPos walkTo, int forceSlot, int avoidSlot)
+    public record Action(Kind kind, Set<BlockPos> dig, @Nullable BlockPos walkTo, int forceSlot, int avoidSlot, List<LanePath.Step> run)
     {
-        static final Action NONE = new Action(Kind.NONE, Set.of(), null, -1, -1);
+        static final Action NONE = new Action(Kind.NONE, Set.of(), null, -1, -1, List.of());
 
         static Action dig(Set<BlockPos> dig, int forceSlot, int avoidSlot)
         {
-            return new Action(Kind.DIG, dig, null, forceSlot, avoidSlot);
+            return new Action(Kind.DIG, dig, null, forceSlot, avoidSlot, List.of());
         }
 
         static Action walk(BlockPos to)
         {
-            return new Action(Kind.WALK, Set.of(), to, -1, -1);
+            return new Action(Kind.WALK, Set.of(), to, -1, -1, List.of());
+        }
+
+        /** Star-Spitzhacke: die Bahn geradeaus durchgraben (siehe {@link StarTunnel}). */
+        static Action tunnel(List<LanePath.Step> run, int slot)
+        {
+            return new Action(Kind.TUNNEL, Set.of(), null, slot, -1, run);
         }
     }
 
@@ -180,22 +186,33 @@ public final class LaneMiner
             }
         }
 
+        BlockPos stand = step.pos().relative(step.dir().getOpposite());
+
+        // Star-Spitzhacke: vor der Wand stehen, geradeaus schauen, schlagen, vorgehen, schlagen ... bis zum Ende der Bahn
+        if (starSlot >= 0 && allClearable(level, cross, wanted) && wanted.contains(step.pos().above(1)) && (stand.equals(feet) || inReach.contains(step.pos().above(1))))
+        {
+            List<LanePath.Step> run = new ArrayList<>();
+
+            for (int i = j; i < this.path.size(); i++)
+            {
+                LanePath.Step s = this.path.get(i);
+
+                if (i > j && (s.dir() != step.dir() || !s.pos().equals(this.path.get(i - 1).pos().relative(step.dir()))))
+                {
+                    break;
+                }
+
+                run.add(s);
+            }
+
+            return Action.tunnel(run, starSlot);
+        }
+
         if (inReach.isEmpty())
         {
             // Hingehen: auf das Feld davor in der Bahn
-            BlockPos stand = j > 0 ? this.path.get(j - 1).pos() : step.pos().relative(step.dir().getOpposite());
-            return stand.equals(feet) ? Action.NONE : Action.walk(stand);
-        }
-
-        // Star-Spitzhacke: auf den mittleren Block der Wand schlagen, wenn die ganze 3x3-Flaeche weg darf
-        if (starSlot >= 0)
-        {
-            BlockPos center = step.pos().above(1);
-
-            if (inReach.contains(center) && allClearable(level, cross, wanted))
-            {
-                return Action.dig(Set.of(center), starSlot, -1);
-            }
+            BlockPos walkTo = j > 0 ? this.path.get(j - 1).pos() : stand;
+            return walkTo.equals(feet) ? Action.NONE : Action.walk(walkTo);
         }
 
         return Action.dig(inReach, -1, avoid);
