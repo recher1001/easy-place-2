@@ -177,6 +177,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testBaritoneWalk(context, server);
             testBridge(context, server);
             testBaritoneDetour(context, server);
+            testSupportBlocks(context, server);
         }
     }
 
@@ -1416,6 +1417,64 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         }
 
         System.out.println(String.format(Locale.ROOT, "[EP2-TEST] Umweg um eine Mauer mit Baritone ok (%.1f s)", seconds));
+    }
+
+    /**
+     * Hilfsbloecke: ein Block soll 2 Bloecke ueber dem Boden frei in der Luft stehen. Der Printer setzt Erde als
+     * Stuetze darunter, setzt den Block daran und baut die Stuetzen danach wieder ab.
+     */
+    private static void testSupportBlocks(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos target = new BlockPos(120, Y + 2, 90);
+        server.runCommand(String.format(Locale.ROOT, "fill 114 %d 85 126 %d 95 air", Y, Y + 5));
+        server.runCommand(setblock(target, "stone"));
+        context.waitFor(mc -> mc.level.getBlockState(target).is(Blocks.STONE));
+
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(target, target, "float"), false);
+            area.setExplicitOrigin(target);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), "float", msg -> System.out.println("[EP2-TEST] " + msg));
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, target, "float", true, true), false);
+        });
+
+        server.runCommand(setblock(target, "air"));
+        server.runCommand("clear @a");
+        server.runCommand("give @a stone 4");
+        server.runCommand("give @a dirt 8");
+        server.runCommand(String.format(Locale.ROOT, "tp @a 117.5 %d 90.5 -90 0", Y));
+        context.waitFor(mc -> mc.level.getBlockState(target).isAir() && mc.player.position().distanceTo(new Vec3(117.5, Y, 90.5)) < 0.5 &&
+                              SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(target).is(Blocks.STONE), 200);
+        context.runOnClient(mc -> PrinterController.INSTANCE.start());
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 60);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-support-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Hilfsbloecke haengen: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + ")"));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+
+        context.takeScreenshot("easyplace2-support-done");
+        assertBlock(server, target, state -> state.is(Blocks.STONE), "Block frei in der Luft wurde nicht gesetzt");
+        assertBlock(server, target.below(), BlockState::isAir, "Hilfsblock wurde nicht wieder abgebaut");
+        assertBlock(server, target.below(2), BlockState::isAir, "Hilfsblock wurde nicht wieder abgebaut");
+        System.out.println("[EP2-TEST] Hilfsbloecke fuer einen Block in der Luft ok");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

@@ -456,5 +456,8 @@
     "easyplace2.printer.msg.water_left": "%s water not placed: %s.",
     "easyplace2.printer.water.no_bucket": "no bucket in the inventory",
     "easyplace2.printer.water.no_source": "no infinite water source nearby (bring 2 water buckets)",
-    "easyplace2.printer.water.out_of_reach": "not in reach"
+    "easyplace2.printer.water.out_of_reach": "not in reach",
+    "easyplace2.printer.state.bridging": "Building over air",
+    "easyplace2.printer.state.supporting": "Placing helper block",
+    "easyplace2.printer.msg.no_support_item": "Blocks floating in the air need helper blocks: bring dirt, cobblestone or netherrack (configurable via printerScaffoldItems)."
 }

@@ -207,7 +207,8 @@ public final class SchematicScanner
             {
                 BlockState there = level.getBlockState(pos);
 
-                if (!there.isAir() && Excavation.canDig(level, pos, there))
+                // Eigene Stuetzen/Geruest nicht aushoehlen: die baut der Printer am Ende selbst wieder ab
+                if (!there.isAir() && Excavation.canDig(level, pos, there) && !scaffoldBlocks.contains(pos))
                 {
                     this.excavate.add(pos.immutable());
                 }

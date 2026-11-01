@@ -62,7 +62,7 @@ public final class PrinterController
 
     public enum State
     {
-        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, WATERING, BRIDGING, LANE_WALKING, MOVING, AIMING, CLICKING, WAITING,
+        OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, WATERING, BRIDGING, SUPPORTING, LANE_WALKING, MOVING, AIMING, CLICKING, WAITING,
         PAUSED, PAUSED_SCREEN, MISSING_MATERIAL, NOTHING_IN_REACH, DONE
     }
 
@@ -120,6 +120,10 @@ public final class PrinterController
     /** Bauen ueber Luft: an die Kante schleichen und an die Seite setzen. */
     private final EdgeBridge bridge = new EdgeBridge();
     private final Map<BlockPos, Integer> bridgeAttempts = new HashMap<>();
+    /** Hilfsbloecke fuer Bloecke, die frei in der Luft stehen sollen. */
+    private final SupportBlocks support = new SupportBlocks();
+    private final Map<BlockPos, Integer> supportAttempts = new HashMap<>();
+    private boolean supportHintShown;
     private long moveStartTick;
     private Vec3 moveStartPos = Vec3.ZERO;
     private final Map<BlockPos, Integer> unloadedAttempts = new HashMap<>();
@@ -211,6 +215,8 @@ public final class PrinterController
         this.directWalk = false;
         this.directFailUntil = 0;
         this.bridgeAttempts.clear();
+        this.supportAttempts.clear();
+        this.supportHintShown = false;
         this.missingMaterials.clear();
         this.pending.clear();
         this.placed = 0;
@@ -239,6 +245,7 @@ public final class PrinterController
         this.excavator.cancel(mc);
         this.water.cancel(mc);
         this.bridge.stop(mc);
+        this.support.cancel();
         this.walker.cancel(mc);
         this.inventory.cancel(mc);
         BaritoneBridge.cancel();
@@ -516,6 +523,14 @@ public final class PrinterController
                 else
                 {
                     this.detail = this.water.detail();
+                }
+            }
+            case SUPPORTING ->
+            {
+                if (this.support.tick(mc) != SupportBlocks.Result.RUNNING)
+                {
+                    this.setState(State.SELECTING, "");
+                    this.stateTicks = 1;
                 }
             }
             case BRIDGING ->
@@ -897,6 +912,54 @@ public final class PrinterController
             AimController.INSTANCE.aimAt(bestHits.get(0).getLocation(), Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
             this.setState(State.AIMING, blockName(t.state()));
             return;
+        }
+
+        // Frei in der Luft (nichts daneben, an das man setzen koennte): erst Hilfsbloecke bis zu einem vorhandenen
+        // Block setzen, dann den Block daran; die Hilfsbloecke werden am Ende wie Geruest wieder abgebaut
+        for (SchematicScanner.Target t : reachable)
+        {
+            if (SupportBlocks.supported(level, t.pos()) || this.supportAttempts.getOrDefault(t.pos(), 0) >= 4)
+            {
+                continue;
+            }
+
+            List<BlockPos> chain = SupportBlocks.chain(player, level, schematic, t.pos());
+
+            if (chain == null || !SupportBlocks.reachable(player, level, chain.get(0)))
+            {
+                continue;
+            }
+
+            Item helper = SupportBlocks.item(player);
+
+            if (helper == null)
+            {
+                if (!this.supportHintShown)
+                {
+                    this.supportHintShown = true;
+                    message(Component.translatable("easyplace2.printer.msg.no_support_item").withStyle(ChatFormatting.GOLD));
+                }
+
+                break;
+            }
+
+            if (!player.getMainHandItem().is(helper))
+            {
+                if (this.inventory.request(player, helper, snap.neededItems().keySet()))
+                {
+                    this.setState(State.FETCHING_ITEM, new ItemStack(helper).getHoverName().getString());
+                    return;
+                }
+
+                break;
+            }
+
+            if (this.support.start(player, level, chain.get(0)))
+            {
+                this.supportAttempts.merge(t.pos(), 1, Integer::sum);
+                this.setState(State.SUPPORTING, chain.get(0).toShortString());
+                return;
+            }
         }
 
         // Ueber Luft (kein Boden darunter): an die Kante schleichen und an die Seite des letzten Blocks setzen,
@@ -1348,6 +1411,7 @@ public final class PrinterController
         this.excavator.cancel(mc);
         this.water.cancel(mc);
         this.bridge.stop(mc);
+        this.support.cancel();
         this.walker.cancel(mc);
         this.inventory.cancel(mc);
     }

@@ -456,5 +456,8 @@
     "easyplace2.printer.msg.water_left": "%s Wasser nicht gesetzt: %s.",
     "easyplace2.printer.water.no_bucket": "kein Eimer im Inventar",
     "easyplace2.printer.water.no_source": "keine unendliche Wasserquelle in der Nähe (2 Wassereimer mitnehmen)",
-    "easyplace2.printer.water.out_of_reach": "nicht in Reichweite"
+    "easyplace2.printer.water.out_of_reach": "nicht in Reichweite",
+    "easyplace2.printer.state.bridging": "Baut über Luft",
+    "easyplace2.printer.state.supporting": "Setzt Hilfsblock",
+    "easyplace2.printer.msg.no_support_item": "Für Blöcke frei in der Luft braucht der Printer Hilfsblöcke: nimm Erde, Bruchstein oder Netherrack mit (einstellbar unter printerScaffoldItems)."
 }
