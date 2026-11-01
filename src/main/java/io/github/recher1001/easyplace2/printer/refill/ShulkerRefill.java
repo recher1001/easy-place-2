@@ -29,7 +29,7 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.placement.InteractiveBlocks;
 import io.github.recher1001.easyplace2.printer.AimController;
-import io.github.recher1001.easyplace2.printer.BaritoneBridge;
+import io.github.recher1001.easyplace2.printer.Walking;
 import io.github.recher1001.easyplace2.printer.BlockBreaker;
 import io.github.recher1001.easyplace2.printer.InventoryManager;
 import io.github.recher1001.easyplace2.printer.ShulkerContents;
@@ -396,7 +396,7 @@ public final class ShulkerRefill implements Refill
                 else if (this.stepTicks > PICKUP_TIMEOUT)
                 {
                     // Die Kiste liegt noch am Boden: mit Baritone hingehen, sonst die paar Schritte selbst laufen
-                    if (BaritoneBridge.isAvailable() && BaritoneBridge.goToAny(List.of(this.spot)))
+                    if (Walking.isAvailable() && Walking.goToAny(List.of(this.spot)))
                     {
                         this.go(Step.WALK_PICKUP, 0);
                     }
@@ -426,9 +426,9 @@ public final class ShulkerRefill implements Refill
             case WALK_PICKUP ->
             {
                 if (ShulkerContents.shulkerSlots(player).size() >= this.shulkersBefore ||
-                    (this.stepTicks > 10 && !BaritoneBridge.isBusy()) || this.stepTicks > 20 * 20)
+                    (this.stepTicks > 10 && !Walking.isBusy()) || this.stepTicks > 20 * 20)
                 {
-                    BaritoneBridge.cancel();
+                    Walking.cancel();
                     this.go(findDrop(level, this.spot) != null && ShulkerContents.shulkerSlots(player).size() < this.shulkersBefore
                             ? Step.STEP_TO_DROP : Step.DONE, 0);
                 }
@@ -536,7 +536,7 @@ public final class ShulkerRefill implements Refill
 
         if (this.step == Step.WALK_PICKUP)
         {
-            BaritoneBridge.cancel();
+            Walking.cancel();
         }
 
         // Steht die Kiste schon, geht es beim naechsten Mal direkt mit dem Abbauen weiter, sonst mit dem Einsammeln

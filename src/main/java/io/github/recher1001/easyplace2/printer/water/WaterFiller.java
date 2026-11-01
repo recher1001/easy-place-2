@@ -43,7 +43,7 @@ import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
 import io.github.recher1001.easyplace2.placement.EasyPlace2Handler;
 import io.github.recher1001.easyplace2.placement.InteractiveBlocks;
 import io.github.recher1001.easyplace2.printer.AimController;
-import io.github.recher1001.easyplace2.printer.BaritoneBridge;
+import io.github.recher1001.easyplace2.printer.Walking;
 import io.github.recher1001.easyplace2.printer.BlockBreaker;
 import io.github.recher1001.easyplace2.printer.Excavation;
 import io.github.recher1001.easyplace2.printer.InventoryManager;
@@ -200,7 +200,7 @@ public final class WaterFiller
 
         if (this.step == Step.WALK)
         {
-            BaritoneBridge.cancel();
+            Walking.cancel();
         }
 
         AimController.INSTANCE.stop();
@@ -916,12 +916,12 @@ public final class WaterFiller
 
         BlockPos far = this.findInfinite(level, player, SEARCH_RADIUS, false);
 
-        if (far != null && canWalk && Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() && BaritoneBridge.isAvailable())
+        if (far != null && canWalk && Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() && Walking.isAvailable())
         {
             List<BlockPos> spots = StandSpots.find(level, schematic, far, RefillUtil.maxDistance(player), player.position(),
                     feet -> level.getFluidState(feet).isEmpty());
 
-            if (!spots.isEmpty() && BaritoneBridge.goToAny(spots.stream()
+            if (!spots.isEmpty() && Walking.goToAny(spots.stream()
                     .sorted(Comparator.comparingDouble(p -> p.distSqr(player.blockPosition()))).toList()))
             {
                 this.detail = "walk_source";
@@ -937,7 +937,7 @@ public final class WaterFiller
 
     private boolean walkNear(LocalPlayer player, Level level, List<BlockPos> open)
     {
-        if (!Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() || !BaritoneBridge.isAvailable())
+        if (!Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() || !Walking.isAvailable())
         {
             return false;
         }
@@ -952,7 +952,7 @@ public final class WaterFiller
 
         List<BlockPos> spots = StandSpots.find(level, schematic, nearest, RefillUtil.maxDistance(player), player.position(),
                 feet -> !open.contains(feet) && level.getFluidState(feet).isEmpty());
-        boolean going = !spots.isEmpty() && BaritoneBridge.goToAny(spots.stream()
+        boolean going = !spots.isEmpty() && Walking.goToAny(spots.stream()
                 .sorted(Comparator.comparingDouble(p -> p.distSqr(player.blockPosition()))).toList());
 
         if (Ep2Configs.DEBUG.getBooleanValue())
@@ -1213,9 +1213,9 @@ public final class WaterFiller
             }
             case WALK ->
             {
-                if ((this.stepTicks > 10 && !BaritoneBridge.isBusy()) || this.stepTicks > WALK_TIMEOUT)
+                if ((this.stepTicks > 10 && !Walking.isBusy()) || this.stepTicks > WALK_TIMEOUT)
                 {
-                    BaritoneBridge.cancel();
+                    Walking.cancel();
                     this.go(Step.IDLE);
                     return true;
                 }

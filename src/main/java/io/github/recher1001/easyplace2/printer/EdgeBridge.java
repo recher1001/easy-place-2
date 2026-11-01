@@ -146,16 +146,16 @@ public final class EdgeBridge
 
         if (this.phase == Phase.GET_ON)
         {
-            if (onLine && !BaritoneBridge.isBusy())
+            if (onLine && !Walking.isBusy())
             {
-                BaritoneBridge.cancel();
+                Walking.cancel();
                 this.phase = Phase.EDGE;
                 this.ticks = 0;
                 this.last = pos;
             }
             else if (!this.baritoneStarted)
             {
-                if (!canWalk || !BaritoneBridge.goToAny(List.of(plan.support().above())))
+                if (!canWalk || !Walking.goToAny(List.of(plan.support().above())))
                 {
                     this.stop(mc);
                     return Result.FAILED;
@@ -164,9 +164,9 @@ public final class EdgeBridge
                 this.baritoneStarted = true;
                 return Result.RUNNING;
             }
-            else if ((this.ticks > 10 && !BaritoneBridge.isBusy()) || this.ticks > GET_ON_TIMEOUT)
+            else if ((this.ticks > 10 && !Walking.isBusy()) || this.ticks > GET_ON_TIMEOUT)
             {
-                BaritoneBridge.cancel();
+                Walking.cancel();
                 this.stop(mc);
                 return Result.FAILED;
             }

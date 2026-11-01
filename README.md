@@ -26,8 +26,10 @@ bleibt unverändert und wird nicht gebraucht.
    - `easy-place-2-mc1.21.11-0.2.0.jar` (diese Mod, siehe unten „Wo bekomme ich die .jar?“)
 3. Minecraft mit dem Fabric-Profil starten.
 
-**Baritone ist schon dabei:** Die Mod bringt [Baritone](https://github.com/cabaletta/baritone) **1.17.0** für
-1.21.11 mit (nur zum Laufen), du musst es nicht extra installieren. Hast du selbst ein anderes Baritone im
+**Laufen ohne Baritone:** Der Printer läuft mit eigener Wegsuche und den normalen Lauftasten, Baritone wird
+dafür nicht gebraucht. Wer lieber Baritone laufen lässt, schaltet im Menü unter **Laufen** „Mit Baritone
+laufen“ an. Dafür bringt die Mod [Baritone](https://github.com/cabaletta/baritone) **1.17.0** für 1.21.11 mit,
+du musst es nicht extra installieren. Hast du selbst ein anderes Baritone im
 `mods`-Ordner, nimmt Fabric automatisch die neuere Version. Baritone steht unter der LGPL-3.0 und ist unverändert
 enthalten; den Quelltext gibt es auf GitHub. Benutzen kannst du es im Spiel auch selbst mit `#`-Befehlen.
 
@@ -61,9 +63,18 @@ Gut zu wissen:
 Der Printer baut alle aktiven Litematica-Placements selbstständig. Platziert wird dabei **immer über
 Easy Place 2.0 mit strengem Fadenkreuz**, also mit genau dem Rechtsklick, den du auch selbst machen würdest.
 
-**Baritone** ist in der Mod enthalten: Damit läuft der Printer selbst zu Blöcken, die außer Reichweite sind.
+**Eigenes Laufen:** Der Printer läuft selbst zu Blöcken, die außer Reichweite sind, ganz ohne Baritone:
+
+- Er sucht den Weg selbst (in wenigen Ticks, ohne Ruckeln): gehen, schräg gehen, einen Block hochspringen,
+  bis zu 3 Blöcke herunterfallen. Wasser, Lava, Feuer, Spinnweben, Kakteen usw. meidet er.
+- Er läuft wie ein Spieler: Er schaut in Laufrichtung, drückt W/A/S/D, springt an Stufen und sprintet auf
+  geraden Stücken.
+- Gibt es keinen Weg, der näher heranführt, irrt er nicht herum, sondern der Printer probiert etwas anderes
+  (anderes Ziel, hochbauen …). Ist das Ziel weit weg, läuft er ein Stück und sucht von dort aus weiter.
+- Unterwegs baut er nie etwas ab und setzt nichts (dafür gibt es Hochbauen, Brücke und Hilfsblöcke).
+
 Abschalten kannst du das Laufen im Menü unter **Laufen**, dann baut er nur, was du von deinem Standort aus
-erreichst.
+erreichst. Mit „Mit Baritone laufen“ übernimmt stattdessen Baritone.
 
 **Bedienung:**
 1. Schematic in Litematica laden und platzieren.
@@ -85,8 +96,8 @@ erreichst.
 
 **Was der Printer für jeden Block macht:**
 1. Er sucht den nächsten fehlenden Block, von unten nach oben (optional nur in den angezeigten Litematica-Ebenen).
-2. Ist der Block außer Reichweite, läuft er mit Baritone zu einer Stelle, von der aus Vanilla den Block **richtig
-   herum** setzt (z. B. bei Treppen auf die passende Seite). Baritone baut und baut dabei nie selbst ab.
+2. Ist der Block außer Reichweite, läuft er zu einer Stelle, von der aus Vanilla den Block **richtig
+   herum** setzt (z. B. bei Treppen auf die passende Seite). Beim Laufen baut er nichts und baut nichts ab.
 3. Fehlt das Item in der Hotbar, macht er es wie ein Spieler: Inventar öffnen → kurz warten → Item per Zahlentaste
    in die Hotbar → warten → Inventar schließen → Hotbar-Platz wählen. Die Pausen sind einstellbar.
 4. Er dreht die Kamera sichtbar und flüssig auf die Nachbarfläche. Optional gibt es die **Schnelldrehung**: Der Kopf
@@ -102,7 +113,7 @@ erreichst.
   Hotbar) und sammelt sie ein. Alles mit normalen Klicks und Pausen. Eine aufgestellte Shulker wird nie stehen gelassen.
 - **Lager:** Truhen, Fässer oder Shulker an einem festen Platz markierst du im Menü unter **Lager**
   („+ Container im Fadenkreuz“) oder mit der Taste „Lager markieren“. Öffnest du einen markierten Container, merkt
-  sich der Printer den Inhalt. Hat keine Shulker im Inventar das Material, läuft er mit Baritone zum Lager, öffnet den
+  sich der Printer den Inhalt. Hat keine Shulker im Inventar das Material, läuft er zum Lager, öffnet den
   Container, nimmt das Material (oder Shulker, in denen es liegt) und baut dann weiter.
 - Beides lässt sich unter **Inventar** einzeln abschalten. Die Lager-Liste liegt in `config/easyplace2_storage.json`,
   getrennt nach Server/Welt und Dimension.
@@ -126,7 +137,7 @@ erreichst.
 - Ob der Server einen Block behält, prüft er immer nebenbei, während er sich schon zum nächsten dreht (auch
   ohne „Schnell bauen“; die Pause zwischen zwei Klicks bleibt).
 - **Laufen: ausprobieren statt lange überlegen.** Er geht einfach zum nächsten Block los. Kommt er nicht los
-  (gut 1 Sekunde), steht er unterwegs 2 Sekunden still oder findet Baritone keinen Weg, probiert er sofort
+  (gut 1 Sekunde), steht er unterwegs 2 Sekunden still oder findet er keinen Weg, probiert er sofort
   ein Ziel in einer anderen Ecke. Die gescheiterte Ecke versucht er 10 Sekunden später noch einmal.
 - **Reihenfolge**, nicht zufällig:
   1. von unten nach oben,
@@ -215,7 +226,7 @@ Wasser in der Schematic setzt der Printer mit Eimern, so wie ein Spieler (Option
   zur Quelle. Der Printer wählt die Stellen so, dass davon möglichst viel passiert. Bei einer großen Fläche setzt
   er zuerst zwei Eimer diagonal, das ergibt sofort eine unendliche Quelle. Daraus füllt er nach, und der Rest
   wächst größtenteils von selbst zusammen. **Zwei Wassereimer und ein paar leere Eimer reichen.**
-- **Nachfüllen** nur an unendlichen Quellen: im Bereich selbst, in der Nähe (mit Baritone läuft er hin), oder
+- **Nachfüllen** nur an unendlichen Quellen: im Bereich selbst, in der Nähe (dorthin läuft er), oder
   in einer **eigenen 2x2-Quelle**. Gibt es keine, hebt der Printer direkt neben dem Bereich (nie darin) ein
   2x2-Loch im festen Boden aus und macht daraus mit zwei Eimern eine (abschaltbar: **Wasserquelle anlegen**).
 - **Wassergeloggte Blöcke** (Treppen, Stufen, Zäune, Laternen … mit Wasser drin): erst wird der Block gesetzt,
@@ -243,7 +254,7 @@ der Turm hoch ist. Fehlen sie, sagt er es im Chat.
 ## Gerüst und Festhängen
 
 **Gerüst (Menü → Laufen → „Gerüst setzen“, standardmäßig an):** Kommt der Printer an einen Block vom Boden
-aus nicht heran, darf Baritone Füllblöcke setzen, um hoch oder über eine Lücke zu kommen, auch mitten in
+aus nicht heran, darf Baritone (nur mit „Mit Baritone laufen“) Füllblöcke setzen, um hoch oder über eine Lücke zu kommen, auch mitten in
 der Schematic.
 
 - Verbaut werden nur die Blöcke aus `printerScaffoldItems` (Standard: Erde, Bruchstein, Netherrack,
@@ -261,7 +272,7 @@ der Schematic.
 **Nie endlos im Kreis:** Ein Aufpasser prüft die ganze Zeit, ob es vorangeht.
 
 - Steckt der Spieler beim Laufen fest (2 Sekunden kein Stück weiter) oder kommt er dem Ziel 4 Sekunden lang
-  nicht näher (Baritone irrt herum), nimmt der Printer ein anderes Ziel. Findet Baritone keinen Weg, zählt das als Fehlversuch, und nach ein paar Versuchen wird der Block
+  nicht näher (irrt herum), nimmt der Printer ein anderes Ziel. Gibt es keinen Weg, zählt das als Fehlversuch, und nach ein paar Versuchen wird der Block
   übersprungen.
 - Wird eine Zeit lang (Menü → Laufen → „Feststecken nach“, Standard 90 s) weder ein Block gesetzt noch Gerüst
   abgebaut, greift er stufenweise ein:
@@ -269,7 +280,7 @@ der Schematic.
   2. aus der Lage herauslaufen,
   3. Gerüst in der Nähe abbauen.
 - Hilft das alles nicht, pausiert er und schreibt in den Chat, was los ist. Mit **Weiter** im Menü geht es weiter.
-- Wartet der Printer bewusst (Material fehlt, oder nichts in Reichweite und kein Baritone), läuft diese Uhr nicht.
+- Wartet der Printer bewusst (Material fehlt, oder nichts in Reichweite und Laufen aus), läuft diese Uhr nicht.
 
 ## Modul: Invsee
 
@@ -367,5 +378,6 @@ auf jedem Bildschirm scharf. Zeichen, die Inter nicht hat, kommen aus der normal
 | Klickpunkte + Stehplätze mit richtiger Ausrichtung | `printer/AimPlanner.java`, `printer/StandSpots.java` |
 | Kamera drehen | `printer/AimController.java` |
 | Items wie ein Spieler holen | `printer/InventoryManager.java` |
-| Baritone (nur Laufen, per Reflection) | `printer/BaritoneBridge.java` |
+| Eigenes Laufen (Wegsuche + Tasten) | `printer/path/PathFinder.java`, `printer/path/PathWalker.java`, `printer/Walking.java` |
+| Baritone (optional, per Reflection) | `printer/BaritoneBridge.java` |
 | Menü und HUD | `printer/gui/*` |

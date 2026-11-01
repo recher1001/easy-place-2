@@ -49,6 +49,7 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigInteger PRINTER_INV_DELAY_MAX = new ConfigInteger("printerInventoryDelayMax", 10, 1, 60).apply(KEY);
     public static final ConfigDouble  PRINTER_REACH_MARGIN = new ConfigDouble("printerReachMargin", 0.6, 0.0, 2.5).apply(KEY);
     public static final ConfigBoolean PRINTER_USE_BARITONE = new ConfigBoolean("printerUseBaritone", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_WALK_BARITONE = new ConfigBoolean("printerWalkWithBaritone", false).apply(KEY);
     public static final ConfigBoolean PRINTER_SPRINT      = new ConfigBoolean("printerSprint", true).apply(KEY);
     public static final ConfigBoolean PRINTER_LAYER_RANGE = new ConfigBoolean("printerUseLayerRange", true).apply(KEY);
     public static final ConfigBoolean PRINTER_HUD         = new ConfigBoolean("printerHud", true).apply(KEY);
@@ -111,6 +112,7 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_WATER,
             PRINTER_WATER_MAKE_SOURCE,
             PRINTER_USE_BARITONE,
+            PRINTER_WALK_BARITONE,
             PRINTER_SPRINT,
             PRINTER_LAYER_RANGE,
             PRINTER_HUD,

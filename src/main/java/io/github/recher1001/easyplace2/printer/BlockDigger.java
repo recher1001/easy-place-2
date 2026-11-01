@@ -248,10 +248,10 @@ public final class BlockDigger
             }
             case WALK ->
             {
-                if ((this.stepTicks > 10 && !BaritoneBridge.isBusy()) || this.stepTicks > WALK_TIMEOUT)
+                if ((this.stepTicks > 10 && !Walking.isBusy()) || this.stepTicks > WALK_TIMEOUT)
                 {
-                    BaritoneBridge.cancel();
-                    BaritoneBridge.setScaffold(false, List.of());
+                    Walking.cancel();
+                    Walking.setScaffold(false, List.of());
 
                     if (RefillUtil.visiblePoints(player, level, null, this.target, null).isEmpty())
                     {
@@ -299,7 +299,7 @@ public final class BlockDigger
 
         if (this.step == Step.WALK)
         {
-            BaritoneBridge.cancel();
+            Walking.cancel();
         }
 
         this.finish();
@@ -361,10 +361,10 @@ public final class BlockDigger
         // Erst ohne neues Geruest; nur wenn das schon einmal nicht geklappt hat, darf Baritone setzen
         int attempt = this.attempts.getOrDefault(target, 0);
         boolean scaffold = attempt >= 1 && Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue();
-        BaritoneBridge.setScaffold(scaffold, scaffold ? ScaffoldTracker.INSTANCE.usable() : List.of());
+        Walking.setScaffold(scaffold, scaffold ? ScaffoldTracker.INSTANCE.usable() : List.of());
         this.walkedWithScaffold = scaffold;
         AimController.INSTANCE.stop();
-        return BaritoneBridge.goToAny(spots);
+        return Walking.goToAny(spots);
     }
 
     private void failed(long now)
@@ -382,7 +382,7 @@ public final class BlockDigger
     {
         if (this.walkedWithScaffold)
         {
-            BaritoneBridge.setScaffold(false, List.of());
+            Walking.setScaffold(false, List.of());
             this.walkedWithScaffold = false;
         }
 

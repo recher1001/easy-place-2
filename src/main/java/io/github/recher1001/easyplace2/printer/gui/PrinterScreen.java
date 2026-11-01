@@ -39,7 +39,7 @@ import io.github.recher1001.easyplace2.modules.macro.MacroPlayer;
 import io.github.recher1001.easyplace2.modules.macro.MacroRecorder;
 import io.github.recher1001.easyplace2.modules.macro.MacroStep;
 import io.github.recher1001.easyplace2.modules.macro.MacroStore;
-import io.github.recher1001.easyplace2.printer.BaritoneBridge;
+import io.github.recher1001.easyplace2.printer.Walking;
 import io.github.recher1001.easyplace2.printer.InventoryManager;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.SchematicScanner;
@@ -569,7 +569,7 @@ public class PrinterScreen extends Screen
         y = this.statusRow(g, font, a, y, "target", target == null ? "–" : target.state().getBlock().getName().getString());
         y = this.statusRow(g, font, a, y, "detail", this.detailText(printer));
         y = this.statusRow(g, font, a, y, "unplaceable", snap == null ? "–" : String.valueOf(snap.unplaceable()));
-        this.statusRow(g, font, a, y, "baritone", Component.translatable(BaritoneBridge.isAvailable()
+        this.statusRow(g, font, a, y, "baritone", Component.translatable(Walking.isAvailable()
                 ? "easyplace2.printer.check.ok" : "easyplace2.printer.check.missing").getString());
     }
 
@@ -1394,7 +1394,7 @@ public class PrinterScreen extends Screen
             int y = a.y + 8;
             y = this.check(g, font, a, y, "litematica", true);
             y = this.check(g, font, a, y, "schematic", schematic);
-            y = this.check(g, font, a, y, "baritone", BaritoneBridge.isAvailable());
+            y = this.check(g, font, a, y, "baritone", Walking.isAvailable());
             y = this.check(g, font, a, y, "easyplace", Ep2Configs.EASY_PLACE_2.getBooleanValue());
             this.check(g, font, a, y, "strict", Ep2Configs.STRICT_CROSSHAIR.getBooleanValue());
         }, null));

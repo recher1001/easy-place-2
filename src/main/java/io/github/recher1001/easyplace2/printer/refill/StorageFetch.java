@@ -23,7 +23,7 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.printer.AimController;
-import io.github.recher1001.easyplace2.printer.BaritoneBridge;
+import io.github.recher1001.easyplace2.printer.Walking;
 import io.github.recher1001.easyplace2.printer.InventoryManager;
 import io.github.recher1001.easyplace2.printer.StandSpots;
 
@@ -173,9 +173,9 @@ public final class StorageFetch implements Refill
             }
             case MOVING ->
             {
-                if ((this.stepTicks > 10 && !BaritoneBridge.isBusy()) || this.stepTicks > MOVE_TIMEOUT)
+                if ((this.stepTicks > 10 && !Walking.isBusy()) || this.stepTicks > MOVE_TIMEOUT)
                 {
-                    BaritoneBridge.cancel();
+                    Walking.cancel();
                     this.go(Step.CHECK, 3 + this.random.nextInt(4));
                 }
             }
@@ -255,7 +255,7 @@ public final class StorageFetch implements Refill
     /** Mit Baritone zu einer Stelle laufen, von der aus der Container sichtbar und erreichbar ist. */
     private boolean walk(LocalPlayer player, Level level, @Nullable Level schematic)
     {
-        if (!Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() || !BaritoneBridge.isAvailable())
+        if (!Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() || !Walking.isAvailable())
         {
             return false;
         }
@@ -263,7 +263,7 @@ public final class StorageFetch implements Refill
         List<BlockPos> spots = StandSpots.find(level, schematic != null ? schematic : level, this.pos,
                 RefillUtil.maxDistance(player), player.position(), feet -> RefillUtil.visibleFrom(player, feet, level, schematic, this.pos));
 
-        return !spots.isEmpty() && BaritoneBridge.goToAny(spots.stream().sorted(Comparator.comparingDouble(
+        return !spots.isEmpty() && Walking.goToAny(spots.stream().sorted(Comparator.comparingDouble(
                 p -> p.distSqr(player.blockPosition()))).toList());
     }
 
@@ -292,7 +292,7 @@ public final class StorageFetch implements Refill
 
         this.ownScreen = null;
         AimController.INSTANCE.stop();
-        BaritoneBridge.cancel();
+        Walking.cancel();
         this.go(Step.DONE, 0);
     }
 

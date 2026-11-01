@@ -39,7 +39,7 @@ import fi.dy.masa.malilib.util.FileUtils;
 
 import io.github.recher1001.easyplace2.EasyPlace2;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
-import io.github.recher1001.easyplace2.printer.BaritoneBridge;
+import io.github.recher1001.easyplace2.printer.Walking;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 import io.github.recher1001.easyplace2.printer.refill.StorageRegistry;
 
@@ -77,7 +77,7 @@ public final class ScaffoldTracker
         UseBlockCallback.EVENT.register((player, world, hand, hit) ->
         {
             // Nur der eigene Client (im Einzelspieler ruft auch der Server dieses Ereignis auf)
-            if (player instanceof LocalPlayer && PrinterController.INSTANCE.isRunning() && BaritoneBridge.isBusy() &&
+            if (player instanceof LocalPlayer && PrinterController.INSTANCE.isRunning() && Walking.isBusy() &&
                 this.isScaffoldItem(player.getItemInHand(hand)))
             {
                 long now = world.getGameTime();

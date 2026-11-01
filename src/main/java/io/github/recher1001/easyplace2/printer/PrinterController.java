@@ -176,6 +176,7 @@ public final class PrinterController
     public void register()
     {
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
+        Walking.register();
         ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> this.stop(null));
     }
 
@@ -228,8 +229,8 @@ public final class PrinterController
 
         if (Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue())
         {
-            BaritoneBridge.applySettings(Ep2Configs.PRINTER_SPRINT.getBooleanValue());
-            BaritoneBridge.setScaffold(false, List.of());
+            Walking.applySettings(Ep2Configs.PRINTER_SPRINT.getBooleanValue());
+            Walking.setScaffold(false, List.of());
         }
 
         this.scanner.reset();
@@ -296,8 +297,8 @@ public final class PrinterController
         this.support.cancel();
         this.walker.cancel(mc);
         this.inventory.cancel(mc);
-        BaritoneBridge.cancel();
-        BaritoneBridge.restoreSettings();
+        Walking.cancel();
+        Walking.restoreSettings();
         this.setState(State.OFF, "");
 
         if (reason != null)
@@ -1232,7 +1233,7 @@ public final class PrinterController
             return;
         }
 
-        if (nearest != null && StandSpots.anyStandable(level, nearest.pos(), nearRange) && BaritoneBridge.goNear(nearest.pos(), nearRange))
+        if (nearest != null && StandSpots.anyStandable(level, nearest.pos(), nearRange) && Walking.goNear(nearest.pos(), nearRange))
         {
             this.bridge.release(Minecraft.getInstance());
             AimController.INSTANCE.stop();
@@ -1289,9 +1290,9 @@ public final class PrinterController
                 continue;
             }
 
-            BaritoneBridge.setScaffold(scaffold, usable);
+            Walking.setScaffold(scaffold, usable);
 
-            if (BaritoneBridge.goToAny(spots))
+            if (Walking.goToAny(spots))
             {
                 this.bridge.release(Minecraft.getInstance());
                 AimController.INSTANCE.stop();
@@ -1326,9 +1327,9 @@ public final class PrinterController
 
         this.unloadedAttempts.merge(nearest, 1, Integer::sum);
         List<Item> usable = ScaffoldTracker.INSTANCE.usable();
-        BaritoneBridge.setScaffold(Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue(), usable);
+        Walking.setScaffold(Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue(), usable);
 
-        if (BaritoneBridge.goToXZ(nearest.getX(), nearest.getZ()))
+        if (Walking.goToXZ(nearest.getX(), nearest.getZ()))
         {
             AimController.INSTANCE.stop();
             this.moveTarget = null;
@@ -1349,7 +1350,7 @@ public final class PrinterController
         if (this.walkingNear && this.moveTarget != null && this.stateTicks >= 2 && player.onGround() &&
             Vec3.atCenterOf(this.moveTarget).distanceTo(player.getEyePosition()) <= RefillUtil.maxDistance(player) - 0.3)
         {
-            BaritoneBridge.cancel();
+            Walking.cancel();
             this.setState(State.SELECTING, "");
             this.stateTicks = 1;
             return;
@@ -1369,8 +1370,8 @@ public final class PrinterController
             else if (now - this.bestMoveTick > NO_CLOSER_TICKS)
             {
                 debug("Laufen abgebrochen (kommt nicht naeher), Ziel {}", this.moveTarget.toShortString());
-                BaritoneBridge.cancel();
-                BaritoneBridge.setScaffold(false, List.of());
+                Walking.cancel();
+                Walking.setScaffold(false, List.of());
                 this.markFailed(this.moveTarget, now);
                 this.setState(State.SELECTING, "");
                 this.stateTicks = 1;
@@ -1379,7 +1380,7 @@ public final class PrinterController
         }
 
         // Baritone braucht einen Moment, bis der Weg berechnet ist
-        if (this.stateTicks < 4 || BaritoneBridge.isBusy())
+        if (this.stateTicks < 4 || Walking.isBusy())
         {
             // Nicht lange ueberlegen, einfach ausprobieren: kommt er gar nicht erst los, steht er unterwegs still oder
             // dauert es zu lange, wird gleich ein anderes Ziel probiert (diese Ecke spaeter noch einmal)
@@ -1390,8 +1391,8 @@ public final class PrinterController
             {
                 debug("Laufen abgebrochen ({}), Ziel {}", noStart ? "kommt nicht los" : stuck ? "steckt fest" : "dauert zu lange",
                         this.moveTarget != null ? this.moveTarget.toShortString() : "-");
-                BaritoneBridge.cancel();
-                BaritoneBridge.setScaffold(false, List.of());
+                Walking.cancel();
+                Walking.setScaffold(false, List.of());
                 this.markFailed(this.moveTarget, now);
                 this.setState(State.SELECTING, "");
                 this.stateTicks = 1;
@@ -1400,7 +1401,7 @@ public final class PrinterController
             return;
         }
 
-        BaritoneBridge.setScaffold(false, List.of());
+        Walking.setScaffold(false, List.of());
 
         // Kein Weg gefunden (kaum vom Fleck gekommen): zaehlt als Fehlversuch, und erst einmal etwas anderes probieren
         if (this.moveTarget != null && player.position().distanceTo(this.moveStartPos) < 1.0 &&
@@ -1581,7 +1582,7 @@ public final class PrinterController
             return true;
         }
 
-        if (this.canWalk() && BaritoneBridge.goToAny(List.of(target)))
+        if (this.canWalk() && Walking.goToAny(List.of(target)))
         {
             AimController.INSTANCE.stop();
             this.moveTarget = null;
@@ -1599,8 +1600,8 @@ public final class PrinterController
     private void interrupt(Minecraft mc)
     {
         AimController.INSTANCE.stop();
-        BaritoneBridge.cancel();
-        BaritoneBridge.setScaffold(false, List.of());
+        Walking.cancel();
+        Walking.setScaffold(false, List.of());
         this.refill.cancel(mc);
         this.cleaner.cancel(mc);
         this.excavator.cancel(mc);
@@ -1656,9 +1657,9 @@ public final class PrinterController
                     double angle = this.random.nextDouble() * Math.PI * 2;
                     int x = (int) Math.floor(player.getX() + Math.cos(angle) * ESCAPE_DISTANCE);
                     int z = (int) Math.floor(player.getZ() + Math.sin(angle) * ESCAPE_DISTANCE);
-                    BaritoneBridge.setScaffold(Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue(), ScaffoldTracker.INSTANCE.usable());
+                    Walking.setScaffold(Ep2Configs.PRINTER_SCAFFOLD.getBooleanValue(), ScaffoldTracker.INSTANCE.usable());
 
-                    if (BaritoneBridge.goToXZ(x, z))
+                    if (Walking.goToXZ(x, z))
                     {
                         this.current = null;
                         this.moveTarget = null;
@@ -1801,7 +1802,7 @@ public final class PrinterController
     {
         int range = Math.max(2, (int) Math.floor(RefillUtil.maxDistance(player) - 1.0));
 
-        if (!StandSpots.anyStandable(level, pos, range) || !BaritoneBridge.goNear(pos, range))
+        if (!StandSpots.anyStandable(level, pos, range) || !Walking.goNear(pos, range))
         {
             this.markFailed(pos, now);
             return false;
@@ -1915,7 +1916,7 @@ public final class PrinterController
         }
 
         // Erst hinlaufen (am Boden, also ein Weg, den Baritone sofort findet)
-        if (this.canWalk() && BaritoneBridge.goToAny(List.of(plan.ground())))
+        if (this.canWalk() && Walking.goToAny(List.of(plan.ground())))
         {
             this.bridge.release(mc);
             AimController.INSTANCE.stop();
@@ -1987,7 +1988,7 @@ public final class PrinterController
                     return true;
                 }
             }
-            else if (this.towerWalks.merge(plan, 1, Integer::sum) <= 3 && this.canWalk() && BaritoneBridge.goToAny(List.of(top.above())))
+            else if (this.towerWalks.merge(plan, 1, Integer::sum) <= 3 && this.canWalk() && Walking.goToAny(List.of(top.above())))
             {
                 AimController.INSTANCE.stop();
                 this.moveTarget = top.above();
@@ -2024,7 +2025,7 @@ public final class PrinterController
 
     private boolean canWalk()
     {
-        return Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() && BaritoneBridge.isAvailable();
+        return Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() && Walking.isAvailable();
     }
 
     private void setState(State state, String detail)
