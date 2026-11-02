@@ -882,7 +882,11 @@ public final class PrinterController
             // Sonst (oder fuer den Rest): der naechste Block in Reichweite; nie mit der Star-Spitzhacke
             this.excavator.setTool(-1, StarTool.findSlot(player));
 
-            if (this.excavator.start(player, level, schematic, p -> true, now))
+            // Auch hier erst der grosse Teil (einzelne vergessene Bloecke weiter weg kommen zum Schluss)
+            boolean lanes = Ep2Configs.PRINTER_LANE_MODE.getBooleanValue();
+
+            if ((lanes && this.excavator.start(player, level, schematic, this.laneMiner::preferred, now)) ||
+                this.excavator.start(player, level, schematic, p -> true, now))
             {
                 AimController.INSTANCE.stop();
                 this.setState(State.EXCAVATING, this.excavator.detail());

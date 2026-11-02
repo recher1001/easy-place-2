@@ -63,6 +63,74 @@ public final class LaneMiner
     @Nullable private List<LanePath.Step> path;
     private int index;
     private String mode = "";
+    /** Bloecke im "grossen Teil" (mit vielen abzubauenden Nachbarn), berechnet aus der letzten Scan-Liste. */
+    private Set<BlockPos> bulk = Set.of();
+    @Nullable private Object bulkSource;
+    /** Gibt es noch etwas im grossen Teil? Dann werden einzelne Reste erst einmal ignoriert. */
+    private boolean bulkLeft;
+
+    /** Mindestzahl abzubauender Nachbarn (von 26), damit ein Block zum grossen Teil zaehlt. */
+    private static final int BULK_NEIGHBOURS = 6;
+
+    /**
+     * Erst den grossen Teil: solange es den gibt, zaehlen einzelne vergessene Bloecke (in schon ausgehoehlten
+     * Bereichen) nicht. Danach alles.
+     */
+    public boolean preferred(BlockPos pos)
+    {
+        return !this.bulkLeft || this.bulk.contains(pos);
+    }
+
+    /** Gibt es noch etwas im grossen Teil? */
+    public boolean hasBulk()
+    {
+        return this.bulkLeft;
+    }
+
+    private void updateBulk(Iterable<BlockPos> candidates)
+    {
+        if (candidates == this.bulkSource)
+        {
+            return;
+        }
+
+        this.bulkSource = candidates;
+        Set<BlockPos> all = new HashSet<>();
+
+        for (BlockPos p : candidates)
+        {
+            all.add(p);
+        }
+
+        Set<BlockPos> result = new HashSet<>();
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+
+        for (BlockPos p : all)
+        {
+            int n = 0;
+
+            for (int dx = -1; dx <= 1 && n < BULK_NEIGHBOURS; dx++)
+            {
+                for (int dy = -1; dy <= 1 && n < BULK_NEIGHBOURS; dy++)
+                {
+                    for (int dz = -1; dz <= 1 && n < BULK_NEIGHBOURS; dz++)
+                    {
+                        if ((dx != 0 || dy != 0 || dz != 0) && all.contains(m.setWithOffset(p, dx, dy, dz)))
+                        {
+                            n++;
+                        }
+                    }
+                }
+            }
+
+            if (n >= BULK_NEIGHBOURS)
+            {
+                result.add(p);
+            }
+        }
+
+        this.bulk = result;
+    }
 
     public void reset()
     {
@@ -110,11 +178,39 @@ public final class LaneMiner
         if (wanted.isEmpty())
         {
             this.reset();
+            this.bulkLeft = false;
             return Action.NONE;
         }
 
+        // Erst der grosse Teil; einzelne Reste in schon ausgehoehlten Bereichen kommen ganz zum Schluss
+        this.updateBulk(excavation.candidates(level, schematic));
+        Set<BlockPos> primary = new HashSet<>();
+
+        for (BlockPos p : wanted)
+        {
+            if (this.bulk.contains(p))
+            {
+                primary.add(p);
+            }
+        }
+
+        boolean wasBulk = this.bulkLeft;
+        this.bulkLeft = !primary.isEmpty();
+
+        if (!this.bulkLeft)
+        {
+            primary = wanted;
+
+            if (wasBulk)
+            {
+                // Jetzt sind nur noch Reste da: neu planen
+                this.path = null;
+                this.layerY = null;
+            }
+        }
+
         BlockPos feet = player.blockPosition();
-        int top = wanted.stream().mapToInt(BlockPos::getY).max().orElseThrow();
+        int top = primary.stream().mapToInt(BlockPos::getY).max().orElseThrow();
 
         // Unten angekommen: neue Lage
         if (this.pendingLayer != null && feet.getY() <= this.pendingLayer)
@@ -135,7 +231,7 @@ public final class LaneMiner
         int layer = this.layerY;
         List<BlockPos> band = new ArrayList<>();
 
-        for (BlockPos p : wanted)
+        for (BlockPos p : primary)
         {
             if (p.getY() >= layer && p.getY() < layer + height)
             {
@@ -149,7 +245,7 @@ public final class LaneMiner
         // Diese Lage ist fertig: nach unten
         if (band.isEmpty())
         {
-            Action down = this.descend(player, level, wanted, layer, height, half, starSlot, avoid);
+            Action down = this.descend(player, level, wanted, primary, layer, height, half, starSlot, avoid);
 
             // Schon unten (oder Luecke): gleich mit der neuen Lage weiter
             return down != null ? down : depth < 8 ? this.next(player, level, schematic, excavation, digger, now, depth + 1) : Action.NONE;
@@ -164,7 +260,7 @@ public final class LaneMiner
         // Naechster Schritt der Bahn, in dem noch etwas weg muss
         int j = this.index;
 
-        while (j < this.path.size() && intersect(LanePath.crossSection(this.path.get(j), half, height), wanted).isEmpty())
+        while (j < this.path.size() && intersect(LanePath.crossSection(this.path.get(j), half, height), primary).isEmpty())
         {
             j++;
         }
@@ -230,12 +326,12 @@ public final class LaneMiner
      * @return null, wenn der Spieler schon auf der neuen Lage steht (dann gleich weiter)
      */
     @Nullable
-    private Action descend(LocalPlayer player, Level level, Set<BlockPos> wanted, int layer, int height, int half,
+    private Action descend(LocalPlayer player, Level level, Set<BlockPos> wanted, Set<BlockPos> primary, int layer, int height, int half,
                            int starSlot, int avoid)
     {
         int highestBelow = Integer.MIN_VALUE;
 
-        for (BlockPos p : wanted)
+        for (BlockPos p : primary)
         {
             if (p.getY() < layer)
             {

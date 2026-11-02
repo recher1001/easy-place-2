@@ -160,6 +160,9 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
   unten und macht dort genauso weiter.
 - **Bauen:** Ist nichts mehr in Reichweite, folgt er der Bahn zum nächsten Platz, an dem es etwas zu bauen gibt.
 - **Bahnabstand:** 1 bedeutet direkt daneben.
+- **Erst der große Teil:** Einzelne vergessene Blöcke in schon ausgehöhlten Bereichen ignoriert er erst einmal,
+  damit er nicht über die leere Fläche läuft und Reste sucht. Erst wenn der große, zusammenhängende Teil weg ist,
+  holt er die einzelnen Reste.
 
 **Star-Tool** (Menü → Laufen → „Star-Tool (3x3)“): für eine Spitzhacke vom Server, die 3x3 abbaut.
 
