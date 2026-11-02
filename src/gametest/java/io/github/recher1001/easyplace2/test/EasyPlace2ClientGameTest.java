@@ -1748,9 +1748,23 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             PrinterController.INSTANCE.start();
         });
 
+        // Waehrend des Tunnels darf sich der Blick nicht bewegen (geradeaus nach Osten, waagerecht)
+        float[] maxTurn = { 0.0f };
+        int[] tunnelTicks = { 0 };
+
         try
         {
-            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 90);
+            context.waitFor(mc ->
+            {
+                if (PrinterController.INSTANCE.getState() == PrinterController.State.TUNNELING)
+                {
+                    tunnelTicks[0]++;
+                    float dev = Math.max(Math.abs(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot() + 90.0f)), Math.abs(mc.player.getXRot()));
+                    maxTurn[0] = Math.max(maxTurn[0], dev);
+                }
+
+                return !PrinterController.INSTANCE.isRunning();
+            }, 20 * 90);
         }
         catch (AssertionError e)
         {
@@ -1794,7 +1808,13 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             throw new AssertionError("Star-Spitzhacke kaum benutzt: nur " + STAR_HITS.get() + " Schlaege");
         }
 
-        System.out.println("[EP2-TEST] Star-Tunnel ok: " + STAR_HITS.get() + " 3x3-Schlaege (" + (System.currentTimeMillis() - started) + " ms)");
+        if (maxTurn[0] > 1.0f)
+        {
+            throw new AssertionError("Blick hat sich im Star-Tunnel bewegt: bis " + maxTurn[0] + " Grad");
+        }
+
+        System.out.println("[EP2-TEST] Star-Tunnel ok: " + STAR_HITS.get() + " 3x3-Schlaege, Blick ruhig (max " + maxTurn[0] +
+                " Grad in " + tunnelTicks[0] + " Ticks) (" + (System.currentTimeMillis() - started) + " ms)");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

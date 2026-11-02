@@ -9,7 +9,6 @@ import net.minecraft.client.Options;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
@@ -21,7 +20,6 @@ import net.minecraft.world.phys.Vec3;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.printer.AimController;
 import io.github.recher1001.easyplace2.printer.BlockBreaker;
-import io.github.recher1001.easyplace2.printer.refill.RefillUtil;
 
 /**
  * Tunnel mit der Star-Spitzhacke (3x3), so wie ein Spieler es macht: geradeaus schauen, auf den mittleren Block
@@ -50,8 +48,10 @@ public final class StarTunnel
     private int graceTicks;
     private int broken;
     @Nullable private BlockPos destroying;
-    /** Rest der Wand, den die Star-Spitzhacke nicht mitnimmt (Erde, Kies, Ton ...): einzeln mit passendem Werkzeug. */
-    @Nullable private BlockBreaker single;
+    /** Waende, an denen nur noch Reste am Rand stehen (stoeren beim Gehen nicht, kommen spaeter dran). */
+    private final java.util.Set<Integer> passed = new java.util.HashSet<>();
+    /** Blick steht geradeaus: ab jetzt wird die Maus nicht mehr bewegt. */
+    private boolean aligned;
 
     public boolean isActive()
     {
@@ -77,7 +77,8 @@ public final class StarTunnel
         this.ticks = 0;
         this.graceTicks = 0;
         this.destroying = null;
-        this.single = null;
+        this.passed.clear();
+        this.aligned = false;
     }
 
     public Result tick(Minecraft mc)
@@ -100,7 +101,7 @@ public final class StarTunnel
         // Die naechste Wand der Bahn, in der noch etwas weg muss
         int k = 0;
 
-        while (k < this.run.size() && !this.hasWork(level, this.run.get(k)))
+        while (k < this.run.size() && (this.passed.contains(k) || !this.hasWork(level, this.run.get(k))))
         {
             k++;
         }
@@ -112,27 +113,6 @@ public final class StarTunnel
         }
 
         Options options = mc.options;
-
-        // Gerade dabei, einen Rest einzeln abzubauen (Schaufel fuer Erde, Kies, Ton ...)
-        if (this.single != null)
-        {
-            this.release(options);
-            BlockBreaker.Result result = this.single.tick(mc, player, level);
-
-            if (result != BlockBreaker.Result.RUNNING)
-            {
-                if (result == BlockBreaker.Result.DONE)
-                {
-                    this.broken++;
-                }
-
-                this.single = null;
-                this.ticks = 0;
-            }
-
-            return Result.RUNNING;
-        }
-
         LanePath.Step step = this.run.get(k);
         Direction dir = step.dir();
         Vec3 pos = player.position();
@@ -141,11 +121,28 @@ public final class StarTunnel
         double side = (pos.x - lane.x) * sideDir.getStepX() + (pos.z - lane.z) * sideDir.getStepZ();
         BlockPos center = step.pos().above();
 
-        // Genau geradeaus schauen (waagerecht, in Laufrichtung): so liegt das Fadenkreuz von selbst auf der Mitte
-        // der Wand vor einem (Augenhoehe = mittlere Reihe)
-        Vec3 eye = player.getEyePosition();
-        AimController.INSTANCE.aimAt(eye.add(dir.getStepX() * 20.0, 0.0, dir.getStepZ() * 20.0),
-                Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+        // Blick: einmal genau waagerecht geradeaus in Laufrichtung drehen, danach die Maus nicht mehr anfassen.
+        // Augenhoehe = mittlere Reihe, das Fadenkreuz liegt so von selbst auf dem mittleren der 9 Bloecke.
+        float yawError = Math.abs(Mth.wrapDegrees(player.getYRot() - dir.toYRot()));
+        float pitchError = Math.abs(player.getXRot());
+
+        if (!this.aligned || yawError > 5.0f || pitchError > 5.0f)
+        {
+            if (yawError < 0.6f && pitchError < 0.6f)
+            {
+                this.aligned = true;
+                AimController.INSTANCE.stop();
+            }
+            else
+            {
+                this.aligned = false;
+                this.release(options);
+                this.stopDestroying(mc);
+                AimController.INSTANCE.aimAt(player.getEyePosition().add(dir.getStepX() * 20.0, 0.0, dir.getStepZ() * 20.0),
+                        Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+                return Result.RUNNING;
+            }
+        }
 
         // Nicht in ein Loch laufen (dann macht der normale Modus weiter)
         BlockPos feet = player.blockPosition();
@@ -174,24 +171,25 @@ public final class StarTunnel
 
         if (!middleSolid)
         {
-            // Mitte schon weg, der Rest der Wand noch nicht: kurz stehen bleiben (der Server baut sie gerade ab)
+            BlockState bottom = level.getBlockState(step.pos());
+
+            if (bottom.getCollisionShape(level, step.pos()).isEmpty())
+            {
+                // Der Weg ist frei: Reste am Rand (oben, links, rechts) stoeren nicht, weitergehen. Die holt der
+                // normale Modus nach der Bahn.
+                this.passed.add(k);
+                this.graceTicks = 0;
+                return Result.RUNNING;
+            }
+
+            // Unten in der Mitte steht noch etwas: kurz warten (der Server baut die Wand gerade ab)
             this.release(options);
             this.stopDestroying(mc);
 
             if (++this.graceTicks > WALL_GRACE)
             {
-                // Was die Star-Spitzhacke stehen gelassen hat, einzeln abbauen (mit dem passenden Werkzeug, nie
-                // mit der Star-Spitzhacke selbst, sonst ginge wieder 3x3 weg)
-                BlockPos rest = this.leftover(player, level, step);
-
-                if (rest == null)
-                {
-                    this.stop(mc);
-                    return Result.DONE;
-                }
-
-                this.graceTicks = 0;
-                this.single = new BlockBreaker(rest, -1, this.slot);
+                this.stop(mc);
+                return Result.DONE;
             }
 
             return Result.RUNNING;
@@ -199,29 +197,14 @@ public final class StarTunnel
 
         this.graceTicks = 0;
 
-        // Die Mitte selbst ist kein Stein (Erde, Kies, Ton ...): mit der Schaufel o. Ae. statt der Star-Spitzhacke
-        if (!middle.is(BlockTags.MINEABLE_WITH_PICKAXE) &&
-            Vec3.atCenterOf(center).distanceTo(player.getEyePosition()) <= RefillUtil.maxDistance(player) + 0.5)
-        {
-            this.release(options);
-            this.stopDestroying(mc);
-            this.single = new BlockBreaker(center, -1, this.slot);
-            return Result.RUNNING;
-        }
-
-        // Erst losgehen, wenn der Blick in Laufrichtung zeigt
-        if (Math.abs(Mth.wrapDegrees(player.getYRot() - dir.toYRot())) > 15.0f)
-        {
-            this.release(options);
-            return Result.RUNNING;
-        }
-
-        // Immer weiter geradeaus gehen (W gedrueckt), seitlich mit A/D in der Mitte der Bahn bleiben
+        // Immer weiter geradeaus gehen (W gedrueckt), seitlich mit A/D in der Mitte der Bahn bleiben (ohne den Blick)
         options.keyUp.setDown(true);
         options.keyDown.setDown(false);
         options.keyRight.setDown(side < -0.12);
         options.keyLeft.setDown(side > 0.12);
 
+        // Immer die Star-Spitzhacke auf die Mitte (auch wenn dort Kies oder Erde ist): dann geht die ganze Wand weg.
+        // Was sie am Rand stehen laesst (Erde, Kies, Ton ...), holt der normale Modus nach der Bahn mit der Schaufel.
         Inventory inv = player.getInventory();
 
         if (this.slot >= 0 && this.slot < Inventory.getSelectionSize() && inv.getSelectedSlot() != this.slot)
@@ -229,7 +212,7 @@ public final class StarTunnel
             inv.setSelectedSlot(this.slot);
         }
 
-        // Linksklick halten, sobald das Fadenkreuz auf der Mitte der Wand liegt (auch schon im Gehen)
+        // Linksklick halten, sobald das Fadenkreuz (unbewegt, geradeaus) auf der Mitte der Wand liegt
         if (mc.hitResult instanceof BlockHitResult hit && hit.getBlockPos().equals(center) && hit.getDirection() == dir.getOpposite())
         {
             if (!center.equals(this.destroying))
@@ -258,27 +241,6 @@ public final class StarTunnel
         }
 
         return Result.RUNNING;
-    }
-
-    /** Ein Block der Wand, der noch weg muss und von hier aus zu sehen ist (zuerst oben), oder null. */
-    @Nullable
-    private BlockPos leftover(LocalPlayer player, Level level, LanePath.Step step)
-    {
-        List<BlockPos> cells = new java.util.ArrayList<>(LanePath.crossSection(step, HALF, HEIGHT));
-        cells.sort(java.util.Comparator.comparingInt(p -> -p.getY()));
-
-        for (BlockPos p : cells)
-        {
-            BlockState state = level.getBlockState(p);
-
-            if (this.wanted.test(p) && !state.isAir() && !state.canBeReplaced() &&
-                !RefillUtil.visiblePoints(player, level, null, p, null).isEmpty())
-            {
-                return p;
-            }
-        }
-
-        return null;
     }
 
     private boolean hasWork(Level level, LanePath.Step step)
@@ -337,12 +299,6 @@ public final class StarTunnel
 
     public void stop(Minecraft mc)
     {
-        if (this.single != null)
-        {
-            this.single.stop(mc);
-            this.single = null;
-        }
-
         this.stopDestroying(mc);
         this.release(mc.options);
         this.run = List.of();

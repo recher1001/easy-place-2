@@ -164,13 +164,14 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
 **Star-Tool** (Menü → Laufen → „Star-Tool (3x3)“): für eine Spitzhacke vom Server, die 3x3 abbaut.
 
 - Die Gänge sind 3 breit und 3 hoch, die Bahnen liegen 3 auseinander.
-- Er arbeitet wie ein Spieler: Er schaut waagerecht geradeaus (das Fadenkreuz liegt dann auf dem mittleren
-  Block der Wand), hält W und Linksklick und geht einfach die ganze Bahn durch. Jede Wand, die vor ihm
-  auftaucht, baut der Server 3x3 ab. Am Ende der Bahn geht er zur Seite und läuft daneben zurück.
-- Mit A/D bleibt er dabei in der Mitte der Bahn, ohne den Blick zu drehen.
-- Was die Star-Spitzhacke stehen lässt (Erde, Kies, Ton, Sand …), baut er gleich im Gang einzeln mit dem
-  passenden Werkzeug aus der Hotbar ab (z. B. Schaufel) und geht dann weiter. Ist der mittlere Block selbst
-  so ein Block, nimmt er dafür gleich die Schaufel.
+- Er arbeitet wie ein Spieler: Er dreht sich einmal waagerecht geradeaus und bewegt danach die Maus nicht
+  mehr. Das Fadenkreuz liegt dann von selbst auf dem mittleren der 9 Blöcke. Er hält W und Linksklick und geht
+  einfach die ganze Bahn durch, jede Wand vor ihm baut der Server 3x3 ab. Am Ende der Bahn geht er zur Seite
+  und läuft daneben zurück.
+- Mit A/D bleibt er in der Mitte der Bahn, ohne den Blick zu drehen.
+- Was die Star-Spitzhacke am Rand stehen lässt (Erde, Kies, Ton, Sand …), stört beim Gehen nicht; das holt er
+  nach der Bahn einzeln mit dem passenden Werkzeug aus der Hotbar (z. B. Schaufel). Nur wenn so ein Rest unten
+  in der Mitte den Weg versperrt, holt er ihn sofort.
 - Nach unten schlägt er dreimal auf den Block unter den Füßen.
 - Erkannt wird die Spitzhacke am Namen in der Hotbar (`printerStarToolName`, Standard „star“).
 - Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll (Rand der Schematic, Kisten …), baut er dort
