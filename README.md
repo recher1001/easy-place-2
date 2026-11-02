@@ -168,6 +168,9 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
   Block der Wand), hält W und Linksklick und geht einfach die ganze Bahn durch. Jede Wand, die vor ihm
   auftaucht, baut der Server 3x3 ab. Am Ende der Bahn geht er zur Seite und läuft daneben zurück.
 - Mit A/D bleibt er dabei in der Mitte der Bahn, ohne den Blick zu drehen.
+- Was die Star-Spitzhacke stehen lässt (Erde, Kies, Ton, Sand …), baut er gleich im Gang einzeln mit dem
+  passenden Werkzeug aus der Hotbar ab (z. B. Schaufel) und geht dann weiter. Ist der mittlere Block selbst
+  so ein Block, nimmt er dafür gleich die Schaufel.
 - Nach unten schlägt er dreimal auf den Block unter den Füßen.
 - Erkannt wird die Spitzhacke am Namen in der Hotbar (`printerStarToolName`, Standard „star“).
 - Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll (Rand der Schematic, Kisten …), baut er dort

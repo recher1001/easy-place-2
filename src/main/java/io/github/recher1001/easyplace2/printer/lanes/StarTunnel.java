@@ -9,6 +9,7 @@ import net.minecraft.client.Options;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
@@ -20,6 +21,7 @@ import net.minecraft.world.phys.Vec3;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.printer.AimController;
 import io.github.recher1001.easyplace2.printer.BlockBreaker;
+import io.github.recher1001.easyplace2.printer.refill.RefillUtil;
 
 /**
  * Tunnel mit der Star-Spitzhacke (3x3), so wie ein Spieler es macht: geradeaus schauen, auf den mittleren Block
@@ -48,6 +50,8 @@ public final class StarTunnel
     private int graceTicks;
     private int broken;
     @Nullable private BlockPos destroying;
+    /** Rest der Wand, den die Star-Spitzhacke nicht mitnimmt (Erde, Kies, Ton ...): einzeln mit passendem Werkzeug. */
+    @Nullable private BlockBreaker single;
 
     public boolean isActive()
     {
@@ -73,6 +77,7 @@ public final class StarTunnel
         this.ticks = 0;
         this.graceTicks = 0;
         this.destroying = null;
+        this.single = null;
     }
 
     public Result tick(Minecraft mc)
@@ -107,6 +112,27 @@ public final class StarTunnel
         }
 
         Options options = mc.options;
+
+        // Gerade dabei, einen Rest einzeln abzubauen (Schaufel fuer Erde, Kies, Ton ...)
+        if (this.single != null)
+        {
+            this.release(options);
+            BlockBreaker.Result result = this.single.tick(mc, player, level);
+
+            if (result != BlockBreaker.Result.RUNNING)
+            {
+                if (result == BlockBreaker.Result.DONE)
+                {
+                    this.broken++;
+                }
+
+                this.single = null;
+                this.ticks = 0;
+            }
+
+            return Result.RUNNING;
+        }
+
         LanePath.Step step = this.run.get(k);
         Direction dir = step.dir();
         Vec3 pos = player.position();
@@ -154,14 +180,34 @@ public final class StarTunnel
 
             if (++this.graceTicks > WALL_GRACE)
             {
-                this.stop(mc);
-                return Result.DONE;
+                // Was die Star-Spitzhacke stehen gelassen hat, einzeln abbauen (mit dem passenden Werkzeug, nie
+                // mit der Star-Spitzhacke selbst, sonst ginge wieder 3x3 weg)
+                BlockPos rest = this.leftover(player, level, step);
+
+                if (rest == null)
+                {
+                    this.stop(mc);
+                    return Result.DONE;
+                }
+
+                this.graceTicks = 0;
+                this.single = new BlockBreaker(rest, -1, this.slot);
             }
 
             return Result.RUNNING;
         }
 
         this.graceTicks = 0;
+
+        // Die Mitte selbst ist kein Stein (Erde, Kies, Ton ...): mit der Schaufel o. Ae. statt der Star-Spitzhacke
+        if (!middle.is(BlockTags.MINEABLE_WITH_PICKAXE) &&
+            Vec3.atCenterOf(center).distanceTo(player.getEyePosition()) <= RefillUtil.maxDistance(player) + 0.5)
+        {
+            this.release(options);
+            this.stopDestroying(mc);
+            this.single = new BlockBreaker(center, -1, this.slot);
+            return Result.RUNNING;
+        }
 
         // Erst losgehen, wenn der Blick in Laufrichtung zeigt
         if (Math.abs(Mth.wrapDegrees(player.getYRot() - dir.toYRot())) > 15.0f)
@@ -212,6 +258,27 @@ public final class StarTunnel
         }
 
         return Result.RUNNING;
+    }
+
+    /** Ein Block der Wand, der noch weg muss und von hier aus zu sehen ist (zuerst oben), oder null. */
+    @Nullable
+    private BlockPos leftover(LocalPlayer player, Level level, LanePath.Step step)
+    {
+        List<BlockPos> cells = new java.util.ArrayList<>(LanePath.crossSection(step, HALF, HEIGHT));
+        cells.sort(java.util.Comparator.comparingInt(p -> -p.getY()));
+
+        for (BlockPos p : cells)
+        {
+            BlockState state = level.getBlockState(p);
+
+            if (this.wanted.test(p) && !state.isAir() && !state.canBeReplaced() &&
+                !RefillUtil.visiblePoints(player, level, null, p, null).isEmpty())
+            {
+                return p;
+            }
+        }
+
+        return null;
     }
 
     private boolean hasWork(Level level, LanePath.Step step)
@@ -270,6 +337,12 @@ public final class StarTunnel
 
     public void stop(Minecraft mc)
     {
+        if (this.single != null)
+        {
+            this.single.stop(mc);
+            this.single = null;
+        }
+
         this.stopDestroying(mc);
         this.release(mc.options);
         this.run = List.of();

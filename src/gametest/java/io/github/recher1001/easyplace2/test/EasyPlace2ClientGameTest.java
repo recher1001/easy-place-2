@@ -1673,7 +1673,9 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
                 {
                     BlockPos p = flat ? pos.offset(a, 0, b) : pos.above(a).relative(facing.getClockWise(), b);
 
-                    if (!p.equals(pos) && !world.getBlockState(p).isAir())
+                    // Wie echte Server-Spitzhacken: nur, was man mit der Spitzhacke abbaut (Erde, Kies, Ton bleiben)
+                    if (!p.equals(pos) && !world.getBlockState(p).isAir() &&
+                        world.getBlockState(p).is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE))
                     {
                         world.destroyBlock(p, false);
                     }
@@ -1714,6 +1716,10 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         });
 
         server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        // Was die Star-Spitzhacke nicht mitnimmt: Erde in einer Ecke, Ton unten am Rand, Kies in der Mitte einer Wand
+        server.runCommand(setblock(new BlockPos(183, Y + 2, 89), "dirt"));
+        server.runCommand(setblock(new BlockPos(184, Y, 91), "clay"));
+        server.runCommand(setblock(new BlockPos(186, Y + 1, 90), "gravel"));
         server.runCommand("clear @a");
         server.computeOnServer(s ->
         {
@@ -1722,6 +1728,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             star.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Star Pickaxe"));
             p.getInventory().setItem(0, star);
             p.getInventory().setItem(1, new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE));
+            p.getInventory().setItem(2, new net.minecraft.world.item.ItemStack(Items.IRON_SHOVEL));
             return true;
         });
         server.runCommand(String.format(Locale.ROOT, "tp @a 179.5 %d 90.5 -90 0", Y));
