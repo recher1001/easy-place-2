@@ -26,12 +26,9 @@ bleibt unverändert und wird nicht gebraucht.
    - `easy-place-2-mc1.21.11-0.2.0.jar` (diese Mod, siehe unten „Wo bekomme ich die .jar?“)
 3. Minecraft mit dem Fabric-Profil starten.
 
-**Laufen ohne Baritone:** Der Printer läuft mit eigener Wegsuche und den normalen Lauftasten, Baritone wird
-dafür nicht gebraucht. Wer lieber Baritone laufen lässt, schaltet im Menü unter **Laufen** „Mit Baritone
-laufen“ an. Dafür bringt die Mod [Baritone](https://github.com/cabaletta/baritone) **1.17.0** für 1.21.11 mit,
-du musst es nicht extra installieren. Hast du selbst ein anderes Baritone im
-`mods`-Ordner, nimmt Fabric automatisch die neuere Version. Baritone steht unter der LGPL-3.0 und ist unverändert
-enthalten; den Quelltext gibt es auf GitHub. Benutzen kannst du es im Spiel auch selbst mit `#`-Befehlen.
+**Laufen ohne Baritone:** Der Printer läuft mit eigener Wegsuche und den normalen Lauftasten. Baritone ist nicht
+mehr in der Mod enthalten und wird nicht gebraucht. Wer Baritone selbst installiert hat, kann im Menü unter
+**Laufen** „Mit Baritone laufen“ anschalten.
 
 ## Benutzen
 
@@ -79,7 +76,7 @@ Easy Place 2.0 mit strengem Fadenkreuz**, also mit genau dem Rechtsklick, den du
   Blocks unter sich, ohne sich umzudrehen.
 
 Abschalten kannst du das Laufen im Menü unter **Laufen**, dann baut er nur, was du von deinem Standort aus
-erreichst. Mit „Mit Baritone laufen“ übernimmt stattdessen Baritone.
+erreichst. Mit „Mit Baritone laufen“ übernimmt stattdessen Baritone (nur, wenn du es selbst installiert hast).
 
 **Bedienung:**
 1. Schematic in Litematica laden und platzieren.

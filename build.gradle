@@ -15,20 +15,6 @@ repositories {
 		url = 'https://api.modrinth.com/maven'
 		content { includeGroup('maven.modrinth') }
 	}
-	// Baritone: offizielle Releases von GitHub (cabaletta/baritone)
-	ivy {
-		name = 'BaritoneReleases'
-		url = 'https://github.com/'
-		patternLayout {
-			artifact '[organisation]/[module]/releases/download/v[revision]/[module]-api-fabric-[revision].[ext]'
-		}
-		metadataSources { artifact() }
-		content { includeGroup('cabaletta') }
-	}
-}
-
-configurations {
-	baritoneJar { transitive = false }
 }
 
 dependencies {
@@ -41,15 +27,8 @@ dependencies {
 	modImplementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
 	modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
 
-	// Baritone (nur zum Laufen) wird mit in die .jar gepackt, man muss es nicht extra installieren.
-	// Die "api"-Variante, denn nur sie hat die Schnittstelle baritone.api (bei "standalone" ist alles verschleiert).
-	// Angesprochen wird es weiter per Reflection (BaritoneBridge). LGPL-3.0, unveraendert.
-	modLocalRuntime "cabaletta:baritone:${project.baritone_version}"
-	include "cabaletta:baritone:${project.baritone_version}"
-	// Im Spieltest/Entwicklungs-Start laedt Loom die in Baritone eingebetteten Jars (nether-pathfinder) nicht
-	// selbst; im normalen Spiel macht das Fabric. Deshalb hier zusaetzlich auf den Laufzeit-Klassenpfad.
-	baritoneJar "cabaletta:baritone:${project.baritone_version}"
-	localRuntime files({ zipTree(configurations.baritoneJar.singleFile).matching { include 'META-INF/jars/*.jar' }.files })
+	// Baritone ist nicht mehr dabei: der Printer laeuft selbst (printer/path). Wer Baritone selbst installiert,
+	// kann es ueber "Mit Baritone laufen" weiter benutzen (per Reflection, BaritoneBridge).
 }
 
 // Automatischer Spieltest (src/gametest): startet Minecraft mit Litematica + Easy Place 2.0,
