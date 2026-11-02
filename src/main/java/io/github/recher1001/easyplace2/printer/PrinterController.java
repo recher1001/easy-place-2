@@ -60,6 +60,9 @@ public final class PrinterController
 {
     public static final PrinterController INSTANCE = new PrinterController();
 
+    /** Was der Printer macht: bauen (normal), nur aushoehlen, oder eine Linie mit der Star-Spitzhacke graben. */
+    public enum Mode { BUILD, EXCAVATE, LINE }
+
     public enum State
     {
         OFF, SCANNING, SELECTING, FETCHING_ITEM, REFILLING, CLEANING, EXCAVATING, FIXING, ADJUSTING, WATERING, BRIDGING, SUPPORTING, TOWERING, TUNNELING, LANE_WALKING, MOVING, AIMING, CLICKING,
@@ -129,6 +132,10 @@ public final class PrinterController
     private final Random random = new Random();
 
     private boolean running;
+    private Mode mode = Mode.BUILD;
+    private boolean lineStarted;
+    private int excavateRetries;
+    private int tunnelStart;
     private boolean userPaused;
     private State state = State.OFF;
     private String detail = "";
@@ -204,7 +211,29 @@ public final class PrinterController
         }
     }
 
+    public Mode getMode()
+    {
+        return this.mode;
+    }
+
+    /** Laeuft der Printer gerade nur zum Abbauen (Aushoehlen oder Star-Linie)? */
+    public boolean excavateOnly()
+    {
+        return this.running && this.mode != Mode.BUILD;
+    }
+
     public void start()
+    {
+        this.start(Mode.BUILD);
+    }
+
+    /** Eine ganze Linie mit der Star-Spitzhacke graben: von hier aus in Blickrichtung bis zum Rand der Schematic. */
+    public void startLine()
+    {
+        this.start(Mode.LINE);
+    }
+
+    public void start(Mode mode)
     {
         Minecraft mc = Minecraft.getInstance();
 
@@ -266,6 +295,10 @@ public final class PrinterController
         this.pending.clear();
         this.placed = 0;
         this.startMillis = System.currentTimeMillis();
+        this.mode = mode;
+        this.lineStarted = false;
+        this.excavateRetries = 0;
+        this.tunnelStart = this.tunnel.broken();
         this.running = true;
         this.userPaused = false;
         this.setState(State.SCANNING, "");
@@ -740,7 +773,13 @@ public final class PrinterController
             return;
         }
 
-        if (snap.total() == 0 && snap.unloaded().isEmpty())
+        if (this.mode == Mode.LINE)
+        {
+            this.selectLine(mc, player, level, schematic);
+            return;
+        }
+
+        if (snap.total() == 0 && snap.unloaded().isEmpty() && (this.mode == Mode.BUILD || snap.excavate().isEmpty()))
         {
             this.stop(Component.translatable("easyplace2.printer.msg.no_schematic").withStyle(ChatFormatting.RED));
             return;
@@ -842,6 +881,14 @@ public final class PrinterController
                 this.setState(State.EXCAVATING, this.excavator.detail());
                 return;
             }
+        }
+
+        // Nur aushoehlen: nichts setzen. Ist nichts mehr abzubauen, fertig (Uebersprungenes wird vorher noch ein paar Mal
+        // versucht, ohne dazwischen lange herumzustehen)
+        if (this.mode == Mode.EXCAVATE)
+        {
+            this.finishExcavate(player, level, schematic, snap, now);
+            return;
         }
 
         // Repeater, Komparatoren ... einstellen: nur ein paar Rechtsklicks, deshalb gleich, solange sie in Reichweite sind
@@ -2027,6 +2074,113 @@ public final class PrinterController
         }
 
         return false;
+    }
+
+    // ---------------------------------------------------------------- Nur aushoehlen / Star-Linie
+
+    private void finishExcavate(LocalPlayer player, ClientLevel level, Level schematic, SchematicScanner.Snapshot snap, long now)
+    {
+        if (this.excavator.hasWork(level, schematic, p -> true, now))
+        {
+            // Es gibt noch etwas, nur gerade nicht startbar: gleich noch einmal planen
+            this.setState(State.SELECTING, "");
+            return;
+        }
+
+        int skipped = this.excavator.skippedCount(now);
+
+        if (skipped > 0 && this.excavateRetries++ < 3)
+        {
+            // Nicht lange warten: gleich noch einmal versuchen (vielleicht ist es von hier aus jetzt erreichbar)
+            this.excavator.clearSkipped();
+            this.setState(State.SELECTING, "");
+            return;
+        }
+
+        if (this.cleaner.start(player, level, schematic, p -> true, now))
+        {
+            AimController.INSTANCE.stop();
+            this.setState(State.CLEANING, this.cleaner.detail());
+            return;
+        }
+
+        if (!snap.unloaded().isEmpty() && this.canWalk() && this.unloadedAttempts.size() < 20)
+        {
+            this.walkToUnloaded(player, snap.unloaded(), now);
+
+            if (this.state == State.MOVING)
+            {
+                return;
+            }
+        }
+
+        int broken = this.excavator.broken() + this.tunnel.broken() - this.tunnelStart;
+        this.stop(Component.translatable("easyplace2.printer.msg.excavate_done", broken).withStyle(ChatFormatting.GREEN));
+
+        if (skipped > 0)
+        {
+            message(Component.translatable("easyplace2.printer.msg.excavate_left", skipped).withStyle(ChatFormatting.GOLD));
+        }
+    }
+
+    private void selectLine(Minecraft mc, LocalPlayer player, ClientLevel level, Level schematic)
+    {
+        if (this.lineStarted)
+        {
+            // Die Linie ist fertig (oder ging nicht weiter)
+            this.stop(Component.translatable("easyplace2.printer.msg.line_done", this.tunnel.broken() - this.tunnelStart).withStyle(ChatFormatting.GREEN));
+            return;
+        }
+
+        this.lineStarted = true;
+        int slot = io.github.recher1001.easyplace2.printer.lanes.StarTool.findSlot(player);
+
+        if (slot < 0)
+        {
+            this.stop(Component.translatable("easyplace2.printer.msg.no_star", Ep2Configs.PRINTER_STAR_TOOL_NAME.getStringValue())
+                    .withStyle(ChatFormatting.RED));
+            return;
+        }
+
+        // Von den Fuessen aus geradeaus in Blickrichtung, solange die 3x3-Wand in der Schematic liegt
+        net.minecraft.core.Direction dir = player.getDirection();
+        BlockPos feet = player.blockPosition();
+        List<io.github.recher1001.easyplace2.printer.lanes.LanePath.Step> run = new ArrayList<>();
+
+        for (int i = 1; i <= 128; i++)
+        {
+            io.github.recher1001.easyplace2.printer.lanes.LanePath.Step step =
+                    new io.github.recher1001.easyplace2.printer.lanes.LanePath.Step(feet.relative(dir, i), dir);
+            boolean inside = false;
+
+            for (BlockPos p : io.github.recher1001.easyplace2.printer.lanes.LanePath.crossSection(step, 1, 3))
+            {
+                if (this.scanner.inside(p))
+                {
+                    inside = true;
+                    break;
+                }
+            }
+
+            if (!inside)
+            {
+                break;
+            }
+
+            run.add(step);
+        }
+
+        if (run.isEmpty())
+        {
+            this.stop(Component.translatable("easyplace2.printer.msg.line_outside").withStyle(ChatFormatting.RED));
+            return;
+        }
+
+        // Nur innerhalb der Schematic und nur, wo sie Luft will
+        this.tunnel.start(run, p -> this.scanner.inside(p) && this.excavation.stillWanted(level, schematic, p), slot);
+        this.bridge.release(mc);
+        AimController.INSTANCE.stop();
+        this.setState(State.TUNNELING, run.size() + "");
     }
 
     /** Welche Geruest-Items Baritone verbauen darf: im Inventar und nicht als Baumaterial gebraucht. */

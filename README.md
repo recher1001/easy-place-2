@@ -190,6 +190,19 @@ Drückst du **ESC**, schreibst im **Chat** oder hast das **Printer-Menü** offen
   Inventar ersetzt. Material aus Shulkern oder dem Lager holt er erst, wenn das Menü wieder zu ist.
 - Bei Inventaren und Kisten wartet er, damit sich die Klicks nicht in die Quere kommen.
 
+## Nur aushöhlen und Star-Linie (Übersicht)
+
+In der **Übersicht** des Printer-Menüs gibt es zwei eigene Modi:
+
+- **Nur aushöhlen** (Schalter): Der Printer höhlt die ganze Schematic aus, also er baut alles ab, wo die Schematic
+  Luft will, und setzt dabei nichts. Das geht auch mit einer Schematic, die nur aus Luft besteht (z. B. einem
+  ausgewählten Bereich). Er arbeitet in Bahnen (mit Star-Spitzhacke 3x3) und meldet „Aushöhlen fertig“, wenn
+  nichts mehr übrig ist. Was er gerade nicht erreicht, versucht er gleich noch ein paar Mal statt herumzustehen,
+  und sagt am Ende, wie viele Blöcke nicht drankamen. Schalter aus: er hört auf.
+- **Star-Linie abbauen** (Knopf): Stell dich in die Schematic (oder direkt davor) und schau in die Richtung, in die
+  gegraben werden soll. Der Printer gräbt von dort aus mit der Star-Spitzhacke eine ganze 3x3-Linie geradeaus bis
+  zum Rand der Schematic, mit festem Blick, und hört dann auf. Außerhalb der Schematic gräbt er nichts.
+
 ## Aushöhlen und falsche Blöcke
 
 - **Aushöhlen** (Menü → Verhalten, standardmäßig an): Der Printer baut Blöcke ab, die im Bereich der

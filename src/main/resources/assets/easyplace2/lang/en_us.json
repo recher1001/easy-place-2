@@ -478,5 +478,12 @@
     "easyplace2.printer.opt.walkBaritone.desc": "Use Baritone instead of the built-in walking (only if Baritone is installed)",
     "easyplace2.config.name.printerWalkWithBaritone": "printerWalkWithBaritone",
     "easyplace2.config.prettyName.printerWalkWithBaritone": "Printer: walk with Baritone",
-    "easyplace2.config.comment.printerWalkWithBaritone": "Off (default): the printer walks by itself with its own pathfinding and the normal movement keys. On: Baritone does the walking (only if installed)."
+    "easyplace2.config.comment.printerWalkWithBaritone": "Off (default): the printer walks by itself with its own pathfinding and the normal movement keys. On: Baritone does the walking (only if installed).",
+    "easyplace2.printer.label.excavateMode": "Excavate only",
+    "easyplace2.printer.button.line": "Mine star line",
+    "easyplace2.printer.msg.excavate_done": "Excavation done! %s blocks mined.",
+    "easyplace2.printer.msg.excavate_left": "%s blocks could not be reached.",
+    "easyplace2.printer.msg.line_done": "Line done (%s walls mined).",
+    "easyplace2.printer.msg.no_star": "No star pickaxe in the hotbar (name containing \"%s\").",
+    "easyplace2.printer.msg.line_outside": "No schematic in front of you: stand inside it and look in the direction the line should go."
 }

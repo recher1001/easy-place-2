@@ -49,7 +49,8 @@ public final class BlockDigger
     private enum Step { IDLE, CHECK, WALK, BREAK }
 
     private static final int MAX_ATTEMPTS = 3;
-    private static final int SKIP_TICKS = 20 * 60;
+    /** Nicht erreichbare Bloecke werden nur kurz uebersprungen (nicht lange herumstehen). */
+    private static final int SKIP_TICKS = 20 * 15;
     private static final int WALK_TIMEOUT = 20 * 30;
     private static final int MAX_SAFE_DROP = 3;
 

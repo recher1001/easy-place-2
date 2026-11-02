@@ -43,7 +43,7 @@ public final class Excavation implements BlockDigger.Source
 
         if (wanted.isAir())
         {
-            return Ep2Configs.PRINTER_EXCAVATE.getBooleanValue() && canDig(level, pos, current);
+            return enabled() && canDig(level, pos, current);
         }
 
         return Ep2Configs.PRINTER_REPLACE_WRONG.getBooleanValue() && isWrong(current, wanted) && canDig(level, pos, current);
@@ -58,6 +58,12 @@ public final class Excavation implements BlockDigger.Source
             copy.remove(pos);
             this.targets = copy;
         }
+    }
+
+    /** Aushoehlen an (Einstellung, oder der Printer laeuft gerade im Modus "Nur aushoehlen" / "Star-Linie")? */
+    public static boolean enabled()
+    {
+        return Ep2Configs.PRINTER_EXCAVATE.getBooleanValue() || PrinterController.INSTANCE.excavateOnly();
     }
 
     /** Steht dort ein anderer fester Block als der, den die Schematic will? */

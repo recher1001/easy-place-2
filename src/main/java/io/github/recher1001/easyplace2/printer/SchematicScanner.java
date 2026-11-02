@@ -79,6 +79,21 @@ public final class SchematicScanner
     private String names = "";
     private int lastLoggedMissing = -1;
 
+    /** Liegt die Stelle in einem der aktiven Placements (Bereiche der Schematic)? */
+    public boolean inside(BlockPos pos)
+    {
+        for (Region r : this.regions)
+        {
+            if (pos.getX() >= r.min().getX() && pos.getX() <= r.max().getX() && pos.getY() >= r.min().getY() &&
+                pos.getY() <= r.max().getY() && pos.getZ() >= r.min().getZ() && pos.getZ() <= r.max().getZ())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @Nullable
     public Snapshot latest()
     {
@@ -210,7 +225,7 @@ public final class SchematicScanner
         if (wanted.isAir())
         {
             // Aushoehlen: dort soll Luft sein
-            if (Ep2Configs.PRINTER_EXCAVATE.getBooleanValue())
+            if (Excavation.enabled())
             {
                 BlockState there = level.getBlockState(pos);
 

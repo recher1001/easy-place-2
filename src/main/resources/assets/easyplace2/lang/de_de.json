@@ -478,5 +478,12 @@
     "easyplace2.printer.opt.walkBaritone.desc": "Statt dem eigenen Laufen Baritone benutzen (nur wenn Baritone installiert ist)",
     "easyplace2.config.name.printerWalkWithBaritone": "printerWalkWithBaritone",
     "easyplace2.config.prettyName.printerWalkWithBaritone": "Printer: mit Baritone laufen",
-    "easyplace2.config.comment.printerWalkWithBaritone": "Aus (Standard): der Printer läuft selbst, mit eigener Wegsuche und den normalen Lauftasten. An: Baritone übernimmt das Laufen (nur wenn Baritone installiert ist)."
+    "easyplace2.config.comment.printerWalkWithBaritone": "Aus (Standard): der Printer läuft selbst, mit eigener Wegsuche und den normalen Lauftasten. An: Baritone übernimmt das Laufen (nur wenn Baritone installiert ist).",
+    "easyplace2.printer.label.excavateMode": "Nur aushöhlen",
+    "easyplace2.printer.button.line": "Star-Linie abbauen",
+    "easyplace2.printer.msg.excavate_done": "Aushöhlen fertig! %s Blöcke abgebaut.",
+    "easyplace2.printer.msg.excavate_left": "%s Blöcke kamen nicht dran (nicht erreichbar).",
+    "easyplace2.printer.msg.line_done": "Linie fertig (%s Wände abgebaut).",
+    "easyplace2.printer.msg.no_star": "Keine Star-Spitzhacke in der Hotbar (Name mit „%s“).",
+    "easyplace2.printer.msg.line_outside": "Vor dir liegt keine Schematic: stell dich hinein und schau in die Richtung, in die die Linie gehen soll."
 }

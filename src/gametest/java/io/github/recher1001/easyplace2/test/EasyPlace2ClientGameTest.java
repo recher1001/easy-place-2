@@ -183,6 +183,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testAdjustAndReorient(context, server);
             testTowerUp(context, server);
             testStarTunnel(context, server);
+            testExcavateMode(context, server);
+            testStarLine(context, server);
         }
     }
 
@@ -1815,6 +1817,158 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
 
         System.out.println("[EP2-TEST] Star-Tunnel ok: " + STAR_HITS.get() + " 3x3-Schlaege, Blick ruhig (max " + maxTurn[0] +
                 " Grad in " + tunnelTicks[0] + " Ticks) (" + (System.currentTimeMillis() - started) + " ms)");
+    }
+
+    /** Legt eine Schematic aus dem aktuellen Weltstand an (nur sie ist aktiv). */
+    private static void placeSchematic(ClientGameTestContext context, BlockPos min, BlockPos max, String name)
+    {
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            AreaSelection area = new AreaSelection();
+            area.addSubRegionBox(new Box(min, max, name), false);
+            area.setExplicitOrigin(min);
+            LitematicaSchematic schematic = LitematicaSchematic.createFromWorld(mc.level, area,
+                    new LitematicaSchematic.SchematicSaveInfo(false, true), name, msg -> System.out.println("[EP2-TEST] " + msg));
+
+            for (SchematicPlacement old : List.copyOf(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()))
+            {
+                DataManager.getSchematicPlacementManager().removeSchematicPlacement(old);
+            }
+
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, min, name, true, true), false);
+        });
+    }
+
+    /** "Nur aushoehlen" in der Uebersicht: eine Schematic nur aus Luft, darin Erde. Alles muss weg, nichts gesetzt. */
+    private static void testExcavateMode(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos min = new BlockPos(200, Y, 120);
+        BlockPos max = new BlockPos(202, Y + 1, 122);
+        server.runCommand(String.format(Locale.ROOT, "fill 194 %d 114 208 %d 128 air", Y, Y + 5));
+        context.waitTicks(5);
+        placeSchematic(context, min, max, "hollow");
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d dirt", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand("clear @a");
+        server.runCommand("give @a iron_shovel");
+        server.runCommand(String.format(Locale.ROOT, "tp @a 198.5 %d 121.5 -90 0", Y));
+        context.waitFor(mc -> mc.level.getBlockState(max).is(Blocks.DIRT) && mc.player.position().distanceTo(new Vec3(198.5, Y, 121.5)) < 0.5 &&
+                              SchematicWorldHandler.getSchematicWorld() != null, 200);
+        context.waitTicks(10);
+        long started = System.currentTimeMillis();
+        context.runOnClient(mc ->
+        {
+            Ep2Configs.PRINTER_EXCAVATE.setBooleanValue(false);
+            PrinterController.INSTANCE.start(PrinterController.Mode.EXCAVATE);
+        });
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 90);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-hollow-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Aushoehlen haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + ")"));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+        finally
+        {
+            context.runOnClient(mc -> Ep2Configs.PRINTER_EXCAVATE.setBooleanValue(true));
+        }
+
+        int left = server.computeOnServer(s ->
+        {
+            int n = 0;
+
+            for (BlockPos p : BlockPos.betweenClosed(min, max))
+            {
+                if (!s.overworld().getBlockState(p).isAir())
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        });
+
+        if (left > 0)
+        {
+            throw new AssertionError("Nur aushoehlen: noch " + left + " Bloecke uebrig");
+        }
+
+        System.out.println("[EP2-TEST] Nur aushoehlen ok (" + (System.currentTimeMillis() - started) + " ms)");
+    }
+
+    /** Knopf "Star-Linie abbauen": von hier aus geradeaus eine ganze Linie bis zum Rand der Schematic, mehr nicht. */
+    private static void testStarLine(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        registerStarHook();
+        BlockPos min = new BlockPos(220, Y, 119);
+        BlockPos max = new BlockPos(225, Y + 2, 121);
+        BlockPos outside = new BlockPos(226, Y + 1, 120);
+        server.runCommand(String.format(Locale.ROOT, "fill 214 %d 114 232 %d 126 air", Y, Y + 5));
+        context.waitTicks(5);
+        placeSchematic(context, min, max, "line");
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", min.getX(), min.getY(), min.getZ(), max.getX() + 2, max.getY(), max.getZ()));
+        server.runCommand("clear @a");
+        server.computeOnServer(s ->
+        {
+            ServerPlayer p = s.getPlayerList().getPlayers().get(0);
+            net.minecraft.world.item.ItemStack star = new net.minecraft.world.item.ItemStack(Items.DIAMOND_PICKAXE);
+            star.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Star Pickaxe"));
+            p.getInventory().setItem(0, star);
+            return true;
+        });
+        server.runCommand(String.format(Locale.ROOT, "tp @a 219.5 %d 120.5 -90 0", Y));
+        context.waitFor(mc -> mc.level.getBlockState(outside).is(Blocks.STONE) && mc.player.position().distanceTo(new Vec3(219.5, Y, 120.5)) < 0.5 &&
+                              mc.player.getInventory().getItem(0).is(Items.DIAMOND_PICKAXE) && SchematicWorldHandler.getSchematicWorld() != null, 200);
+        context.waitTicks(10);
+        emulateStar = true;
+        long started = System.currentTimeMillis();
+        context.runOnClient(mc -> PrinterController.INSTANCE.startLine());
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 60);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-line-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Star-Linie haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + ")"));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+        finally
+        {
+            emulateStar = false;
+        }
+
+        int left = server.computeOnServer(s ->
+        {
+            int n = 0;
+
+            for (BlockPos p : BlockPos.betweenClosed(min, max))
+            {
+                if (!s.overworld().getBlockState(p).isAir())
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        });
+
+        if (left > 0)
+        {
+            throw new AssertionError("Star-Linie: noch " + left + " Bloecke in der Linie");
+        }
+
+        assertBlock(server, outside, state -> state.is(Blocks.STONE), "Star-Linie hat ausserhalb der Schematic gegraben");
+        System.out.println("[EP2-TEST] Star-Linie ok (" + (System.currentTimeMillis() - started) + " ms)");
     }
 
     /** Oeffnet Litematicas Konfigurationsmenue und wechselt in den Reiter "Easy Place 2.0". */

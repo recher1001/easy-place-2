@@ -473,8 +473,49 @@ public class PrinterScreen extends Screen
         this.add(new Controls.Button(this.cx1 - buttonW, by, buttonW, 20, () -> Component.translatable("easyplace2.printer.button.close"),
                 Ui::textDim, false, this::onClose));
 
+        // Modi: nur aushoehlen (Schalter) und eine Linie mit der Star-Spitzhacke (Knopf)
+        int my = by + 26;
+        int halfW = (width - GAP) / 2;
+        this.add(new Controls.Area(this.cx0, my, halfW, 20, (g, font, a, hover) ->
+        {
+            this.paintCard(g, a, hover);
+            Ui.text(g, font, Ui.clip(font, Component.translatable("easyplace2.printer.label.excavateMode").getString(), a.w - 40),
+                    a.x + 8, a.y + 6, Ui.text());
+        }, null));
+        this.add(new Controls.Switch(this.cx0 + halfW - Controls.Switch.WIDTH - 6, my + 4,
+                () -> printer.isRunning() && printer.getMode() == PrinterController.Mode.EXCAVATE,
+                on ->
+                {
+                    if (on)
+                    {
+                        if (printer.isRunning())
+                        {
+                            printer.stop(null);
+                        }
+
+                        this.onClose();
+                        printer.start(PrinterController.Mode.EXCAVATE);
+                    }
+                    else if (printer.isRunning())
+                    {
+                        printer.stop(Component.translatable("easyplace2.printer.msg.stopped"));
+                    }
+                }));
+        this.add(new Controls.Button(this.cx0 + halfW + GAP, my, width - halfW - GAP, 20,
+                () -> Component.translatable("easyplace2.printer.button.line"), Ui::accent, false,
+                () ->
+                {
+                    if (printer.isRunning())
+                    {
+                        printer.stop(null);
+                    }
+
+                    this.onClose();
+                    printer.startLine();
+                }));
+
         // Statistik-Kacheln
-        int tilesTop = by + 26;
+        int tilesTop = my + 26;
         int tileW = (width - 3 * GAP) / 4;
         String[] keys = { "placed", "rate", "eta", "wrong" };
 
