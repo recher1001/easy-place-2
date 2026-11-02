@@ -35,6 +35,9 @@ public final class BlockBreaker
     /** Dieses Hotbar-Fach nicht nehmen (z. B. die Star-Spitzhacke beim Einzelabbau), oder -1. */
     private final int avoidSlot;
     private boolean toolChosen;
+    /** Star-Spitzhacke (3x3) erlaubt: Fach und welche Bloecke weg duerfen, sonst -1. */
+    private int starSlot = -1;
+    @org.jetbrains.annotations.Nullable private java.util.function.Predicate<BlockPos> mayBreak;
     private boolean destroying;
     private int ticks;
     private int invisibleTicks;
@@ -49,6 +52,53 @@ public final class BlockBreaker
         this.pos = pos.immutable();
         this.forceSlot = forceSlot;
         this.avoidSlot = avoidSlot;
+    }
+
+    /**
+     * Die Star-Spitzhacke darf genommen werden, wenn die ganze 3x3-Flaeche um den Block (quer zur getroffenen Seite)
+     * weg darf oder schon frei ist, und der Block einer fuer die Spitzhacke ist (fuer Erde, Kies ... bleibt die Schaufel).
+     */
+    public void allowStar(int slot, java.util.function.Predicate<BlockPos> mayBreak)
+    {
+        this.starSlot = slot;
+        this.mayBreak = mayBreak;
+    }
+
+    private boolean starFits(Level level, BlockState state, net.minecraft.core.Direction face)
+    {
+        if (this.starSlot < 0 || this.mayBreak == null || !state.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE))
+        {
+            return false;
+        }
+
+        net.minecraft.core.Direction.Axis axis = face.getAxis();
+
+        for (int a = -1; a <= 1; a++)
+        {
+            for (int b = -1; b <= 1; b++)
+            {
+                BlockPos p = switch (axis)
+                {
+                    case Y -> this.pos.offset(a, 0, b);
+                    case X -> this.pos.offset(0, a, b);
+                    case Z -> this.pos.offset(a, b, 0);
+                };
+
+                if (p.equals(this.pos))
+                {
+                    continue;
+                }
+
+                BlockState s = level.getBlockState(p);
+
+                if (!s.isAir() && !s.canBeReplaced() && !this.mayBreak.test(p))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     public BlockPos pos()
@@ -119,6 +169,19 @@ public final class BlockBreaker
         {
             if (!this.destroying)
             {
+                // Passt die Star-Spitzhacke (nichts in der 3x3-Flaeche, das bleiben soll)? Dann die, sonst das beste Werkzeug
+                if (this.starSlot >= 0)
+                {
+                    if (this.starFits(level, state, bhr.getDirection()))
+                    {
+                        player.getInventory().setSelectedSlot(this.starSlot);
+                    }
+                    else if (player.getInventory().getSelectedSlot() == this.starSlot)
+                    {
+                        selectBestTool(player, state, this.starSlot);
+                    }
+                }
+
                 mc.gameMode.startDestroyBlock(this.pos, bhr.getDirection());
                 this.destroying = true;
             }

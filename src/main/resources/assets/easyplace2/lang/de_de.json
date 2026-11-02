@@ -485,5 +485,10 @@
     "easyplace2.printer.msg.excavate_left": "%s Blöcke kamen nicht dran (nicht erreichbar).",
     "easyplace2.printer.msg.line_done": "Linie fertig (%s Wände abgebaut).",
     "easyplace2.printer.msg.no_star": "Keine Star-Spitzhacke in der Hotbar (Name mit „%s“).",
-    "easyplace2.printer.msg.line_outside": "Vor dir liegt keine Schematic: stell dich hinein und schau in die Richtung, in die die Linie gehen soll."
+    "easyplace2.printer.msg.line_outside": "Vor dir liegt keine Schematic: stell dich hinein und schau in die Richtung, in die die Linie gehen soll.",
+    "easyplace2.printer.opt.starDelay": "Star-Pause",
+    "easyplace2.printer.opt.starDelay.desc": "Pause nach jedem Schlag mit der Star-Spitzhacke, damit der Server mitkommt (keine Geisterblöcke)",
+    "easyplace2.config.name.printerStarDelay": "printerStarDelay",
+    "easyplace2.config.prettyName.printerStarDelay": "Printer: Pause nach Star-Schlag",
+    "easyplace2.config.comment.printerStarDelay": "So viele Ticks wartet der Printer nach jedem Abbau mit der Star-Spitzhacke, bevor er weiterschlägt. Taucht der Block danach wieder auf (Server hat abgelehnt), baut er ihn noch einmal ab. Vanilla wartet 5 Ticks."
 }

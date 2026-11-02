@@ -54,6 +54,8 @@ public final class StarTunnel
     private final java.util.Set<Integer> passed = new java.util.HashSet<>();
     /** Blick steht geradeaus: ab jetzt wird die Maus nicht mehr bewegt. */
     private boolean aligned;
+    /** Ticks Pause nach einem Abbau mit der Star-Spitzhacke (der Server soll ihn erst bestaetigen). */
+    private int cooldown;
     /** Star-Linie: Reste und Waende mit festen Bloecken gleich einzeln abbauen (Schaufel, Diamant-Spitzhacke ...). */
     private boolean cleanup;
     @Nullable private BlockBreaker single;
@@ -110,6 +112,7 @@ public final class StarTunnel
         this.destroying = null;
         this.passed.clear();
         this.aligned = false;
+        this.cooldown = 0;
     }
 
     public Result tick(Minecraft mc)
@@ -127,6 +130,16 @@ public final class StarTunnel
         {
             this.stop(mc);
             return Result.FAILED;
+        }
+
+        // Pause nach einem Schlag: stehen bleiben und abwarten, ob der Server den Abbau bestaetigt (taucht der Block
+        // wieder auf, wird er danach einfach noch einmal abgebaut)
+        if (this.cooldown > 0)
+        {
+            this.cooldown--;
+            this.release(mc.options);
+            this.stopDestroying(mc);
+            return Result.RUNNING;
         }
 
         if (this.downTo != Integer.MIN_VALUE)
@@ -324,6 +337,8 @@ public final class StarTunnel
                 this.destroying = null;
                 this.broken++;
                 this.ticks = 0;
+                // Kurz warten, bevor der naechste Schlag kommt: sonst lehnt der Server den Abbau ab (Geisterblock)
+                this.cooldown = Ep2Configs.PRINTER_STAR_DELAY.getIntegerValue();
             }
         }
         else
@@ -435,6 +450,8 @@ public final class StarTunnel
                 this.destroying = null;
                 this.broken++;
                 this.ticks = 0;
+                // Kurz warten, bevor der naechste Schlag kommt: sonst lehnt der Server den Abbau ab (Geisterblock)
+                this.cooldown = Ep2Configs.PRINTER_STAR_DELAY.getIntegerValue();
             }
         }
         else

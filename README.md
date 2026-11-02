@@ -172,6 +172,8 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
   einfach die ganze Bahn durch, jede Wand vor ihm baut der Server 3x3 ab. Am Ende der Bahn geht er zur Seite
   und läuft daneben zurück.
 - Mit A/D bleibt er in der Mitte der Bahn, ohne den Blick zu drehen.
+- Nach jedem Schlag wartet er kurz (Menü → Laufen → „Star-Pause“, Standard 6 Ticks), damit der Server den Abbau
+  bestätigt. Taucht ein Block wieder auf (Geisterblock), baut er ihn einfach noch einmal ab.
 - Er läuft nicht bis an die Wand, sondern bleibt mit etwa 1,5 Blöcken Abstand stehen und baut von dort ab (auch
   ohne Star-Spitzhacke hält er ein Feld Abstand).
 - Was die Star-Spitzhacke am Rand stehen lässt (Erde, Kies, Ton, Sand …), stört beim Gehen nicht; das holt er
@@ -184,7 +186,9 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
   nicht lesen). Steht „star“ (`printerStarToolName`) im Namen einer anderen Spitzhacke, wird die bevorzugt.
 - Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll (Rand der Schematic, Kisten …), baut er dort
   mit einem anderen Werkzeug Block für Block ab.
-- Sonst nimmt der Printer die Star-Spitzhacke nie, damit nichts ungewollt 3x3 abgebaut wird.
+- Auch beim normalen Bauen und Abbauen nimmt er die Star-Spitzhacke für einzelne Blöcke (auch wenn nur 2 oder 3
+  weg müssen), solange in der 3x3-Fläche um den Block nichts steht, was bleiben soll. Für Erde, Kies, Ton … nimmt
+  er die Schaufel. Steht etwas in der Fläche, das bleiben soll, nimmt er das normale Werkzeug (z. B. Diamant).
 
 ## Weiterbauen hinter Menüs
 

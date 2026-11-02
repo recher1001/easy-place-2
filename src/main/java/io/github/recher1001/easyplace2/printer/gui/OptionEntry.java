@@ -197,6 +197,7 @@ public final class OptionEntry
         ALL.add(new OptionEntry(Page.WALK, "laneSpacing", Kind.INT, Ep2Configs.PRINTER_LANE_SPACING, 1, 8, 1,
                 v -> String.format(Locale.ROOT, "%d", Math.round(v))));
         bool(Page.WALK, "starTool", Ep2Configs.PRINTER_STAR_TOOL);
+        integer(Page.WALK, "starDelay", Ep2Configs.PRINTER_STAR_DELAY, 0, 20);
         ALL.add(new OptionEntry(Page.WALK, "stuckSeconds", Kind.INT, Ep2Configs.PRINTER_STUCK_SECONDS, 20, 600, 10,
                 v -> String.format(Locale.ROOT, "%d s", Math.round(v))));
 

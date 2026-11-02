@@ -77,6 +77,7 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigInteger PRINTER_LANE_SPACING = new ConfigInteger("printerLaneSpacing", 1, 1, 8).apply(KEY);
     public static final ConfigBoolean PRINTER_STAR_TOOL   = new ConfigBoolean("printerStarTool", false).apply(KEY);
     public static final ConfigString  PRINTER_STAR_TOOL_NAME = new ConfigString("printerStarToolName", "star").apply(KEY);
+    public static final ConfigInteger PRINTER_STAR_DELAY  = new ConfigInteger("printerStarDelay", 6, 0, 40).apply(KEY);
     // Aushoehlen
     public static final ConfigBoolean PRINTER_WATER       = new ConfigBoolean("printerWater", true).apply(KEY);
     public static final ConfigBoolean PRINTER_WATER_MAKE_SOURCE = new ConfigBoolean("printerWaterMakeSource", true).apply(KEY);
@@ -136,6 +137,7 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_LANE_SPACING,
             PRINTER_STAR_TOOL,
             PRINTER_STAR_TOOL_NAME,
+            PRINTER_STAR_DELAY,
             PRINTER_REPLACE_WRONG,
             PRINTER_ADJUST,
             PRINTER_FIX_ROTATION,

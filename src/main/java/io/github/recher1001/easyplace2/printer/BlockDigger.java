@@ -235,6 +235,15 @@ public final class BlockDigger
                 if (!RefillUtil.visiblePoints(player, level, null, this.target, null).isEmpty())
                 {
                     this.breaker = new BlockBreaker(this.target, this.forceSlot, this.avoidSlot);
+
+                    // Star-Spitzhacke auch fuer einzelne Bloecke, wenn in der 3x3-Flaeche nichts steht, was bleiben soll
+                    int star = io.github.recher1001.easyplace2.printer.lanes.StarTool.slotForMining(player);
+
+                    if (star >= 0 && this.forceSlot < 0)
+                    {
+                        Level schematicWorld = schematic;
+                        this.breaker.allowStar(star, p -> this.source.stillWanted(level, schematicWorld, p));
+                    }
                     this.go(Step.BREAK);
                 }
                 else if (canWalk && schematic != null && this.walk(player, level, schematic))

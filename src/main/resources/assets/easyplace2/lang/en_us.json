@@ -485,5 +485,10 @@
     "easyplace2.printer.msg.excavate_left": "%s blocks could not be reached.",
     "easyplace2.printer.msg.line_done": "Line done (%s walls mined).",
     "easyplace2.printer.msg.no_star": "No star pickaxe in the hotbar (name containing \"%s\").",
-    "easyplace2.printer.msg.line_outside": "No schematic in front of you: stand inside it and look in the direction the line should go."
+    "easyplace2.printer.msg.line_outside": "No schematic in front of you: stand inside it and look in the direction the line should go.",
+    "easyplace2.printer.opt.starDelay": "Star pause",
+    "easyplace2.printer.opt.starDelay.desc": "Pause after each star pickaxe hit so the server keeps up (no ghost blocks)",
+    "easyplace2.config.name.printerStarDelay": "printerStarDelay",
+    "easyplace2.config.prettyName.printerStarDelay": "Printer: pause after star hit",
+    "easyplace2.config.comment.printerStarDelay": "Ticks the printer waits after each star pickaxe break before hitting again. If the block reappears (server rejected it), it is mined again. Vanilla waits 5 ticks."
 }
