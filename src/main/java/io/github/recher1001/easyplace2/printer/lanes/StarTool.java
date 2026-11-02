@@ -5,11 +5,13 @@ import java.util.Locale;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 
 /**
- * Die Star-Spitzhacke (ein Server-Item, das 3x3 abbaut): erkannt am Namen in der Hotbar.
+ * Die Star-Spitzhacke (ein Server-Item, das 3x3 abbaut): die Netherite-Spitzhacke in der Hotbar (oder, falls der Name
+ * lesbar ist, das Item mit dem eingestellten Namen).
  */
 public final class StarTool
 {
@@ -30,17 +32,24 @@ public final class StarTool
     public static int findSlot(LocalPlayer player)
     {
         String name = Ep2Configs.PRINTER_STAR_TOOL_NAME.getStringValue().trim().toLowerCase(Locale.ROOT);
-
-        if (name.isEmpty())
-        {
-            return -1;
-        }
-
         Inventory inv = player.getInventory();
 
+        // Zuerst nach dem Namen (falls lesbar) ...
+        if (!name.isEmpty())
+        {
+            for (int i = 0; i < Inventory.getSelectionSize(); i++)
+            {
+                if (isStarTool(inv.getItem(i), name))
+                {
+                    return i;
+                }
+            }
+        }
+
+        // ... sonst ist die Star-Spitzhacke die Netherite-Spitzhacke (der Name ist oft nicht lesbar, z. B. eigene Schrift)
         for (int i = 0; i < Inventory.getSelectionSize(); i++)
         {
-            if (isStarTool(inv.getItem(i), name))
+            if (inv.getItem(i).is(Items.NETHERITE_PICKAXE))
             {
                 return i;
             }
@@ -52,7 +61,7 @@ public final class StarTool
     public static boolean isStarTool(ItemStack stack)
     {
         String name = Ep2Configs.PRINTER_STAR_TOOL_NAME.getStringValue().trim().toLowerCase(Locale.ROOT);
-        return !name.isEmpty() && isStarTool(stack, name);
+        return stack.is(Items.NETHERITE_PICKAXE) || (!name.isEmpty() && isStarTool(stack, name));
     }
 
     private static boolean isStarTool(ItemStack stack, String name)

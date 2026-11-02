@@ -1645,7 +1645,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         System.out.println("[EP2-TEST] Hochbauen, oben bauen und Turm abbauen ok (" + (System.currentTimeMillis() - started) + " ms)");
     }
 
-    /** Nachgebaute Server-Spitzhacke: wer mit einem "Star"-Item abbaut, baut die ganze 3x3-Wand ab. */
+    /** Nachgebaute Server-Spitzhacke: wer mit der Netherite-Spitzhacke abbaut, baut die ganze 3x3-Wand ab. */
     private static volatile boolean emulateStar;
     private static boolean starHookRegistered;
     private static final java.util.concurrent.atomic.AtomicInteger STAR_HITS = new java.util.concurrent.atomic.AtomicInteger();
@@ -1660,7 +1660,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         starHookRegistered = true;
         net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) ->
         {
-            if (!emulateStar || !player.getMainHandItem().getHoverName().getString().toLowerCase(Locale.ROOT).contains("star"))
+            if (!emulateStar || !player.getMainHandItem().is(Items.NETHERITE_PICKAXE))
             {
                 return;
             }
@@ -1726,8 +1726,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.computeOnServer(s ->
         {
             ServerPlayer p = s.getPlayerList().getPlayers().get(0);
-            net.minecraft.world.item.ItemStack star = new net.minecraft.world.item.ItemStack(Items.DIAMOND_PICKAXE);
-            star.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Star Pickaxe"));
+            // Wie auf dem Server: eine Netherite-Spitzhacke, deren Namen die Mod nicht lesen muss
+            net.minecraft.world.item.ItemStack star = new net.minecraft.world.item.ItemStack(Items.NETHERITE_PICKAXE);
             p.getInventory().setItem(0, star);
             p.getInventory().setItem(1, new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE));
             p.getInventory().setItem(2, new net.minecraft.world.item.ItemStack(Items.IRON_SHOVEL));
@@ -1736,7 +1736,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.runCommand(String.format(Locale.ROOT, "tp @a 179.5 %d 90.5 -90 0", Y));
         context.waitFor(mc -> mc.level.getBlockState(new BlockPos(187, Y + 2, 91)).is(Blocks.STONE) &&
                               mc.player.position().distanceTo(new Vec3(179.5, Y, 90.5)) < 0.5 &&
-                              mc.player.getInventory().getItem(0).is(Items.DIAMOND_PICKAXE) &&
+                              mc.player.getInventory().getItem(0).is(Items.NETHERITE_PICKAXE) &&
                               SchematicWorldHandler.getSchematicWorld() != null &&
                               SchematicWorldHandler.getSchematicWorld().getBlockState(keep).is(Blocks.STONE), 200);
         STAR_HITS.set(0);
@@ -1917,14 +1917,14 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.computeOnServer(s ->
         {
             ServerPlayer p = s.getPlayerList().getPlayers().get(0);
-            net.minecraft.world.item.ItemStack star = new net.minecraft.world.item.ItemStack(Items.DIAMOND_PICKAXE);
-            star.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Star Pickaxe"));
+            // Wie auf dem Server: eine Netherite-Spitzhacke, deren Namen die Mod nicht lesen muss
+            net.minecraft.world.item.ItemStack star = new net.minecraft.world.item.ItemStack(Items.NETHERITE_PICKAXE);
             p.getInventory().setItem(0, star);
             return true;
         });
         server.runCommand(String.format(Locale.ROOT, "tp @a 219.5 %d 120.5 -90 0", Y));
         context.waitFor(mc -> mc.level.getBlockState(outside).is(Blocks.STONE) && mc.player.position().distanceTo(new Vec3(219.5, Y, 120.5)) < 0.5 &&
-                              mc.player.getInventory().getItem(0).is(Items.DIAMOND_PICKAXE) && SchematicWorldHandler.getSchematicWorld() != null, 200);
+                              mc.player.getInventory().getItem(0).is(Items.NETHERITE_PICKAXE) && SchematicWorldHandler.getSchematicWorld() != null, 200);
         context.waitTicks(10);
         emulateStar = true;
         long started = System.currentTimeMillis();

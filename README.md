@@ -175,7 +175,8 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
 - Nach unten (nächste Lage) schaut er einmal senkrecht nach unten und lässt den Blick dann stehen: schlagen,
   eine Stufe fallen, wieder schlagen, bis er auf der neuen Lage steht. Danach dreht er sich einmal geradeaus und
   gräbt die neue Lage nach vorne weg.
-- Erkannt wird die Spitzhacke am Namen in der Hotbar (`printerStarToolName`, Standard „star“).
+- Die Star-Spitzhacke ist die **Netherite-Spitzhacke** in der Hotbar (den Namen kann die Mod auf manchen Servern
+  nicht lesen). Steht „star“ (`printerStarToolName`) im Namen einer anderen Spitzhacke, wird die bevorzugt.
 - Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll (Rand der Schematic, Kisten …), baut er dort
   mit einem anderen Werkzeug Block für Block ab.
 - Sonst nimmt der Printer die Star-Spitzhacke nie, damit nichts ungewollt 3x3 abgebaut wird.
