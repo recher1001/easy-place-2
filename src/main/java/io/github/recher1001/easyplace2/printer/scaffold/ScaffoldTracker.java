@@ -199,6 +199,9 @@ public final class ScaffoldTracker
                 }
             }
 
+            // Bruchtiefenschiefer ist immer dabei (faellt in der Tiefe massenhaft an), auch wenn eine alte
+            // gespeicherte Einstellung ihn noch nicht enthaelt
+            parsed.add(Items.COBBLED_DEEPSLATE);
             this.itemsSource = source;
             this.items = Set.copyOf(parsed);
         }
