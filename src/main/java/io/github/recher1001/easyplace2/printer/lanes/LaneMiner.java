@@ -312,8 +312,8 @@ public final class LaneMiner
 
         if (inReach.isEmpty())
         {
-            // Hingehen: auf das Feld davor in der Bahn
-            BlockPos walkTo = j > 0 ? this.path.get(j - 1).pos() : stand;
+            // Hingehen, aber mit einem Feld Abstand zur Wand (von dort aus abbauen)
+            BlockPos walkTo = j > 1 ? this.path.get(j - 2).pos() : j > 0 ? this.path.get(j - 1).pos() : stand;
             return walkTo.equals(feet) ? Action.NONE : Action.walk(walkTo);
         }
 

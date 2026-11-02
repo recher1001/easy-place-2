@@ -39,6 +39,8 @@ public final class StarTunnel
     /** So lange (Ticks) nach dem mittleren Block darauf warten, dass der Server den Rest der Wand abbaut. */
     private static final int WALL_GRACE = 8;
     private static final int STEP_TIMEOUT = 20 * 8;
+    /** So viel Abstand (Bloecke, von der Koerpermitte bis zur Wand) haelt der Spieler beim Abbauen. */
+    private static final double KEEP_DISTANCE = 1.8;
 
     /** Soll dieser Block weg? */
     private Predicate<BlockPos> wanted = p -> false;
@@ -283,8 +285,11 @@ public final class StarTunnel
 
         this.graceTicks = 0;
 
-        // Immer weiter geradeaus gehen (W gedrueckt), seitlich mit A/D in der Mitte der Bahn bleiben (ohne den Blick)
-        options.keyUp.setDown(true);
+        // Geradeaus gehen (W), aber mit Abstand zur Wand stehen bleiben und von dort abbauen; seitlich mit A/D in der
+        // Mitte der Bahn bleiben (ohne den Blick)
+        double face = (step.pos().getX() + 0.5) * dir.getStepX() + (step.pos().getZ() + 0.5) * dir.getStepZ() - 0.5;
+        double gap = face - (pos.x * dir.getStepX() + pos.z * dir.getStepZ());
+        options.keyUp.setDown(gap > KEEP_DISTANCE);
         options.keyDown.setDown(false);
         options.keyRight.setDown(side < -0.12);
         options.keyLeft.setDown(side > 0.12);
