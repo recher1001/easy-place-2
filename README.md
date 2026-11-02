@@ -169,8 +169,10 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
   einfach die ganze Bahn durch, jede Wand vor ihm baut der Server 3x3 ab. Am Ende der Bahn geht er zur Seite
   und läuft daneben zurück.
 - Mit A/D bleibt er in der Mitte der Bahn, ohne den Blick zu drehen.
-- Nach jedem Schlag wartet er kurz (Menü → Laufen → „Star-Pause“, Standard 6 Ticks), damit der Server den Abbau
-  bestätigt. Taucht ein Block wieder auf (Geisterblock), baut er ihn einfach noch einmal ab.
+- Nach jedem Schlag wartet er kurz (Menü → Laufen → „Abbau-Pause“, Standard 6 Ticks, Vanilla 5), damit der
+  Server den Abbau bestätigt. Taucht ein Block wieder auf (Geisterblock), baut er ihn einfach noch einmal ab.
+  Die Pause gilt für alles Abbauen; gezielt wird währenddessen schon, und zwischen zwei Blöcken gibt es keinen
+  Leerlauf mehr (z. B. Kies mit der Schaufel geht so fast so schnell wie von Hand).
 - Er läuft nicht bis an die Wand, sondern bleibt mit etwa 1,5 Blöcken Abstand stehen und baut von dort ab (auch
   ohne Star-Spitzhacke hält er ein Feld Abstand).
 - Was die Star-Spitzhacke am Rand stehen lässt (Erde, Kies, Ton, Sand …), stört beim Gehen nicht; das holt er

@@ -486,9 +486,9 @@
     "easyplace2.printer.msg.line_done": "Line done (%s walls mined).",
     "easyplace2.printer.msg.no_star": "No star pickaxe in the hotbar (name containing \"%s\").",
     "easyplace2.printer.msg.line_outside": "No schematic in front of you: stand inside it and look in the direction the line should go.",
-    "easyplace2.printer.opt.starDelay": "Star pause",
-    "easyplace2.printer.opt.starDelay.desc": "Pause after each star pickaxe hit so the server keeps up (no ghost blocks)",
+    "easyplace2.printer.opt.starDelay": "Break pause",
+    "easyplace2.printer.opt.starDelay.desc": "Pause between two broken blocks (vanilla 5 ticks) so the server keeps up (no ghost blocks)",
     "easyplace2.config.name.printerStarDelay": "printerStarDelay",
-    "easyplace2.config.prettyName.printerStarDelay": "Printer: pause after star hit",
-    "easyplace2.config.comment.printerStarDelay": "Ticks the printer waits after each star pickaxe break before hitting again. If the block reappears (server rejected it), it is mined again. Vanilla waits 5 ticks."
+    "easyplace2.config.prettyName.printerStarDelay": "Printer: pause between breaks",
+    "easyplace2.config.comment.printerStarDelay": "Ticks the printer waits after each broken block (normal and star pickaxe) before starting the next; it already aims meanwhile. Vanilla waits 5 ticks while holding. If a block reappears (server rejected it), it is mined again."
 }

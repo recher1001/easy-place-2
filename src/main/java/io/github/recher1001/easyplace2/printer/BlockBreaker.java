@@ -28,6 +28,8 @@ public final class BlockBreaker
     private static long lastMiningTick = -1;
     private static boolean everMined;
     private static final int NOT_VISIBLE_GRACE = 20;
+    /** Spielzeit des letzten Abbaus (fuer die Pause zwischen zwei Bloecken, wie Vanilla beim Gedrueckthalten). */
+    private static long lastBreakTick = -1000;
 
     private final BlockPos pos;
     /** Dieses Hotbar-Fach nehmen (z. B. die Star-Spitzhacke), oder -1. */
@@ -117,6 +119,11 @@ public final class BlockBreaker
 
         if (state.isAir() || state.canBeReplaced())
         {
+            if (this.destroying)
+            {
+                lastBreakTick = level.getGameTime();
+            }
+
             this.stop(mc);
             return Result.DONE;
         }
@@ -167,6 +174,13 @@ public final class BlockBreaker
         // Wie ein Spieler: sobald das Fadenkreuz auf dem Block liegt, wird abgebaut (nicht erst am genauen Punkt)
         if (mc.hitResult instanceof BlockHitResult bhr && bhr.getBlockPos().equals(this.pos))
         {
+            // Zwischen zwei Bloecken eine kurze Pause (etwas mehr als Vanilla, sonst nimmt der Server den Abbau zurueck);
+            // gezielt wird schon vorher
+            if (!this.destroying && level.getGameTime() - lastBreakTick < Ep2Configs.PRINTER_STAR_DELAY.getIntegerValue())
+            {
+                return Result.RUNNING;
+            }
+
             if (!this.destroying)
             {
                 // Passt die Star-Spitzhacke (nichts in der 3x3-Flaeche, das bleiben soll)? Dann die, sonst das beste Werkzeug
@@ -192,6 +206,15 @@ public final class BlockBreaker
 
             markMining(level);
             player.swing(InteractionHand.MAIN_HAND);
+
+            // Sofort abgebaut (z. B. Kies mit guter Schaufel): gleich fertig, nicht erst im naechsten Tick
+            if (level.getBlockState(this.pos).isAir() || level.getBlockState(this.pos).canBeReplaced())
+            {
+                lastBreakTick = level.getGameTime();
+                this.destroying = false;
+                AimController.INSTANCE.stop();
+                return Result.DONE;
+            }
         }
         else if (this.destroying)
         {

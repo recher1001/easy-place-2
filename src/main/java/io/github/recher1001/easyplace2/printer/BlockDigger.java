@@ -244,7 +244,10 @@ public final class BlockDigger
                         Level schematicWorld = schematic;
                         this.breaker.allowStar(star, p -> this.source.stillWanted(level, schematicWorld, p));
                     }
+
+                    // Gleich in diesem Tick anfangen (kein Leerlauf-Tick)
                     this.go(Step.BREAK);
+                    return this.tick(mc, now, canWalk);
                 }
                 else if (canWalk && schematic != null && this.walk(player, level, schematic))
                 {

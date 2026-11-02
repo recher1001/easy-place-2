@@ -571,8 +571,13 @@ public final class PrinterController
                     }
 
                     // Aushoehlen: gleich mit dem naechsten Block weitermachen, ohne Pause und ohne neuen Scan
-                    if (broke && digger == this.excavator && !Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() &&
-                        this.excavator.start(player, level, schematic, p -> true, now))
+                    // (in Bahnen: nur Bloecke in Reichweite, die zum grossen Teil gehoeren, sonst plant die Bahn neu)
+                    Vec3 eyeNow = player.getEyePosition();
+                    double reachNow = RefillUtil.maxDistance(player) + 0.5;
+
+                    if (broke && digger == this.excavator && !(this.state == State.EXCAVATING && this.mode == Mode.LINE) &&
+                        this.excavator.start(player, level, schematic, Ep2Configs.PRINTER_LANE_MODE.getBooleanValue()
+                                ? p -> Vec3.atCenterOf(p).distanceTo(eyeNow) <= reachNow && this.laneMiner.preferred(p) : p -> true, now))
                     {
                         this.detail = this.excavator.detail();
                         return;
