@@ -172,7 +172,9 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
 - Was die Star-Spitzhacke am Rand stehen lässt (Erde, Kies, Ton, Sand …), stört beim Gehen nicht; das holt er
   nach der Bahn einzeln mit dem passenden Werkzeug aus der Hotbar (z. B. Schaufel). Nur wenn so ein Rest unten
   in der Mitte den Weg versperrt, holt er ihn sofort.
-- Nach unten schlägt er dreimal auf den Block unter den Füßen.
+- Nach unten (nächste Lage) schaut er einmal senkrecht nach unten und lässt den Blick dann stehen: schlagen,
+  eine Stufe fallen, wieder schlagen, bis er auf der neuen Lage steht. Danach dreht er sich einmal geradeaus und
+  gräbt die neue Lage nach vorne weg.
 - Erkannt wird die Spitzhacke am Namen in der Hotbar (`printerStarToolName`, Standard „star“).
 - Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll (Rand der Schematic, Kisten …), baut er dort
   mit einem anderen Werkzeug Block für Block ab.

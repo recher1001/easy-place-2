@@ -29,7 +29,7 @@ import io.github.recher1001.easyplace2.printer.refill.RefillUtil;
  */
 public final class LaneMiner
 {
-    public enum Kind { DIG, WALK, TUNNEL, NONE }
+    public enum Kind { DIG, WALK, TUNNEL, DOWN, NONE }
 
     public record Action(Kind kind, Set<BlockPos> dig, @Nullable BlockPos walkTo, int forceSlot, int avoidSlot, List<LanePath.Step> run)
     {
@@ -43,6 +43,12 @@ public final class LaneMiner
         static Action walk(BlockPos to)
         {
             return new Action(Kind.WALK, Set.of(), to, -1, -1, List.of());
+        }
+
+        /** Star-Spitzhacke: senkrecht nach unten graben bis zur Fusshoehe {@code layer} (siehe {@link StarTunnel}). */
+        static Action down(int layer, int slot)
+        {
+            return new Action(Kind.DOWN, Set.of(), new BlockPos(0, layer, 0), slot, -1, List.of());
         }
 
         /** Star-Spitzhacke: die Bahn geradeaus durchgraben (siehe {@link StarTunnel}). */
@@ -289,7 +295,8 @@ public final class LaneMiner
 
                 if (allClearable(level, plane, wanted))
                 {
-                    return Action.dig(Set.of(below), starSlot, -1);
+                    // Einmal senkrecht nach unten schauen und ohne die Kamera zu bewegen Lage fuer Lage runter
+                    return Action.down(newLayer, starSlot);
                 }
             }
 

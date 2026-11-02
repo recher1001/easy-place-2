@@ -819,6 +819,14 @@ public final class PrinterController
                     this.setState(State.TUNNELING, action.run().get(0).pos().toShortString());
                     return;
                 }
+                else if (action.kind() == LaneMiner.Kind.DOWN && action.walkTo() != null)
+                {
+                    this.bridge.release(mc);
+                    this.tunnel.startDown(action.walkTo().getY(), p -> this.excavation.stillWanted(level, schematic, p) &&
+                            !this.excavator.isSkipped(p, now), action.forceSlot(), player.getYRot());
+                    this.setState(State.TUNNELING, "down");
+                    return;
+                }
                 else if (action.kind() == LaneMiner.Kind.WALK && action.walkTo() != null && this.walkLane(player, level, action.walkTo(), now))
                 {
                     return;

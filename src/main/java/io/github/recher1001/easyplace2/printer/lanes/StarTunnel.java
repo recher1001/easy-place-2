@@ -52,6 +52,9 @@ public final class StarTunnel
     private final java.util.Set<Integer> passed = new java.util.HashSet<>();
     /** Blick steht geradeaus: ab jetzt wird die Maus nicht mehr bewegt. */
     private boolean aligned;
+    /** Nach unten graben statt geradeaus: bis zu dieser Fusshoehe (sonst Integer.MIN_VALUE). */
+    private int downTo = Integer.MIN_VALUE;
+    private float downYaw;
 
     public boolean isActive()
     {
@@ -69,8 +72,22 @@ public final class StarTunnel
      * @param wanted welche Bloecke weg sollen
      * @param slot   das Hotbar-Fach der Star-Spitzhacke
      */
+    /**
+     * Senkrecht nach unten graben: einmal gerade nach unten schauen, dann ohne die Kamera zu bewegen auf den Block
+     * unter den Fuessen schlagen (der Server baut die 3x3-Flaeche ab), fallen, wieder schlagen, bis zur Fusshoehe
+     * {@code layer}. Danach geht es mit der neuen Lage geradeaus weiter.
+     */
+    public void startDown(int layer, Predicate<BlockPos> wanted, int slot, float yaw)
+    {
+        this.start(List.of(new LanePath.Step(BlockPos.ZERO, Direction.NORTH)), wanted, slot);
+        this.downTo = layer;
+        // Die Blickrichtung bleibt, nur nach unten (auf die naechste Himmelsrichtung gerundet, damit es sauber aussieht)
+        this.downYaw = Direction.fromYRot(yaw).toYRot();
+    }
+
     public void start(List<LanePath.Step> run, Predicate<BlockPos> wanted, int slot)
     {
+        this.downTo = Integer.MIN_VALUE;
         this.run = List.copyOf(run);
         this.wanted = wanted;
         this.slot = slot;
@@ -96,6 +113,11 @@ public final class StarTunnel
         {
             this.stop(mc);
             return Result.FAILED;
+        }
+
+        if (this.downTo != Integer.MIN_VALUE)
+        {
+            return this.tickDown(mc, player, level);
         }
 
         // Die naechste Wand der Bahn, in der noch etwas weg muss
@@ -229,6 +251,117 @@ public final class StarTunnel
             player.swing(InteractionHand.MAIN_HAND);
 
             if (level.getBlockState(center).isAir())
+            {
+                this.destroying = null;
+                this.broken++;
+                this.ticks = 0;
+            }
+        }
+        else
+        {
+            this.stopDestroying(mc);
+        }
+
+        return Result.RUNNING;
+    }
+
+    private Result tickDown(Minecraft mc, LocalPlayer player, Level level)
+    {
+        BlockPos feet = player.blockPosition();
+
+        if (player.onGround() && feet.getY() <= this.downTo)
+        {
+            // Unten angekommen: die neue Lage geht geradeaus weiter (dort richtet sich der Blick einmal neu aus)
+            this.stop(mc);
+            return Result.DONE;
+        }
+
+        // Blick: einmal senkrecht nach unten, danach die Maus nicht mehr anfassen
+        float yawError = Math.abs(Mth.wrapDegrees(player.getYRot() - this.downYaw));
+        float pitchError = Math.abs(90.0f - player.getXRot());
+
+        if (!this.aligned || pitchError > 5.0f)
+        {
+            if (pitchError < 0.6f && yawError < 2.0f)
+            {
+                this.aligned = true;
+                AimController.INSTANCE.stop();
+            }
+            else
+            {
+                this.aligned = false;
+                this.stopDestroying(mc);
+                double rad = Math.toRadians(this.downYaw);
+                Vec3 eye = player.getEyePosition();
+                // Ein Hauch in Blickrichtung, sonst ist die Richtung bei genau senkrecht unbestimmt
+                AimController.INSTANCE.aimAt(eye.add(-Math.sin(rad) * 0.001, -5.0, Math.cos(rad) * 0.001),
+                        Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+                return Result.RUNNING;
+            }
+        }
+
+        if (!player.onGround())
+        {
+            // Faellt gerade eine Stufe tiefer
+            this.stopDestroying(mc);
+            return Result.RUNNING;
+        }
+
+        BlockPos below = feet.below();
+        BlockState state = level.getBlockState(below);
+
+        // Nur, wenn die ganze 3x3-Flaeche darunter weg darf (sonst macht der normale Modus weiter)
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                BlockPos p = below.offset(dx, 0, dz);
+                BlockState s = level.getBlockState(p);
+
+                if (!this.wanted.test(p) && !s.isAir() && !s.canBeReplaced())
+                {
+                    this.stop(mc);
+                    return Result.DONE;
+                }
+            }
+        }
+
+        if (state.isAir() || state.canBeReplaced())
+        {
+            // Mitte schon weg, der Server baut den Rest der Flaeche gerade ab: kurz warten
+            if (++this.graceTicks > WALL_GRACE)
+            {
+                this.stop(mc);
+                return Result.DONE;
+            }
+
+            return Result.RUNNING;
+        }
+
+        this.graceTicks = 0;
+        Inventory inv = player.getInventory();
+
+        if (this.slot >= 0 && this.slot < Inventory.getSelectionSize() && inv.getSelectedSlot() != this.slot)
+        {
+            inv.setSelectedSlot(this.slot);
+        }
+
+        if (mc.hitResult instanceof BlockHitResult hit && hit.getBlockPos().equals(below) && hit.getDirection() == Direction.UP)
+        {
+            if (!below.equals(this.destroying))
+            {
+                mc.gameMode.startDestroyBlock(below, hit.getDirection());
+                this.destroying = below.immutable();
+            }
+            else
+            {
+                mc.gameMode.continueDestroyBlock(below, hit.getDirection());
+            }
+
+            BlockBreaker.markMining(level);
+            player.swing(InteractionHand.MAIN_HAND);
+
+            if (level.getBlockState(below).isAir())
             {
                 this.destroying = null;
                 this.broken++;
