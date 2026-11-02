@@ -2130,6 +2130,19 @@ public final class PrinterController
         }
     }
 
+    private static boolean lineWanted(Level level, Level schematic, BlockPos pos)
+    {
+        BlockState current = level.getBlockState(pos);
+
+        if (current.isAir() || current.canBeReplaced() || !Excavation.canDig(level, pos, current))
+        {
+            return false;
+        }
+
+        BlockState wanted = schematic.getBlockState(pos);
+        return wanted.isAir() || !StateMatcher.isComplete(current, wanted);
+    }
+
     private void selectLine(Minecraft mc, LocalPlayer player, ClientLevel level, Level schematic)
     {
         if (this.lineStarted)
@@ -2183,8 +2196,9 @@ public final class PrinterController
             return;
         }
 
-        // Nur innerhalb der Schematic und nur, wo sie Luft will
-        this.tunnel.start(run, p -> this.scanner.inside(p) && this.excavation.stillWanted(level, schematic, p), slot);
+        // Innerhalb der Schematic alles, was nicht richtig steht: wo sie Luft will und auch falsche (rote) Bloecke.
+        // Was schon richtig steht, bleibt.
+        this.tunnel.startWithCleanup(run, p -> this.scanner.inside(p) && lineWanted(level, schematic, p), slot);
         this.bridge.release(mc);
         AimController.INSTANCE.stop();
         this.setState(State.TUNNELING, run.size() + "");

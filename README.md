@@ -203,6 +203,11 @@ In der **Übersicht** des Printer-Menüs gibt es zwei eigene Modi:
 - **Star-Linie abbauen** (Knopf): Stell dich in die Schematic (oder direkt davor) und schau in die Richtung, in die
   gegraben werden soll. Der Printer gräbt von dort aus mit der Star-Spitzhacke eine ganze 3x3-Linie geradeaus bis
   zum Rand der Schematic, mit festem Blick, und hört dann auf. Außerhalb der Schematic gräbt er nichts.
+  - Abgebaut wird alles in der Linie, was nicht richtig steht: wo die Schematic Luft will, und auch falsche
+    (rote) Blöcke. Was schon richtig steht, bleibt.
+  - Was die Star-Spitzhacke stehen lässt (Kies, Erde, Ton …), baut er gleich einzeln ab, mit dem passenden
+    Werkzeug (Schaufel). Einzelne Steinblöcke (z. B. neben einem Block, der stehen bleiben soll) baut er mit
+    der normalen Spitzhacke ab (z. B. Diamant), nie mit der Star-Spitzhacke.
 
 ## Aushöhlen und falsche Blöcke
 

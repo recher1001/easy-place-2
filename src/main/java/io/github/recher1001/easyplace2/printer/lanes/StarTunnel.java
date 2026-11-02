@@ -52,6 +52,9 @@ public final class StarTunnel
     private final java.util.Set<Integer> passed = new java.util.HashSet<>();
     /** Blick steht geradeaus: ab jetzt wird die Maus nicht mehr bewegt. */
     private boolean aligned;
+    /** Star-Linie: Reste und Waende mit festen Bloecken gleich einzeln abbauen (Schaufel, Diamant-Spitzhacke ...). */
+    private boolean cleanup;
+    @Nullable private BlockBreaker single;
     /** Nach unten graben statt geradeaus: bis zu dieser Fusshoehe (sonst Integer.MIN_VALUE). */
     private int downTo = Integer.MIN_VALUE;
     private float downYaw;
@@ -85,9 +88,18 @@ public final class StarTunnel
         this.downYaw = Direction.fromYRot(yaw).toYRot();
     }
 
+    /** Wie {@link #start}, aber Reste gleich einzeln mit dem passenden Werkzeug abbauen (fuer die Star-Linie). */
+    public void startWithCleanup(List<LanePath.Step> run, Predicate<BlockPos> wanted, int slot)
+    {
+        this.start(run, wanted, slot);
+        this.cleanup = true;
+    }
+
     public void start(List<LanePath.Step> run, Predicate<BlockPos> wanted, int slot)
     {
         this.downTo = Integer.MIN_VALUE;
+        this.cleanup = false;
+        this.single = null;
         this.run = List.copyOf(run);
         this.wanted = wanted;
         this.slot = slot;
@@ -135,6 +147,27 @@ public final class StarTunnel
         }
 
         Options options = mc.options;
+
+        // Gerade dabei, einen Rest einzeln abzubauen (nie mit der Star-Spitzhacke, sonst ginge 3x3 weg)
+        if (this.single != null)
+        {
+            this.release(options);
+            BlockBreaker.Result result = this.single.tick(mc, player, level);
+
+            if (result != BlockBreaker.Result.RUNNING)
+            {
+                if (result == BlockBreaker.Result.DONE)
+                {
+                    this.broken++;
+                }
+
+                this.single = null;
+                this.ticks = 0;
+                this.aligned = false;
+            }
+
+            return Result.RUNNING;
+        }
         LanePath.Step step = this.run.get(k);
         Direction dir = step.dir();
         Vec3 pos = player.position();
@@ -181,11 +214,29 @@ public final class StarTunnel
             }
         }
 
-        // Soll in der 3x3-Wand etwas stehen bleiben: das macht der normale Modus Block fuer Block
+        // Soll in der 3x3-Wand etwas stehen bleiben: nicht 3x3 schlagen. Bei der Star-Linie die anderen Bloecke dieser
+        // Wand einzeln abbauen (erst hingehen), sonst macht der normale Modus Block fuer Block weiter
         if (!this.clearable(level, step))
         {
-            this.stop(mc);
-            return Result.DONE;
+            if (!this.cleanup)
+            {
+                this.stop(mc);
+                return Result.DONE;
+            }
+
+            BlockPos stand = step.pos().relative(dir.getOpposite());
+            double along = (pos.x - (stand.getX() + 0.5)) * dir.getStepX() + (pos.z - (stand.getZ() + 0.5)) * dir.getStepZ();
+
+            if (along < -0.3 && passable(level, feet.relative(dir)))
+            {
+                options.keyUp.setDown(true);
+                options.keyRight.setDown(side < -0.12);
+                options.keyLeft.setDown(side > 0.12);
+                this.stopDestroying(mc);
+                return Result.RUNNING;
+            }
+
+            return this.cleanupWall(mc, player, level, step, k);
         }
 
         BlockState middle = level.getBlockState(center);
@@ -195,7 +246,20 @@ public final class StarTunnel
         {
             BlockState bottom = level.getBlockState(step.pos());
 
-            if (bottom.getCollisionShape(level, step.pos()).isEmpty())
+            if (this.cleanup)
+            {
+                // Star-Linie: kurz warten (der Server baut die Wand ab), dann was stehen blieb (Kies, Erde ...) mitnehmen
+                if (++this.graceTicks > WALL_GRACE)
+                {
+                    return this.cleanupWall(mc, player, level, step, k);
+                }
+
+                this.release(options);
+                this.stopDestroying(mc);
+                return Result.RUNNING;
+            }
+
+            if (!this.cleanup && bottom.getCollisionShape(level, step.pos()).isEmpty())
             {
                 // Der Weg ist frei: Reste am Rand (oben, links, rechts) stoeren nicht, weitergehen. Die holt der
                 // normale Modus nach der Bahn.
@@ -430,8 +494,52 @@ public final class StarTunnel
         this.destroying = null;
     }
 
+    /** Die Reste dieser Wand einzeln abbauen; ist nichts mehr zu sehen, weiter (oder aufhoeren, wenn der Weg zu ist). */
+    private Result cleanupWall(Minecraft mc, LocalPlayer player, Level level, LanePath.Step step, int k)
+    {
+        this.release(mc.options);
+        this.stopDestroying(mc);
+        List<BlockPos> cells = new java.util.ArrayList<>(LanePath.crossSection(step, HALF, HEIGHT));
+        cells.sort(java.util.Comparator.comparingInt(p -> -p.getY()));
+
+        for (BlockPos p : cells)
+        {
+            BlockState state = level.getBlockState(p);
+
+            if (this.wanted.test(p) && !state.isAir() && !state.canBeReplaced() &&
+                !io.github.recher1001.easyplace2.printer.refill.RefillUtil.visiblePoints(player, level, null, p, null).isEmpty())
+            {
+                // Bestes Werkzeug aus der Hotbar (Schaufel fuer Kies, Diamant-Spitzhacke fuer Stein ...), nie die Star-Spitzhacke
+                this.single = new BlockBreaker(p, -1, this.slot);
+                this.graceTicks = 0;
+                return Result.RUNNING;
+            }
+        }
+
+        BlockState bottom = level.getBlockState(step.pos());
+        BlockState middle = level.getBlockState(step.pos().above());
+
+        if (bottom.getCollisionShape(level, step.pos()).isEmpty() && middle.getCollisionShape(level, step.pos().above()).isEmpty())
+        {
+            // Weg frei, Rest (falls da) nicht erreichbar: weiter
+            this.passed.add(k);
+            this.graceTicks = 0;
+            this.aligned = false;
+            return Result.RUNNING;
+        }
+
+        this.stop(mc);
+        return Result.DONE;
+    }
+
     public void stop(Minecraft mc)
     {
+        if (this.single != null)
+        {
+            this.single.stop(mc);
+            this.single = null;
+        }
+
         this.stopDestroying(mc);
         this.release(mc.options);
         this.run = List.of();
