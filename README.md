@@ -202,7 +202,8 @@ In der **Übersicht** des Printer-Menüs gibt es zwei eigene Modi:
 
 - **Nur aushöhlen** (Schalter): Der Printer höhlt die ganze Schematic aus, also er baut alles ab, wo die Schematic
   Luft will, und setzt dabei nichts. Das geht auch mit einer Schematic, die nur aus Luft besteht (z. B. einem
-  ausgewählten Bereich). Er arbeitet in Bahnen (mit Star-Spitzhacke 3x3) und meldet „Aushöhlen fertig“, wenn
+  ausgewählten Bereich). Er arbeitet in Bahnen (mit Star-Spitzhacke 3x3), jede Bahn genau wie die Star-Linie
+  (geradeaus mit Abstand, Reste gleich mit Schaufel/Spitzhacke), und meldet „Aushöhlen fertig“, wenn
   nichts mehr übrig ist. Was er gerade nicht erreicht, versucht er gleich noch ein paar Mal statt herumzustehen,
   und sagt am Ende, wie viele Blöcke nicht drankamen. Schalter aus: er hört auf.
 - **Star-Linie abbauen** (Knopf): Stell dich in die Schematic (oder direkt davor) und schau in die Richtung, in die

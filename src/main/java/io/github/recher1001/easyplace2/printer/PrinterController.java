@@ -136,6 +136,7 @@ public final class PrinterController
     private boolean lineStarted;
     private int excavateRetries;
     private int tunnelStart;
+    private int tunnelRunStart;
     private boolean userPaused;
     private State state = State.OFF;
     private String detail = "";
@@ -624,7 +625,8 @@ public final class PrinterController
 
                 if (result != io.github.recher1001.easyplace2.printer.lanes.StarTunnel.Result.RUNNING)
                 {
-                    if (result == io.github.recher1001.easyplace2.printer.lanes.StarTunnel.Result.FAILED && this.tunnel.broken() == before)
+                    // Ging gar nichts (nichts abgebaut): eine Weile normal weiter, sonst begaenne derselbe Tunnel sofort neu
+                    if (this.tunnel.broken() == this.tunnelRunStart && this.mode != Mode.LINE)
                     {
                         debug("Star-Tunnel ging nicht weiter, eine Weile normal weiter");
                         this.laneFailUntil = now + 20 * 10;
@@ -860,8 +862,10 @@ public final class PrinterController
                 else if (action.kind() == LaneMiner.Kind.TUNNEL)
                 {
                     this.bridge.release(mc);
-                    this.tunnel.start(action.run(), p -> this.excavation.stillWanted(level, schematic, p) && !this.excavator.isSkipped(p, now),
-                            action.forceSlot());
+                    // Wie die Star-Linie: geradeaus mit Abstand, Reste gleich mit Schaufel/Spitzhacke mitnehmen
+                    this.tunnel.startWithCleanup(action.run(), p -> this.excavation.stillWanted(level, schematic, p) &&
+                            !this.excavator.isSkipped(p, now), action.forceSlot());
+                    this.tunnelRunStart = this.tunnel.broken();
                     this.setState(State.TUNNELING, action.run().get(0).pos().toShortString());
                     return;
                 }
@@ -870,6 +874,7 @@ public final class PrinterController
                     this.bridge.release(mc);
                     this.tunnel.startDown(action.walkTo().getY(), p -> this.excavation.stillWanted(level, schematic, p) &&
                             !this.excavator.isSkipped(p, now), action.forceSlot(), player.getYRot());
+                    this.tunnelRunStart = this.tunnel.broken();
                     this.setState(State.TUNNELING, "down");
                     return;
                 }

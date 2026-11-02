@@ -291,7 +291,8 @@ public final class LaneMiner
         BlockPos stand = step.pos().relative(step.dir().getOpposite());
 
         // Star-Spitzhacke: vor der Wand stehen, geradeaus schauen, schlagen, vorgehen, schlagen ... bis zum Ende der Bahn
-        if (starSlot >= 0 && allClearable(level, cross, wanted) && wanted.contains(step.pos().above(1)) && (stand.equals(feet) || inReach.contains(step.pos().above(1)) || onLaneBehind(feet, step)))
+        // (Waende mit Bloecken, die bleiben sollen, und Reste macht der Tunnel selbst einzeln, wie bei der Star-Linie)
+        if (starSlot >= 0 && (stand.equals(feet) || inReach.contains(step.pos().above(1)) || onLaneBehind(feet, step)))
         {
             List<LanePath.Step> run = new ArrayList<>();
 
