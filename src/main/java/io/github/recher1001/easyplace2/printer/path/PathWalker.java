@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -279,6 +280,20 @@ public final class PathWalker
             break;
         }
 
+        // Schon naeher am uebernaechsten Knoten (Ecke abgekuerzt)? Dann weiter
+        while (this.index < this.path.size() - 1 && player.onGround())
+        {
+            BlockPos a = this.path.get(this.index), b = this.path.get(this.index + 1);
+
+            if (a.getY() != b.getY() || a.getY() != feet.getY() ||
+                Vec3.atBottomCenterOf(b).distanceToSqr(pos) >= Vec3.atBottomCenterOf(a).distanceToSqr(pos))
+            {
+                break;
+            }
+
+            this.index++;
+        }
+
         if (this.index >= this.path.size())
         {
             // Teilweg zu Ende: von hier aus weitersuchen
@@ -294,14 +309,16 @@ public final class PathWalker
         }
 
         BlockPos node = this.path.get(this.index);
-        Vec3 target = Vec3.atBottomCenterOf(node);
+        // Gerade Linie statt Zickzack: auf den weitesten Knoten zuhalten, zu dem es auf gleicher Hoehe frei geradeaus geht
+        BlockPos steer = this.path.get(this.farthestStraight(level, pos, feet));
+        Vec3 target = Vec3.atBottomCenterOf(steer);
 
         // Haengt fest oder ist vom Weg abgekommen: neu suchen (ein paar Mal), dann aufgeben
         boolean moved = pos.distanceToSqr(this.lastPos) > 0.0025;
         this.stillTicks = moved ? 0 : this.stillTicks + 1;
         this.lastPos = pos;
 
-        if (this.stillTicks > STUCK_TICKS || target.distanceTo(pos) > 4.0)
+        if (this.stillTicks > STUCK_TICKS || Vec3.atBottomCenterOf(node).distanceTo(pos) > 4.0)
         {
             this.release(options);
 
@@ -317,13 +334,14 @@ public final class PathWalker
             return;
         }
 
-        // In Laufrichtung schauen: auf einen Punkt etwas weiter vorne am Weg, in Augenhoehe
-        BlockPos ahead = this.path.get(Math.min(this.index + 1, this.path.size() - 1));
-        Vec3 look = new Vec3(ahead.getX() + 0.5, player.getEyeY() - 0.4, ahead.getZ() + 0.5);
+        // Geradeaus in Laufrichtung schauen (waagerecht, wie ein Spieler beim Laufen)
+        Vec3 heading = new Vec3(target.x - pos.x, 0.0, target.z - pos.z);
 
-        if (look.subtract(player.getEyePosition()).horizontalDistanceSqr() > 0.25)
+        if (heading.horizontalDistanceSqr() > 0.09)
         {
-            AimController.INSTANCE.aimAt(look, Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+            Vec3 dirH = heading.normalize();
+            AimController.INSTANCE.aimAt(player.getEyePosition().add(dirH.x * 10.0, 0.0, dirH.z * 10.0),
+                    Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
         }
 
         // Tasten Richtung Knoten
@@ -349,9 +367,69 @@ public final class PathWalker
 
         // Springen: der naechste Knoten liegt hoeher, oder man laeuft gegen eine Stufe
         BlockPos prev = this.path.get(Math.max(0, this.index - 1));
-        boolean up = node.getY() > prev.getY() && len < 1.6;
+        boolean up = node.getY() > prev.getY() &&
+                     Math.sqrt(Math.pow(node.getX() + 0.5 - pos.x, 2) + Math.pow(node.getZ() + 0.5 - pos.z, 2)) < 1.6;
         options.keyJump.setDown(player.onGround() && (up || (player.horizontalCollision && len > 0.2 && node.getY() >= feet.getY())));
         this.keysDown = true;
+    }
+
+    /**
+     * Der weiteste Knoten ab dem aktuellen (hoechstens 12 weiter), zu dem man auf gleicher Hoehe geradeaus laufen
+     * kann, ohne irgendwo anzustossen oder in ein Loch zu treten (der ganze Koerper, 0,6 breit, wird geprueft).
+     */
+    private int farthestStraight(Level level, Vec3 pos, BlockPos feet)
+    {
+        int best = this.index;
+        int y = this.path.get(this.index).getY();
+
+        if (y != feet.getY())
+        {
+            return best;
+        }
+
+        for (int j = this.index + 1; j < Math.min(this.path.size(), this.index + 12); j++)
+        {
+            BlockPos n = this.path.get(j);
+
+            if (n.getY() != y || !this.clearLine(level, pos, Vec3.atBottomCenterOf(n), y))
+            {
+                break;
+            }
+
+            best = j;
+        }
+
+        return best;
+    }
+
+    private boolean clearLine(Level level, Vec3 from, Vec3 to, int y)
+    {
+        double dx = to.x - from.x, dz = to.z - from.z;
+        double len = Math.sqrt(dx * dx + dz * dz);
+        int steps = Math.max(1, (int) Math.ceil(len / 0.25));
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+        java.util.Set<Long> checked = new java.util.HashSet<>();
+
+        for (int i = 0; i <= steps; i++)
+        {
+            double t = (double) i / steps;
+            double x = from.x + dx * t, z = from.z + dz * t;
+
+            for (double ox = -0.3; ox <= 0.3; ox += 0.6)
+            {
+                for (double oz = -0.3; oz <= 0.3; oz += 0.6)
+                {
+                    m.set(Mth.floor(x + ox), y, Mth.floor(z + oz));
+
+                    if (checked.add(m.asLong()) && !PathFinder.standableAt(level, m))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     /** Die Lauftasten druecken, die (beim aktuellen Blick) in Richtung (mx, mz) fuehren. */

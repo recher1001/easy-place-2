@@ -14,8 +14,9 @@ import net.minecraft.world.phys.Vec3;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 
 /**
- * Bauen ueber Luft, wie ein Spieler "bridged": mit gedrueckter Schleichtaste an die Kante des letzten Blocks
- * gehen (man faellt dabei nicht herunter), nach unten schauen und den naechsten Block an dessen Seite setzen.
+ * Bauen ueber Luft, wie ein Spieler rueckwaerts "bridged": zur Bruecke zurueckschauen, mit gedrueckter
+ * Schleichtaste rueckwaerts (S) an die Kante des letzten Blocks gehen (man faellt dabei nicht herunter), steil
+ * nach unten schauen und den naechsten Block an dessen Seite setzen.
  * Dann einen Schritt weiter und wieder. So entsteht eine Linie ueber dem Abgrund, auch rueckwaerts.
  * <p>
  * Gesetzt wird danach ganz normal ueber den Printer (Easy Place 2.0, strenges Fadenkreuz); diese Klasse bringt
@@ -176,12 +177,15 @@ public final class EdgeBridge
             }
         }
 
-        // Schleichen (nie herunterfallen) und in Laufrichtung gehen, waehrend der Blick schon auf die Seite des
-        // Stuetzblocks geht, an die der neue Block kommt
+        // Rueckwaerts bridgen wie ein Spieler: zur Bruecke zurueckschauen (Ruecken zum Abgrund), steil nach unten,
+        // schleichen (nie herunterfallen) und mit S rueckwaerts an die Kante. Ragt man ueber die Kante, liegt das
+        // Fadenkreuz von selbst auf der Seite des Blocks, an die der neue Block kommt. Kein Umdrehen.
         options.keyShift.setDown(true);
         this.sneaking = true;
-        Vec3 face = Vec3.atCenterOf(plan.support()).add(dir.getStepX() * 0.5, 0.25, dir.getStepZ() * 0.5);
-        AimController.INSTANCE.aimAt(face, Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+        Direction back = dir.getOpposite();
+        Vec3 eye = player.getEyePosition();
+        AimController.INSTANCE.aimAt(eye.add(back.getStepX() * 0.35, -3.0, back.getStepZ() * 0.35),
+                Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
 
         boolean moved = pos.distanceToSqr(this.last) > 1.0E-4;
         this.still = moved ? 0 : this.still + 1;
@@ -197,6 +201,14 @@ public final class EdgeBridge
         {
             this.stop(mc);
             return Result.FAILED;
+        }
+
+        // Erst losgehen, wenn man richtig herum steht (sonst liefe man in die falsche Richtung)
+        if (Math.abs(net.minecraft.util.Mth.wrapDegrees(player.getYRot() - back.toYRot())) > 25.0f)
+        {
+            this.releaseMove(options);
+            this.still = 0;
+            return Result.RUNNING;
         }
 
         this.pressToward(options, player.getYRot(), dir);

@@ -67,11 +67,16 @@ Easy Place 2.0 mit strengem Fadenkreuz**, also mit genau dem Rechtsklick, den du
 
 - Er sucht den Weg selbst (in wenigen Ticks, ohne Ruckeln): gehen, schräg gehen, einen Block hochspringen,
   bis zu 3 Blöcke herunterfallen. Wasser, Lava, Feuer, Spinnweben, Kakteen usw. meidet er.
-- Er läuft wie ein Spieler: Er schaut in Laufrichtung, drückt W/A/S/D, springt an Stufen und sprintet auf
-  geraden Stücken.
+- Er läuft wie ein Spieler: Er schaut waagerecht geradeaus in Laufrichtung, drückt W/A/S/D, springt an Stufen
+  und sprintet auf geraden Stücken.
+- Er läuft in geraden Linien zum weitesten Punkt des Weges, den er frei erreicht, statt Block für Block im
+  Zickzack (geprüft wird dabei der ganze Körper, damit er nirgends hängen bleibt oder in ein Loch tritt).
 - Gibt es keinen Weg, der näher heranführt, irrt er nicht herum, sondern der Printer probiert etwas anderes
   (anderes Ziel, hochbauen …). Ist das Ziel weit weg, läuft er ein Stück und sucht von dort aus weiter.
 - Unterwegs baut er nie etwas ab und setzt nichts (dafür gibt es Hochbauen, Brücke und Hilfsblöcke).
+- **Brücke über Luft:** Er bridged rückwärts wie ein Spieler: Er schaut zur Brücke zurück und steil nach
+  unten, hält Schleichen und S, geht rückwärts an die Kante und setzt den nächsten Block an die Seite des
+  Blocks unter sich, ohne sich umzudrehen.
 
 Abschalten kannst du das Laufen im Menü unter **Laufen**, dann baut er nur, was du von deinem Standort aus
 erreichst. Mit „Mit Baritone laufen“ übernimmt stattdessen Baritone.
@@ -159,9 +164,10 @@ Rasenmähen. Er geht geradeaus bis zum Ende der Schematic, macht eine Kurve und 
 **Star-Tool** (Menü → Laufen → „Star-Tool (3x3)“): für eine Spitzhacke vom Server, die 3x3 abbaut.
 
 - Die Gänge sind 3 breit und 3 hoch, die Bahnen liegen 3 auseinander.
-- Er arbeitet wie ein Spieler: Er steht in der Mitte, schaut geradeaus auf den mittleren Block der Wand vor
-  sich und hält Linksklick, der Server baut die ganze 3x3-Wand ab. Dann geht er einen Schritt vor und schlägt
-  wieder, bis zum Ende der Bahn, ohne nach jedem Block neu zu planen oder sich umzuschauen.
+- Er arbeitet wie ein Spieler: Er schaut waagerecht geradeaus (das Fadenkreuz liegt dann auf dem mittleren
+  Block der Wand), hält W und Linksklick und geht einfach die ganze Bahn durch. Jede Wand, die vor ihm
+  auftaucht, baut der Server 3x3 ab. Am Ende der Bahn geht er zur Seite und läuft daneben zurück.
+- Mit A/D bleibt er dabei in der Mitte der Bahn, ohne den Blick zu drehen.
 - Nach unten schlägt er dreimal auf den Block unter den Füßen.
 - Erkannt wird die Spitzhacke am Namen in der Hotbar (`printerStarToolName`, Standard „star“).
 - Würde die 3x3-Fläche etwas treffen, das stehen bleiben soll (Rand der Schematic, Kisten …), baut er dort

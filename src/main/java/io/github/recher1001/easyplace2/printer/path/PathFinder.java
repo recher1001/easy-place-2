@@ -259,6 +259,36 @@ public final class PathFinder
 
     // ---------------------------------------------------------------- Blockpruefungen
 
+    /** Kann man mit den Fuessen in diesem Feld stehen? (ohne Suche, z. B. fuer gerade Abkuerzungen) */
+    public static boolean standableAt(Level level, BlockPos feet)
+    {
+        return new PathFinder(level).standable(feet);
+    }
+
+    /** Nur fuer Blockpruefungen. */
+    private PathFinder(Level level)
+    {
+        this.level = level;
+        this.goal = new Goal()
+        {
+            @Override
+            public boolean reached(BlockPos feet)
+            {
+                return false;
+            }
+
+            @Override
+            public double estimate(BlockPos feet)
+            {
+                return 0.0;
+            }
+        };
+        this.maxNodes = 0;
+        this.start = new Node(0L, 0.0, 0.0, null);
+        this.best = this.start;
+        this.status = Status.NONE;
+    }
+
     /** Kann man mit den Fuessen in diesem Feld stehen? */
     public boolean standable(BlockPos feet)
     {

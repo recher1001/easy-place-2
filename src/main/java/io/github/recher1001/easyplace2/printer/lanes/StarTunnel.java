@@ -9,6 +9,7 @@ import net.minecraft.client.Options;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.Level;
@@ -105,34 +106,35 @@ public final class StarTunnel
             return Result.DONE;
         }
 
+        Options options = mc.options;
         LanePath.Step step = this.run.get(k);
         Direction dir = step.dir();
-        BlockPos stand = step.pos().relative(dir.getOpposite());
         Vec3 pos = player.position();
-        Vec3 standCenter = Vec3.atBottomCenterOf(stand);
-        double along = (pos.x - standCenter.x) * dir.getStepX() + (pos.z - standCenter.z) * dir.getStepZ();
-        double side = (pos.x - standCenter.x) * dir.getClockWise().getStepX() + (pos.z - standCenter.z) * dir.getClockWise().getStepZ();
+        Vec3 lane = Vec3.atBottomCenterOf(step.pos());
+        Direction sideDir = dir.getClockWise();
+        double side = (pos.x - lane.x) * sideDir.getStepX() + (pos.z - lane.z) * sideDir.getStepZ();
         BlockPos center = step.pos().above();
-        // Geradeaus auf die Mitte der Wand schauen (die Seite, die zum Spieler zeigt)
-        Vec3 face = Vec3.atCenterOf(center).subtract(dir.getStepX() * 0.5, 0.0, dir.getStepZ() * 0.5);
-        AimController.INSTANCE.aimAt(face, Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
 
-        // Noch nicht vor der Wand: geradeaus vorgehen (die Felder davor sind schon frei)
-        if (along < -0.3 || Math.abs(side) > 0.35)
+        // Genau geradeaus schauen (waagerecht, in Laufrichtung): so liegt das Fadenkreuz von selbst auf der Mitte
+        // der Wand vor einem (Augenhoehe = mittlere Reihe)
+        Vec3 eye = player.getEyePosition();
+        AimController.INSTANCE.aimAt(eye.add(dir.getStepX() * 20.0, 0.0, dir.getStepZ() * 20.0),
+                Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+
+        // Nicht in ein Loch laufen (dann macht der normale Modus weiter)
+        BlockPos feet = player.blockPosition();
+        BlockPos front = feet.relative(dir);
+
+        if (!front.equals(step.pos()) && !passable(level, front))
         {
-            this.stopDestroying(mc);
+            BlockState frontState = level.getBlockState(front);
 
-            if (!passable(level, stand) || Math.abs(pos.y - stand.getY()) > 0.6)
+            if (frontState.isAir() || frontState.canBeReplaced())
             {
                 this.stop(mc);
-                return Result.FAILED;
+                return Result.DONE;
             }
-
-            this.press(mc.options, player.getYRot(), standCenter.subtract(pos));
-            return Result.RUNNING;
         }
-
-        this.release(mc.options);
 
         // Soll in der 3x3-Wand etwas stehen bleiben: das macht der normale Modus Block fuer Block
         if (!this.clearable(level, step))
@@ -142,10 +144,14 @@ public final class StarTunnel
         }
 
         BlockState middle = level.getBlockState(center);
+        boolean middleSolid = !middle.isAir() && !middle.canBeReplaced();
 
-        if (middle.isAir() || middle.canBeReplaced())
+        if (!middleSolid)
         {
-            // Mitte schon weg, der Rest der Wand noch nicht: kurz warten (der Server baut sie gerade ab)
+            // Mitte schon weg, der Rest der Wand noch nicht: kurz stehen bleiben (der Server baut sie gerade ab)
+            this.release(options);
+            this.stopDestroying(mc);
+
             if (++this.graceTicks > WALL_GRACE)
             {
                 this.stop(mc);
@@ -156,6 +162,20 @@ public final class StarTunnel
         }
 
         this.graceTicks = 0;
+
+        // Erst losgehen, wenn der Blick in Laufrichtung zeigt
+        if (Math.abs(Mth.wrapDegrees(player.getYRot() - dir.toYRot())) > 15.0f)
+        {
+            this.release(options);
+            return Result.RUNNING;
+        }
+
+        // Immer weiter geradeaus gehen (W gedrueckt), seitlich mit A/D in der Mitte der Bahn bleiben
+        options.keyUp.setDown(true);
+        options.keyDown.setDown(false);
+        options.keyRight.setDown(side < -0.12);
+        options.keyLeft.setDown(side > 0.12);
+
         Inventory inv = player.getInventory();
 
         if (this.slot >= 0 && this.slot < Inventory.getSelectionSize() && inv.getSelectedSlot() != this.slot)
@@ -163,8 +183,8 @@ public final class StarTunnel
             inv.setSelectedSlot(this.slot);
         }
 
-        // Linksklick halten, solange das Fadenkreuz auf der Mitte der Wand liegt
-        if (mc.hitResult instanceof BlockHitResult hit && hit.getBlockPos().equals(center))
+        // Linksklick halten, sobald das Fadenkreuz auf der Mitte der Wand liegt (auch schon im Gehen)
+        if (mc.hitResult instanceof BlockHitResult hit && hit.getBlockPos().equals(center) && hit.getDirection() == dir.getOpposite())
         {
             if (!center.equals(this.destroying))
             {
@@ -228,29 +248,6 @@ public final class StarTunnel
         return level.getBlockState(feet).getCollisionShape(level, feet).isEmpty() &&
                level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty() &&
                !level.getBlockState(feet.below()).getCollisionShape(level, feet.below()).isEmpty();
-    }
-
-    /** Die Lauftasten druecken, die (beim aktuellen Blick) in Richtung {@code move} fuehren. */
-    private void press(Options options, float yaw, Vec3 move)
-    {
-        double len = Math.sqrt(move.x * move.x + move.z * move.z);
-
-        if (len < 1.0E-3)
-        {
-            this.release(options);
-            return;
-        }
-
-        double mx = move.x / len, mz = move.z / len;
-        double rad = Math.toRadians(yaw);
-        double fx = -Math.sin(rad), fz = Math.cos(rad);
-        double rx = -Math.cos(rad), rz = -Math.sin(rad);
-        double forward = fx * mx + fz * mz;
-        double right = rx * mx + rz * mz;
-        options.keyUp.setDown(forward > 0.3);
-        options.keyDown.setDown(forward < -0.3);
-        options.keyRight.setDown(right > 0.3);
-        options.keyLeft.setDown(right < -0.3);
     }
 
     private void release(Options options)

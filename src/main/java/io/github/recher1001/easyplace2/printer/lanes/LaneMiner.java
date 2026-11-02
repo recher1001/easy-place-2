@@ -189,7 +189,7 @@ public final class LaneMiner
         BlockPos stand = step.pos().relative(step.dir().getOpposite());
 
         // Star-Spitzhacke: vor der Wand stehen, geradeaus schauen, schlagen, vorgehen, schlagen ... bis zum Ende der Bahn
-        if (starSlot >= 0 && allClearable(level, cross, wanted) && wanted.contains(step.pos().above(1)) && (stand.equals(feet) || inReach.contains(step.pos().above(1))))
+        if (starSlot >= 0 && allClearable(level, cross, wanted) && wanted.contains(step.pos().above(1)) && (stand.equals(feet) || inReach.contains(step.pos().above(1)) || onLaneBehind(feet, step)))
         {
             List<LanePath.Step> run = new ArrayList<>();
 
@@ -311,6 +311,15 @@ public final class LaneMiner
         }
 
         return Action.NONE;
+    }
+
+    /** Steht der Spieler schon in dieser Bahn, ein Stueck dahinter (im schon gegrabenen Teil)? */
+    private static boolean onLaneBehind(BlockPos feet, LanePath.Step step)
+    {
+        BlockPos d = feet.subtract(step.pos());
+        int along = d.getX() * step.dir().getStepX() + d.getZ() * step.dir().getStepZ();
+        int across = d.getX() * step.dir().getStepZ() - d.getZ() * step.dir().getStepX();
+        return d.getY() == 0 && across == 0 && along < 0 && along >= -8;
     }
 
     /** Darf jedes dieser Felder weg (gewollt) oder ist es schon frei? */
