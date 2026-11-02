@@ -779,7 +779,14 @@ public final class PrinterController
             return;
         }
 
-        if (snap.total() == 0 && snap.unloaded().isEmpty() && (this.mode == Mode.BUILD || snap.excavate().isEmpty()))
+        if (snap.total() == 0 && snap.unloaded().isEmpty() && this.mode == Mode.EXCAVATE && snap.excavate().isEmpty())
+        {
+            // Schematic nur aus Luft und alles ist weg: fertig ausgehoehlt
+            this.finishExcavate(player, level, schematic, snap, now);
+            return;
+        }
+
+        if (snap.total() == 0 && snap.unloaded().isEmpty() && this.mode == Mode.BUILD)
         {
             this.stop(Component.translatable("easyplace2.printer.msg.no_schematic").withStyle(ChatFormatting.RED));
             return;
