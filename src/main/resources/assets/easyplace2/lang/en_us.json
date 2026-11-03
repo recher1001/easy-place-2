@@ -490,5 +490,22 @@
     "easyplace2.printer.opt.starDelay.desc": "Pause between two broken blocks (vanilla 5 ticks) so the server keeps up (no ghost blocks)",
     "easyplace2.config.name.printerStarDelay": "printerStarDelay",
     "easyplace2.config.prettyName.printerStarDelay": "Printer: pause between breaks",
-    "easyplace2.config.comment.printerStarDelay": "Ticks the printer waits after each broken block (normal and star pickaxe) before starting the next; it already aims meanwhile. Vanilla waits 5 ticks while holding. If a block reappears (server rejected it), it is mined again."
+    "easyplace2.config.comment.printerStarDelay": "Ticks the printer waits after each broken block (normal and star pickaxe) before starting the next; it already aims meanwhile. Vanilla waits 5 ticks while holding. If a block reappears (server rejected it), it is mined again.",
+    "easyplace2.printer.label.aroundMode": "Around me",
+    "easyplace2.printer.label.aroundHint": "You walk, it builds nearby",
+    "easyplace2.printer.opt.flatten": "Only break from feet level",
+    "easyplace2.printer.opt.flatten.desc": "Never dig below you (sneak: one step lower)",
+    "easyplace2.printer.opt.flattenStairs": "Go lower as stairs",
+    "easyplace2.printer.opt.flattenStairs.desc": "One step lower per block of distance in your view direction",
+    "easyplace2.printer.opt.aroundRange": "“Around me” range",
+    "easyplace2.printer.opt.aroundRange.desc": "How far (blocks) the printer builds in “Around me” mode",
+    "easyplace2.config.name.printerFlatten": "printerFlatten",
+    "easyplace2.config.prettyName.printerFlatten": "Printer: only break from feet level",
+    "easyplace2.config.comment.printerFlatten": "Only break blocks at or above your feet, never below you. Sneaking allows one step lower.",
+    "easyplace2.config.name.printerFlattenStairs": "printerFlattenStairs",
+    "easyplace2.config.prettyName.printerFlattenStairs": "Printer: go lower as stairs",
+    "easyplace2.config.comment.printerFlattenStairs": "With “only from feet level”: one step lower per block of distance in your view direction.",
+    "easyplace2.config.name.printerAroundRange": "printerAroundRange",
+    "easyplace2.config.prettyName.printerAroundRange": "Printer: “Around me” range",
+    "easyplace2.config.comment.printerAroundRange": "In “Around me” mode the printer only builds and excavates within this range around you (nearest first) and never walks."
 }

@@ -61,7 +61,7 @@ public final class PrinterController
     public static final PrinterController INSTANCE = new PrinterController();
 
     /** Was der Printer macht: bauen (normal), nur aushoehlen, oder eine Linie mit der Star-Spitzhacke graben. */
-    public enum Mode { BUILD, EXCAVATE, LINE }
+    public enum Mode { BUILD, EXCAVATE, LINE, AROUND }
 
     public enum State
     {
@@ -215,6 +215,21 @@ public final class PrinterController
     public Mode getMode()
     {
         return this.mode;
+    }
+
+    /**
+     * Modus "Um mich herum": der Printer laeuft nicht selbst, sondern baut (und hoehlt aus), was im Umkreis um den Spieler
+     * liegt, die naechsten Bloecke zuerst. Gilt diese Stelle?
+     */
+    public boolean aroundAllows(BlockPos pos)
+    {
+        if (!this.running || this.mode != Mode.AROUND)
+        {
+            return true;
+        }
+
+        LocalPlayer player = Minecraft.getInstance().player;
+        return player != null && Vec3.atCenterOf(pos).distanceTo(player.getEyePosition()) <= Ep2Configs.PRINTER_AROUND_RANGE.getDoubleValue() + 0.5;
     }
 
     /** Laeuft der Printer gerade nur zum Abbauen (Aushoehlen oder Star-Linie)? */
@@ -822,7 +837,7 @@ public final class PrinterController
 
         for (SchematicScanner.Target t : all)
         {
-            if (!this.blacklist.containsKey(t.pos()) && isStillMissing(level, t))
+            if (!this.blacklist.containsKey(t.pos()) && this.aroundAllows(t.pos()) && isStillMissing(level, t))
             {
                 open.add(t);
             }
@@ -849,7 +864,7 @@ public final class PrinterController
         if (!snap.excavate().isEmpty())
         {
             // In Bahnen: Gang geradeaus, Kurve, daneben zurueck, dann eine Lage tiefer
-            if (Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() && now >= this.laneFailUntil)
+            if (Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() && now >= this.laneFailUntil && this.mode != Mode.AROUND)
             {
                 LaneMiner.Action action = this.laneMiner.next(player, level, schematic, this.excavation, this.excavator, now);
 
@@ -939,6 +954,14 @@ public final class PrinterController
                 this.stateTicks = -10;
                 return;
             }
+        }
+
+        if (open.isEmpty() && this.mode == Mode.AROUND)
+        {
+            // Um mich herum: hier ist gerade alles fertig, weiter warten, bis der Spieler woanders hingeht
+            AimController.INSTANCE.stop();
+            this.setState(State.NOTHING_IN_REACH, "");
+            return;
         }
 
         if (open.isEmpty())
@@ -1191,7 +1214,7 @@ public final class PrinterController
         int gap = lowest - player.getBlockY();
         boolean stuckBelow = gap >= 2 && layer.stream().anyMatch(t -> t.pos().getY() == lowest && this.nearFailedArea(t.pos()));
 
-        if ((gap >= TowerUp.MIN_HEIGHT || stuckBelow) && this.tryTower(mc, player, level, schematic, snap, layer, lowest, now))
+        if ((gap >= TowerUp.MIN_HEIGHT || stuckBelow) && this.mode != Mode.AROUND && this.tryTower(mc, player, level, schematic, snap, layer, lowest, now))
         {
             return;
         }
@@ -1249,7 +1272,7 @@ public final class PrinterController
         EdgeBridge.Plan bridgePlan = EdgeBridge.find(player, level, layer.stream().map(SchematicScanner.Target::pos)
                 .filter(p -> this.bridgeAttempts.getOrDefault(p, 0) < 3 && !this.blacklist.containsKey(p)).toList());
 
-        if (bridgePlan != null)
+        if (bridgePlan != null && this.mode != Mode.AROUND)
         {
             this.bridgeAttempts.merge(bridgePlan.target(), 1, Integer::sum);
             this.bridge.start(bridgePlan);
@@ -1259,7 +1282,7 @@ public final class PrinterController
         }
 
         // Nichts in Reichweite: in Bahnen zum naechsten Platz mit Arbeit (geht auch ohne Baritone, wenn geradeaus)
-        if (Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() && now >= this.laneFailUntil)
+        if (Ep2Configs.PRINTER_LANE_MODE.getBooleanValue() && now >= this.laneFailUntil && this.mode != Mode.AROUND)
         {
             List<BlockPos> layerCells = layer.stream().map(SchematicScanner.Target::pos).toList();
             BlockPos next = this.buildLanes.next(player, level, layerCells, lowest, reach - Ep2Configs.PRINTER_REACH_MARGIN.getDoubleValue());
@@ -2236,7 +2259,8 @@ public final class PrinterController
 
     private boolean canWalk()
     {
-        return Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() && Walking.isAvailable();
+        // Um mich herum: der Spieler laeuft selbst
+        return Ep2Configs.PRINTER_USE_BARITONE.getBooleanValue() && Walking.isAvailable() && this.mode != Mode.AROUND;
     }
 
     private void setState(State state, String detail)

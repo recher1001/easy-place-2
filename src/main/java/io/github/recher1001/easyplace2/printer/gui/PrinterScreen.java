@@ -514,8 +514,39 @@ public class PrinterScreen extends Screen
                     printer.startLine();
                 }));
 
+        // Um mich herum: der Spieler laeuft selbst, der Printer baut im Umkreis
+        int ay = my + 26;
+        this.add(new Controls.Area(this.cx0, ay, halfW, 20, (g, font, a, hover) ->
+        {
+            this.paintCard(g, a, hover);
+            Ui.text(g, font, Ui.clip(font, Component.translatable("easyplace2.printer.label.aroundMode").getString(), a.w - 40),
+                    a.x + 8, a.y + 6, Ui.text());
+        }, null));
+        this.add(new Controls.Switch(this.cx0 + halfW - Controls.Switch.WIDTH - 6, ay + 4,
+                () -> printer.isRunning() && printer.getMode() == PrinterController.Mode.AROUND,
+                on ->
+                {
+                    if (on)
+                    {
+                        if (printer.isRunning())
+                        {
+                            printer.stop(null);
+                        }
+
+                        this.onClose();
+                        printer.start(PrinterController.Mode.AROUND);
+                    }
+                    else if (printer.isRunning())
+                    {
+                        printer.stop(Component.translatable("easyplace2.printer.msg.stopped"));
+                    }
+                }));
+        this.add(new Controls.Area(this.cx0 + halfW + GAP, ay, width - halfW - GAP, 20, (g, font, a, hover) ->
+            Ui.text(g, font, Ui.clip(font, Component.translatable("easyplace2.printer.label.aroundHint").getString(), a.w - 8),
+                    a.x + 4, a.y + 6, Ui.textFaint()), null));
+
         // Statistik-Kacheln
-        int tilesTop = my + 26;
+        int tilesTop = ay + 26;
         int tileW = (width - 3 * GAP) / 4;
         String[] keys = { "placed", "rate", "eta", "wrong" };
 
