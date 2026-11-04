@@ -44,6 +44,11 @@ dependencies {
 	// Damit Lambda auch beim Starten aus der Entwicklungsumgebung (Spieltest) geladen wird
 	modLocalRuntime "com.lambda:lambda:${project.lambda_version}"
 	modLocalRuntime "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+	// Lambda bringt Bibliotheken (Jackson, ImGui, Ktor ...) eingebettet mit. In der fertigen .jar laedt Fabric sie selbst,
+	// beim Start aus der Entwicklungsumgebung (Spieltest) muessen sie direkt auf den Klassenpfad.
+	localRuntime files(zipTree(file("libs/maven/com/lambda/lambda/${project.lambda_version}/lambda-${project.lambda_version}.jar"))
+			.matching { include 'META-INF/jars/*.jar' })
+
 	// Lambda startet nicht ohne Baritone (Pflicht-Mixin). Pathing ist im Lambda-Printer aus, Baritone laeuft also nicht von selbst.
 	include "com.github.rfresh2:baritone-fabric:${project.minecraft_version}-SNAPSHOT"
 	modLocalRuntime "com.github.rfresh2:baritone-fabric:${project.minecraft_version}-SNAPSHOT"
