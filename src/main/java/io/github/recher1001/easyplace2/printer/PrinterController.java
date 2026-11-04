@@ -92,6 +92,18 @@ public final class PrinterController
         return this.mode;
     }
 
+    /** Lambda baut immer nur in Reichweite um den Spieler; fuer den Scanner gilt jede Stelle. */
+    public boolean aroundAllows(net.minecraft.core.BlockPos pos)
+    {
+        return true;
+    }
+
+    /** Einen reinen Aushoehlen-Modus gibt es mit Lambda nicht. */
+    public boolean excavateOnly()
+    {
+        return false;
+    }
+
     public void start()
     {
         this.start(Mode.BUILD);
