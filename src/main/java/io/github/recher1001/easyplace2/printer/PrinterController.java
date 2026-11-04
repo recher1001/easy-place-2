@@ -313,8 +313,11 @@ public final class PrinterController
         this.placed = Math.max(0, snap.done() - this.startDone);
         this.updateMissing(mc.player, snap);
 
-        if (snap.missing().isEmpty())
+        if (snap.missing().isEmpty() && snap.total() > 0)
         {
+            // Wie der alte Printer: fertig -> Lambda ausschalten und Bescheid geben
+            this.stop(Component.translatable("easyplace2.printer.msg.done", snap.done(), snap.total(), snap.wrong())
+                    .withStyle(ChatFormatting.GREEN));
             this.setState(State.DONE, "Lambda");
         }
         else if (!this.missingMaterials.isEmpty())
