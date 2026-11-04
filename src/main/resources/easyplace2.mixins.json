@@ -8,6 +8,7 @@
 		"ChatComponentAccessor",
 		"ChatScreenMixin",
 		"FontAccessor",
+		"LocalPlayerMixin",
 		"MinecraftAccessor",
 		"MinecraftMixin",
 		"litematica.GuiConfigsMixin",

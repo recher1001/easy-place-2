@@ -444,4 +444,8 @@ direkt in Easy Place 2.0 umgesetzt. Lambda selbst ist nicht dabei (kein Kotlin, 
   (kein Air-Place; die Richtung von Treppen usw. wird beim Hinschauen mitgeprueft).
 - Dreht sich erst hin, klickt dann, und prueft, ob der Server den Block behaelt (sonst spaeter noch einmal).
 - Holt das Material selbst aus dem Inventar in die Hotbar.
+- **Lambda-Modus** (Standard, Menue "Drehen"): die Drehung bekommt nur der Server (ueber das Bewegungspaket,
+  in der dritten Person sieht man den Kopf drehen), die Kamera bleibt frei. Gedreht wird in einem Tick, gesetzt im
+  naechsten, danach sofort zum naechsten Block: bis zu 20 Bloecke pro Sekunde. "Lambda-Modus Pause" bremst das.
+  Aus: der Printer dreht die echte Kamera und klickt wie ein Spieler (langsamer).
 - Die Modi "Aushoehlen" und "Linie" gibt es dabei nicht.

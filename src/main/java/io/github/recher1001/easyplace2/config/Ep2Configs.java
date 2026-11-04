@@ -55,6 +55,9 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_HUD         = new ConfigBoolean("printerHud", true).apply(KEY);
     // Drehen und Klicken
     public static final ConfigBoolean PRINTER_FAST_TURN   = new ConfigBoolean("printerFastTurn", false).apply(KEY);
+    // Lambda-Modus: Drehung nur fuer den Server (Kamera bleibt frei), ein Block pro Tick
+    public static final ConfigBoolean PRINTER_SERVER_TURN = new ConfigBoolean("printerServerTurn", true).apply(KEY);
+    public static final ConfigInteger PRINTER_SERVER_DELAY = new ConfigInteger("printerServerDelay", 0, 0, 20).apply(KEY);
     public static final ConfigDouble  PRINTER_FAST_TURN_MAX_ANGLE = new ConfigDouble("printerFastTurnMaxAngle", 75.0, 5.0, 180.0).apply(KEY);
     public static final ConfigInteger PRINTER_REACTION_MIN = new ConfigInteger("printerReactionMin", 1, 1, 20).apply(KEY);
     public static final ConfigInteger PRINTER_REACTION_MAX = new ConfigInteger("printerReactionMax", 3, 1, 30).apply(KEY);
@@ -121,6 +124,8 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_LAYER_RANGE,
             PRINTER_HUD,
             PRINTER_FAST_TURN,
+            PRINTER_SERVER_TURN,
+            PRINTER_SERVER_DELAY,
             PRINTER_FAST_TURN_MAX_ANGLE,
             PRINTER_REACTION_MIN,
             PRINTER_REACTION_MAX,

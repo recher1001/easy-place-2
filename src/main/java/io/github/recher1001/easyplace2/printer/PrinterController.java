@@ -20,6 +20,8 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -218,6 +220,7 @@ public final class PrinterController
         this.userPaused = false;
         this.current = null;
         AimController.INSTANCE.stop();
+        ServerRotation.clear();
         this.inventory.cancel(mc);
         this.setState(State.OFF, "");
 
@@ -240,6 +243,7 @@ public final class PrinterController
         {
             this.current = null;
             AimController.INSTANCE.stop();
+            ServerRotation.clear();
             this.inventory.cancel(Minecraft.getInstance());
             this.setState(State.PAUSED, "");
         }
@@ -368,6 +372,7 @@ public final class PrinterController
                 AimController.INSTANCE.stop();
             }
 
+            ServerRotation.clear();
             this.setState(State.PAUSED_SCREEN, "");
             return;
         }
@@ -390,7 +395,17 @@ public final class PrinterController
 
         switch (this.state)
         {
-            case AIMING -> this.tickAiming(level, now);
+            case AIMING ->
+            {
+                if (serverTurn())
+                {
+                    this.tickServerAiming(mc, player, level, schematic, snap, now);
+                }
+                else
+                {
+                    this.tickAiming(level, now);
+                }
+            }
             case CLICKING -> this.tickClicking(mc, player, level, now);
             default -> this.select(player, level, schematic, snap, now);
         }
@@ -408,7 +423,8 @@ public final class PrinterController
 
         for (SchematicScanner.Target t : snap.missing())
         {
-            if (!(t.item() instanceof BlockItem) || this.blacklist.containsKey(t.pos()) || this.isPending(t.pos()))
+            if (!(t.item() instanceof BlockItem) || this.blacklist.containsKey(t.pos()) || this.isPending(t.pos()) ||
+                !isStillMissing(level, t))
             {
                 continue;
             }
@@ -466,6 +482,7 @@ public final class PrinterController
 
         if (best == null)
         {
+            ServerRotation.clear();
             this.setState(this.missingMaterials.isEmpty() ? State.NOTHING_IN_REACH : State.MISSING_MATERIAL, "");
             return;
         }
@@ -490,8 +507,8 @@ public final class PrinterController
         this.current = best;
         this.aimHits = bestHits;
         this.aimIndex = 0;
-        AimController.INSTANCE.aimAt(bestHits.get(0).getLocation(), Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
         this.setState(State.AIMING, best.state().getBlock().getName().getString());
+        this.aimAtCurrent(player);
     }
 
     private void tickAiming(ClientLevel level, long now)
@@ -566,6 +583,96 @@ public final class PrinterController
         this.setState(State.SELECTING, "");
     }
 
+    private static boolean serverTurn()
+    {
+        return Ep2Configs.PRINTER_SERVER_TURN.getBooleanValue();
+    }
+
+    /** Zum aktuellen Klickpunkt drehen: im Lambda-Modus nur fuer den Server, sonst mit der echten Kamera. */
+    private void aimAtCurrent(LocalPlayer player)
+    {
+        Vec3 point = this.aimHits.get(this.aimIndex).getLocation();
+
+        if (serverTurn())
+        {
+            float[] look = AimController.lookAngles(player.getEyePosition(), point);
+            ServerRotation.set(player, look[0], look[1]);
+        }
+        else
+        {
+            AimController.INSTANCE.aimAt(point, Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
+        }
+    }
+
+    /**
+     * Lambda-Modus: Sobald die Drehung mit dem Bewegungspaket beim Server ist, wird direkt gesetzt
+     * (ohne Fadenkreuz, die Kamera bleibt frei) und gleich zum naechsten Block gedreht.
+     */
+    private void tickServerAiming(Minecraft mc, LocalPlayer player, ClientLevel level, Level schematic,
+                                  SchematicScanner.Snapshot snap, long now)
+    {
+        SchematicScanner.Target t = this.current;
+
+        if (t == null || !isStillMissing(level, t))
+        {
+            this.current = null;
+            this.select(player, level, schematic, snap, now);
+            return;
+        }
+
+        if (!ServerRotation.isSent() || now < this.nextClickTick)
+        {
+            if (this.stateTicks > AIM_TIMEOUT_TICKS)
+            {
+                this.nextAimPoint(now);
+            }
+
+            return;
+        }
+
+        InteractionHand hand = EntityUtils.getUsedHandForItem(player, new ItemStack(t.item()));
+
+        if (hand == null || mc.gameMode == null)
+        {
+            this.current = null;
+            this.setState(State.SELECTING, "");
+            return;
+        }
+
+        BlockHitResult hit = this.aimHits.get(this.aimIndex);
+        float[] look = AimController.lookAngles(player.getEyePosition(), hit.getLocation());
+
+        // Auch die Vorhersage auf dem Client mit genau dieser Blickrichtung rechnen (Treppen usw. richtig herum)
+        float yaw = player.getYRot();
+        float pitch = player.getXRot();
+        InteractionResult result;
+
+        try
+        {
+            player.setYRot(look[0]);
+            player.setXRot(look[1]);
+            result = mc.gameMode.useItemOn(player, hand, hit);
+        }
+        finally
+        {
+            player.setYRot(yaw);
+            player.setXRot(pitch);
+        }
+
+        if (result.consumesAction())
+        {
+            player.swing(hand);
+        }
+
+        this.pending.add(new Pending(t, now));
+        this.nextClickTick = now + Ep2Configs.PRINTER_SERVER_DELAY.getIntegerValue();
+        this.current = null;
+        this.setState(State.SELECTING, "");
+
+        // Wie Lambda: sofort zum naechsten Block drehen, gesetzt wird dann im naechsten Tick
+        this.select(player, level, schematic, snap, now);
+    }
+
     private void checkPending(ClientLevel level, long now)
     {
         Iterator<Pending> it = this.pending.iterator();
@@ -611,9 +718,15 @@ public final class PrinterController
     {
         if (++this.aimIndex < this.aimHits.size())
         {
-            AimController.INSTANCE.aimAt(this.aimHits.get(this.aimIndex).getLocation(), Ep2Configs.PRINTER_FAST_TURN.getBooleanValue());
             this.setState(State.AIMING, this.detail);
             this.stateTicks = 0;
+            LocalPlayer player = Minecraft.getInstance().player;
+
+            if (player != null)
+            {
+                this.aimAtCurrent(player);
+            }
+
             return;
         }
 

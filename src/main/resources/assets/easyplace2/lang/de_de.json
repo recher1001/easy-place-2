@@ -507,5 +507,15 @@
     "easyplace2.config.comment.printerFlattenStairs": "Mit „nur ab Fußhöhe“: in Blickrichtung je Block Abstand eine Stufe tiefer.",
     "easyplace2.config.name.printerAroundRange": "printerAroundRange",
     "easyplace2.config.prettyName.printerAroundRange": "Printer: Umkreis „Um mich herum“",
-    "easyplace2.config.comment.printerAroundRange": "Im Modus „Um mich herum“ baut und höhlt der Printer nur in diesem Umkreis um dich aus (die nächsten Blöcke zuerst) und läuft nicht selbst."
+    "easyplace2.config.comment.printerAroundRange": "Im Modus „Um mich herum“ baut und höhlt der Printer nur in diesem Umkreis um dich aus (die nächsten Blöcke zuerst) und läuft nicht selbst.",
+    "easyplace2.config.name.printerServerTurn": "printerServerTurn",
+    "easyplace2.config.prettyName.printerServerTurn": "Printer: Lambda-Modus (Server-Drehung)",
+    "easyplace2.config.comment.printerServerTurn": "Wenn an, arbeitet der Printer wie der Lambda-Printer: die Drehung bekommt nur der Server\n(in der dritten Person sieht man den Kopf drehen), die Kamera bleibt frei. Er dreht in einem Tick\nund setzt im nächsten, also bis zu 20 Blöcke pro Sekunde.\nWenn aus, dreht der Printer die echte Kamera und klickt wie ein Spieler (langsamer).",
+    "easyplace2.config.name.printerServerDelay": "printerServerDelay",
+    "easyplace2.config.prettyName.printerServerDelay": "Printer: Lambda-Modus Pause",
+    "easyplace2.config.comment.printerServerDelay": "Zusätzliche Ticks zwischen zwei Blöcken im Lambda-Modus (0 = jeden Tick ein Block).",
+    "easyplace2.printer.opt.serverTurn": "Lambda-Modus",
+    "easyplace2.printer.opt.serverTurn.desc": "Drehung nur für den Server, Kamera frei, ein Block pro Tick",
+    "easyplace2.printer.opt.serverDelay": "Lambda-Modus Pause",
+    "easyplace2.printer.opt.serverDelay.desc": "Zusätzliche Ticks zwischen zwei Blöcken (0 = jeden Tick)"
 }

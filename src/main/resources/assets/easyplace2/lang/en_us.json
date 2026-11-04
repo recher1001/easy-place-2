@@ -507,5 +507,15 @@
     "easyplace2.config.comment.printerFlattenStairs": "With “only from feet level”: one step lower per block of distance in your view direction.",
     "easyplace2.config.name.printerAroundRange": "printerAroundRange",
     "easyplace2.config.prettyName.printerAroundRange": "Printer: “Around me” range",
-    "easyplace2.config.comment.printerAroundRange": "In “Around me” mode the printer only builds and excavates within this range around you (nearest first) and never walks."
+    "easyplace2.config.comment.printerAroundRange": "In “Around me” mode the printer only builds and excavates within this range around you (nearest first) and never walks.",
+    "easyplace2.config.name.printerServerTurn": "printerServerTurn",
+    "easyplace2.config.prettyName.printerServerTurn": "Printer: Lambda mode (server rotation)",
+    "easyplace2.config.comment.printerServerTurn": "If on, the printer works like the Lambda printer: only the server gets the rotation\n(you see the head turn in third person), the camera stays free. It rotates in one tick\nand places in the next, up to 20 blocks per second.\nIf off, the printer turns the real camera and clicks like a player (slower).",
+    "easyplace2.config.name.printerServerDelay": "printerServerDelay",
+    "easyplace2.config.prettyName.printerServerDelay": "Printer: Lambda mode delay",
+    "easyplace2.config.comment.printerServerDelay": "Extra ticks between two blocks in Lambda mode (0 = one block every tick).",
+    "easyplace2.printer.opt.serverTurn": "Lambda mode",
+    "easyplace2.printer.opt.serverTurn.desc": "Rotation only for the server, free camera, one block per tick",
+    "easyplace2.printer.opt.serverDelay": "Lambda mode delay",
+    "easyplace2.printer.opt.serverDelay.desc": "Extra ticks between two blocks (0 = every tick)"
 }

@@ -180,6 +180,8 @@ public final class OptionEntry
 
         number(Page.TURN, "turnSpeed", Ep2Configs.PRINTER_TURN_SPEED, 40, 720, 5, v -> String.format(Locale.ROOT, "%.0f°/s", v));
         number(Page.TURN, "turnJitter", Ep2Configs.PRINTER_TURN_JITTER, 0, 1, 0.05, v -> String.format(Locale.ROOT, "%.0f %%", v * 100));
+        bool(Page.TURN, "serverTurn", Ep2Configs.PRINTER_SERVER_TURN);
+        integer(Page.TURN, "serverDelay", Ep2Configs.PRINTER_SERVER_DELAY, 0, 20);
         bool(Page.TURN, "fastTurn", Ep2Configs.PRINTER_FAST_TURN);
         number(Page.TURN, "fastTurnMaxAngle", Ep2Configs.PRINTER_FAST_TURN_MAX_ANGLE, 5, 180, 5, v -> String.format(Locale.ROOT, "%.0f°", v));
 
