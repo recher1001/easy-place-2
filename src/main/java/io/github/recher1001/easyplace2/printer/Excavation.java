@@ -41,11 +41,6 @@ public final class Excavation implements BlockDigger.Source
         BlockState wanted = schematic.getBlockState(pos);
         BlockState current = level.getBlockState(pos);
 
-        if (!Flatten.allows(pos) || !PrinterController.INSTANCE.aroundAllows(pos))
-        {
-            return false;
-        }
-
         if (wanted.isAir())
         {
             return enabled() && canDig(level, pos, current);

@@ -210,10 +210,6 @@ public final class OptionEntry
         bool(Page.BEHAVIOUR, "pauseOnDamage", Ep2Configs.PRINTER_PAUSE_ON_DAMAGE);
         bool(Page.BEHAVIOUR, "runInMenus", Ep2Configs.PRINTER_RUN_IN_MENUS);
         bool(Page.BEHAVIOUR, "excavate", Ep2Configs.PRINTER_EXCAVATE);
-        bool(Page.BEHAVIOUR, "flatten", Ep2Configs.PRINTER_FLATTEN);
-        bool(Page.BEHAVIOUR, "flattenStairs", Ep2Configs.PRINTER_FLATTEN_STAIRS);
-        number(Page.BEHAVIOUR, "aroundRange", Ep2Configs.PRINTER_AROUND_RANGE, 2.0, 6.0, 0.5,
-                v -> String.format(Locale.ROOT, "%.1f", v));
         bool(Page.BEHAVIOUR, "replaceWrong", Ep2Configs.PRINTER_REPLACE_WRONG);
         bool(Page.BEHAVIOUR, "adjustStates", Ep2Configs.PRINTER_ADJUST);
         bool(Page.BEHAVIOUR, "fixRotation", Ep2Configs.PRINTER_FIX_ROTATION);

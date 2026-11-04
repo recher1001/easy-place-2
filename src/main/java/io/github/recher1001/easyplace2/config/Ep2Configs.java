@@ -85,9 +85,6 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_REPLACE_WRONG = new ConfigBoolean("printerReplaceWrong", false).apply(KEY);
     public static final ConfigBoolean PRINTER_ADJUST      = new ConfigBoolean("printerAdjustStates", true).apply(KEY);
     public static final ConfigBoolean PRINTER_FIX_ROTATION = new ConfigBoolean("printerFixRotation", true).apply(KEY);
-    public static final ConfigBoolean PRINTER_FLATTEN     = new ConfigBoolean("printerFlatten", false).apply(KEY);
-    public static final ConfigBoolean PRINTER_FLATTEN_STAIRS = new ConfigBoolean("printerFlattenStairs", false).apply(KEY);
-    public static final ConfigDouble  PRINTER_AROUND_RANGE = new ConfigDouble("printerAroundRange", 4.5, 2.0, 6.0).apply(KEY);
     public static final ConfigInteger PRINTER_STUCK_SECONDS = new ConfigInteger("printerStuckSeconds", 90, 20, 600).apply(KEY);
     // Module
     public static final ConfigHotkey  MODULE_INVSEE       = new ConfigHotkey("moduleInvseeHotkey", "").apply(KEY);
@@ -136,9 +133,6 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_SCAFFOLD_ITEMS,
             PRINTER_STUCK_SECONDS,
             PRINTER_EXCAVATE,
-            PRINTER_FLATTEN,
-            PRINTER_FLATTEN_STAIRS,
-            PRINTER_AROUND_RANGE,
             PRINTER_LANE_MODE,
             PRINTER_LANE_SPACING,
             PRINTER_STAR_TOOL,

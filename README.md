@@ -218,18 +218,6 @@ In der **Übersicht** des Printer-Menüs gibt es zwei eigene Modi:
     Werkzeug (Schaufel). Einzelne Steinblöcke (z. B. neben einem Block, der stehen bleiben soll) baut er mit
     der normalen Spitzhacke ab (z. B. Diamant), nie mit der Star-Spitzhacke.
 
-## Um mich herum und Abbau-Höhe
-
-- **Um mich herum** (Schalter in der Übersicht): Du läufst oder fliegst selbst, der Printer baut und höhlt aus,
-  was im Umkreis um dich liegt (Menü → Verhalten → „Umkreis“, Standard 4,5 Blöcke), wie immer mit echtem
-  Fadenkreuz und sichtbarem Drehen. Er läuft dabei nie selbst, baut keine Türme und bridged nicht; ist gerade
-  nichts in der Nähe, wartet er, bis du weitergehst.
-- **Nur ab Fußhöhe abbauen** (Menü → Verhalten): beim Abbauen nie unter dir graben. Schleichen erlaubt eine Stufe
-  tiefer. Mit **Als Treppe tiefer** geht es in Blickrichtung je Block Abstand eine Stufe tiefer.
-
-Die Ideen dazu stammen aus dem Printer von Lambda; übernommen wurde kein Code, und alles läuft hier mit
-normalen Klicks (kein Setzen in die Luft, keine unsichtbare Drehung).
-
 ## Aushöhlen und falsche Blöcke
 
 - **Aushöhlen** (Menü → Verhalten, standardmäßig an): Der Printer baut Blöcke ab, die im Bereich der

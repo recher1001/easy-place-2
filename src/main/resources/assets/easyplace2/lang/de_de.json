@@ -490,22 +490,5 @@
     "easyplace2.printer.opt.starDelay.desc": "Pause zwischen zwei abgebauten Blöcken (Vanilla 5 Ticks), damit der Server mitkommt (keine Geisterblöcke)",
     "easyplace2.config.name.printerStarDelay": "printerStarDelay",
     "easyplace2.config.prettyName.printerStarDelay": "Printer: Pause zwischen zwei Abbauten",
-    "easyplace2.config.comment.printerStarDelay": "So viele Ticks wartet der Printer nach jedem abgebauten Block (normal und mit der Star-Spitzhacke), bevor er den nächsten anfängt; gezielt wird währenddessen schon. Vanilla wartet beim Gedrückthalten 5 Ticks. Taucht ein Block wieder auf (Server hat abgelehnt), wird er noch einmal abgebaut.",
-    "easyplace2.printer.label.aroundMode": "Um mich herum",
-    "easyplace2.printer.label.aroundHint": "Du läufst, er baut im Umkreis",
-    "easyplace2.printer.opt.flatten": "Nur ab Fußhöhe abbauen",
-    "easyplace2.printer.opt.flatten.desc": "Nie unter dir graben (Schleichen: eine Stufe tiefer)",
-    "easyplace2.printer.opt.flattenStairs": "Als Treppe tiefer",
-    "easyplace2.printer.opt.flattenStairs.desc": "In Blickrichtung je Block Abstand eine Stufe tiefer abbauen",
-    "easyplace2.printer.opt.aroundRange": "Umkreis „Um mich herum“",
-    "easyplace2.printer.opt.aroundRange.desc": "So weit (Blöcke) baut der Printer im Modus „Um mich herum“",
-    "easyplace2.config.name.printerFlatten": "printerFlatten",
-    "easyplace2.config.prettyName.printerFlatten": "Printer: nur ab Fußhöhe abbauen",
-    "easyplace2.config.comment.printerFlatten": "Beim Abbauen nur Blöcke ab Fußhöhe, nie unter dir. Schleichen erlaubt eine Stufe tiefer.",
-    "easyplace2.config.name.printerFlattenStairs": "printerFlattenStairs",
-    "easyplace2.config.prettyName.printerFlattenStairs": "Printer: als Treppe tiefer abbauen",
-    "easyplace2.config.comment.printerFlattenStairs": "Mit „nur ab Fußhöhe“: in Blickrichtung je Block Abstand eine Stufe tiefer.",
-    "easyplace2.config.name.printerAroundRange": "printerAroundRange",
-    "easyplace2.config.prettyName.printerAroundRange": "Printer: Umkreis „Um mich herum“",
-    "easyplace2.config.comment.printerAroundRange": "Im Modus „Um mich herum“ baut und höhlt der Printer nur in diesem Umkreis um dich aus (die nächsten Blöcke zuerst) und läuft nicht selbst."
+    "easyplace2.config.comment.printerStarDelay": "So viele Ticks wartet der Printer nach jedem abgebauten Block (normal und mit der Star-Spitzhacke), bevor er den nächsten anfängt; gezielt wird währenddessen schon. Vanilla wartet beim Gedrückthalten 5 Ticks. Taucht ein Block wieder auf (Server hat abgelehnt), wird er noch einmal abgebaut."
 }
