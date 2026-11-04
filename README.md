@@ -439,6 +439,7 @@ auf jedem Bildschirm scharf. Zeichen, die Inter nicht hat, kommen aus der normal
 Der Printer baut mit dem Printer von [Lambda](https://github.com/lambda-client/lambda) (GPL-3.0).
 Lambda und Fabric Language Kotlin sind als Jar-in-Jar in der Easy-Place-2.0-.jar eingebettet,
 installiert werden muss also nur Easy Place 2.0 (dazu Fabric API, MaLiLib und Litematica).
+Auch Baritone (rfresh2-Version) ist eingebettet, weil Lambda ohne Baritone nicht startet; Pathing ist aus.
 
 - Menue, HUD und Hotkeys von Easy Place 2.0 schalten den Lambda-Printer an und aus (`PrinterController`).
 - Die eigene Bau-Engine ist entfernt. Behalten sind der Schematic-Scanner (Fortschritt und fehlendes

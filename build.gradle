@@ -20,6 +20,11 @@ repositories {
 		url = file('libs/maven')
 		content { includeGroup('com.lambda') }
 	}
+	// Baritone in der Version, mit der Lambda gebaut ist (Lambda braucht es zum Starten)
+	maven {
+		url = 'https://maven.2b2t.vc/releases'
+		content { includeGroup('com.github.rfresh2') }
+	}
 }
 
 dependencies {
@@ -39,6 +44,9 @@ dependencies {
 	// Damit Lambda auch beim Starten aus der Entwicklungsumgebung (Spieltest) geladen wird
 	modLocalRuntime "com.lambda:lambda:${project.lambda_version}"
 	modLocalRuntime "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+	// Lambda startet nicht ohne Baritone (Pflicht-Mixin). Pathing ist im Lambda-Printer aus, Baritone laeuft also nicht von selbst.
+	include "com.github.rfresh2:baritone-fabric:${project.minecraft_version}-SNAPSHOT"
+	modLocalRuntime "com.github.rfresh2:baritone-fabric:${project.minecraft_version}-SNAPSHOT"
 
 	// Baritone ist nicht mehr dabei: der Printer laeuft selbst (printer/path). Wer Baritone selbst installiert,
 	// kann es ueber "Mit Baritone laufen" weiter benutzen (per Reflection, BaritoneBridge).
