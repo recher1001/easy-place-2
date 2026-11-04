@@ -3,8 +3,8 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.lambda</groupId>
   <artifactId>lambda</artifactId>
-  <version>0.1.0-ep2</version>
-  <name>Lambda (Printer only, Easy Place 2.0 build)</name>
+  <version>0.1.0-original</version>
+  <name>Lambda (original, ohne eigenen Ladescreen)</name>
   <licenses>
     <license><name>GPL-3.0</name></license>
   </licenses>
