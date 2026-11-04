@@ -15,6 +15,11 @@ repositories {
 		url = 'https://api.modrinth.com/maven'
 		content { includeGroup('maven.modrinth') }
 	}
+	// Lambda (nur Printer, GPL-3.0) liegt fertig gebaut im Repo, Quellcode: github.com/recher1001/claude, Branch claude/lambda-legit
+	maven {
+		url = file('libs/maven')
+		content { includeGroup('com.lambda') }
+	}
 }
 
 dependencies {
@@ -26,6 +31,11 @@ dependencies {
 
 	modImplementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
 	modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
+
+	// Der Printer baut mit Lambda: Lambda und Fabric Language Kotlin werden in die .jar eingebettet (Jar-in-Jar),
+	// es muss also nur Easy Place 2.0 installiert werden. Angesteuert wird Lambda per Reflection (PrinterController).
+	include "com.lambda:lambda:${project.lambda_version}"
+	include "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
 
 	// Baritone ist nicht mehr dabei: der Printer laeuft selbst (printer/path). Wer Baritone selbst installiert,
 	// kann es ueber "Mit Baritone laufen" weiter benutzen (per Reflection, BaritoneBridge).

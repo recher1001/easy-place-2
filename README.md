@@ -433,3 +433,16 @@ auf jedem Bildschirm scharf. Zeichen, die Inter nicht hat, kommen aus der normal
 | Eigenes Laufen (Wegsuche + Tasten) | `printer/path/PathFinder.java`, `printer/path/PathWalker.java`, `printer/Walking.java` |
 | Baritone (optional, per Reflection) | `printer/BaritoneBridge.java` |
 | Menü und HUD | `printer/gui/*` |
+
+## Printer: Lambda
+
+Der Printer baut mit dem Printer von [Lambda](https://github.com/lambda-client/lambda) (GPL-3.0).
+Lambda und Fabric Language Kotlin sind als Jar-in-Jar in der Easy-Place-2.0-.jar eingebettet,
+installiert werden muss also nur Easy Place 2.0 (dazu Fabric API, MaLiLib und Litematica).
+
+- Menue, HUD und Hotkeys von Easy Place 2.0 schalten den Lambda-Printer an und aus (`PrinterController`).
+- Die eigene Bau-Engine ist entfernt. Behalten sind der Schematic-Scanner (Fortschritt und fehlendes
+  Material im Menue) und die Hilfsklassen, die die Makros brauchen.
+- Die eingebettete Lambda-Version enthaelt nur den Printer, hat keinen eigenen Ladescreen und setzt
+  weder Fenster-Icon noch Fenstertitel. Quellcode: github.com/recher1001/claude, Branch `claude/lambda-legit`.
+- Die Modi "Aushoehlen" und "Linie" gibt es mit Lambda nicht. Lambda baut alles in Reichweite um den Spieler.
