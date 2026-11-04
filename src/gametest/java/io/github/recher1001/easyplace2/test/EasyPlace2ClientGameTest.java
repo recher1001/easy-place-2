@@ -243,7 +243,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
                               SchematicWorldHandler.getSchematicWorld().getBlockState(stairsWest).is(Blocks.OAK_STAIRS), 200);
 
         // Spieler zurueck in die Mitte, Blick nach Westen; Hotbar voll Erde, Bausteine im Inventar.
-        // Gebaut wird jetzt vom eingebetteten Lambda-Printer (er holt Material selbst in die Hotbar und dreht sich hin).
+        // Der Printer (nach Vorbild des Lambda-Printers) holt das Material selbst in die Hotbar und dreht sich hin.
         server.runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f 90 30", PLAYER_POS.x, PLAYER_POS.y, PLAYER_POS.z));
         server.runCommand("clear @a");
 
@@ -256,21 +256,13 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         server.runCommand("give @a minecraft:oak_stairs 4");
         context.waitTicks(20);
 
-        boolean lambdaLoaded = context.computeOnClient(mc ->
-                net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("lambda"));
-
-        if (!lambdaLoaded)
-        {
-            throw new AssertionError("Lambda ist nicht geladen (Jar-in-Jar fehlt?)");
-        }
-
         context.runOnClient(mc -> PrinterController.INSTANCE.start());
         context.waitTicks(25);
         context.takeScreenshot("easyplace2-printer-running");
 
         if (!context.computeOnClient(mc -> PrinterController.INSTANCE.isRunning()))
         {
-            throw new AssertionError("Lambda-Printer ist nach dem Start nicht an");
+            throw new AssertionError("Printer ist nach dem Start nicht an");
         }
 
         try
@@ -297,7 +289,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
 
         if (context.computeOnClient(mc -> PrinterController.INSTANCE.isRunning()))
         {
-            throw new AssertionError("Lambda-Printer ist nach dem Stoppen noch an");
+            throw new AssertionError("Printer ist nach dem Stoppen noch an");
         }
 
         assertBlock(server, stoneA, state -> state.is(Blocks.COBBLESTONE), "Printer hat Stein A nicht gesetzt");
@@ -307,7 +299,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
                 "Printer hat die Treppe nicht richtig herum gesetzt");
 
         menuScreenshot(context, OptionEntry.Page.MATERIALS, false, "easyplace2-printer-materials");
-        System.out.println("[EP2-TEST] Printer (Lambda) ok");
+        System.out.println("[EP2-TEST] Printer ok");
     }
 
     /**

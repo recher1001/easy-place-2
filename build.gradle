@@ -15,16 +15,6 @@ repositories {
 		url = 'https://api.modrinth.com/maven'
 		content { includeGroup('maven.modrinth') }
 	}
-	// Lambda (nur Printer, GPL-3.0) liegt fertig gebaut im Repo, Quellcode: github.com/recher1001/claude, Branch claude/lambda-legit
-	maven {
-		url = file('libs/maven')
-		content { includeGroup('com.lambda') }
-	}
-	// Baritone in der Version, mit der Lambda gebaut ist (Lambda braucht es zum Starten)
-	maven {
-		url = 'https://maven.2b2t.vc/releases'
-		content { includeGroup('com.github.rfresh2') }
-	}
 }
 
 dependencies {
@@ -36,22 +26,6 @@ dependencies {
 
 	modImplementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
 	modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
-
-	// Der Printer baut mit Lambda: Lambda und Fabric Language Kotlin werden in die .jar eingebettet (Jar-in-Jar),
-	// es muss also nur Easy Place 2.0 installiert werden. Angesteuert wird Lambda per Reflection (PrinterController).
-	include "com.lambda:lambda:${project.lambda_version}"
-	include "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
-	// Damit Lambda auch beim Starten aus der Entwicklungsumgebung (Spieltest) geladen wird
-	modLocalRuntime "com.lambda:lambda:${project.lambda_version}"
-	modLocalRuntime "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
-	// Lambda bringt Bibliotheken (Jackson, ImGui, Ktor ...) eingebettet mit. In der fertigen .jar laedt Fabric sie selbst,
-	// beim Start aus der Entwicklungsumgebung (Spieltest) muessen sie direkt auf den Klassenpfad.
-	localRuntime files(zipTree(file("libs/maven/com/lambda/lambda/${project.lambda_version}/lambda-${project.lambda_version}.jar"))
-			.matching { include 'META-INF/jars/*.jar' })
-
-	// Lambda startet nicht ohne Baritone (Pflicht-Mixin). Pathing ist im Lambda-Printer aus, Baritone laeuft also nicht von selbst.
-	include "com.github.rfresh2:baritone-fabric:${project.minecraft_version}-SNAPSHOT"
-	modLocalRuntime "com.github.rfresh2:baritone-fabric:${project.minecraft_version}-SNAPSHOT"
 
 	// Baritone ist nicht mehr dabei: der Printer laeuft selbst (printer/path). Wer Baritone selbst installiert,
 	// kann es ueber "Mit Baritone laufen" weiter benutzen (per Reflection, BaritoneBridge).

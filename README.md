@@ -434,18 +434,14 @@ auf jedem Bildschirm scharf. Zeichen, die Inter nicht hat, kommen aus der normal
 | Baritone (optional, per Reflection) | `printer/BaritoneBridge.java` |
 | Menü und HUD | `printer/gui/*` |
 
-## Printer: Lambda
+## Printer nach dem Vorbild von Lambda
 
-Der Printer baut mit dem Printer von [Lambda](https://github.com/lambda-client/lambda) (GPL-3.0).
-Lambda, Fabric Language Kotlin und Baritone (rfresh2-Version, Lambda startet nicht ohne) sind als Jar-in-Jar
-in der Easy-Place-2.0-.jar eingebettet. Installiert werden muss also nur Easy Place 2.0
-(dazu Fabric API, MaLiLib und Litematica).
+Der Printer arbeitet wie der Printer von [Lambda](https://github.com/lambda-client/lambda), ist aber in Java
+direkt in Easy Place 2.0 umgesetzt. Lambda selbst ist nicht dabei (kein Kotlin, kein Baritone, kein Lambda-Ladescreen).
 
-- Lambda ist unveraendert (lambda-client/lambda, Branch 1.21.11, Commit fa59ab1). Einzige Aenderung: der
-  eigene Lambda-Ladescreen ist entfernt, es erscheint der normale Mojang-Ladescreen.
-  Quellcode: github.com/recher1001/claude, Branch `claude/lambda-original`.
-- Menue, HUD und Hotkeys von Easy Place 2.0 schalten den Lambda-Printer an und aus (`PrinterController`).
-  Alle anderen Lambda-Module und das Lambda-Menue (Taste Y) sind ganz normal da.
-- Die eigene Bau-Engine ist entfernt. Behalten sind der Schematic-Scanner (Fortschritt und fehlendes
-  Material im Menue) und die Hilfsklassen, die die Makros brauchen.
-- Die Modi "Aushoehlen" und "Linie" gibt es mit Lambda nicht. Lambda baut alles in Reichweite um den Spieler.
+- Baut alles, was in Reichweite um den Spieler fehlt ("Umkreis" im Menue), die naechsten Bloecke zuerst. Er laeuft nicht selbst.
+- Sucht pro Block eine sichtbare Nachbarflaeche, auf die ein normaler Rechtsklick genau den Schematic-Block setzt
+  (kein Air-Place; die Richtung von Treppen usw. wird beim Hinschauen mitgeprueft).
+- Dreht sich erst hin, klickt dann, und prueft, ob der Server den Block behaelt (sonst spaeter noch einmal).
+- Holt das Material selbst aus dem Inventar in die Hotbar.
+- Die Modi "Aushoehlen" und "Linie" gibt es dabei nicht.
