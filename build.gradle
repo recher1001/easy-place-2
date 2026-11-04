@@ -36,6 +36,9 @@ dependencies {
 	// es muss also nur Easy Place 2.0 installiert werden. Angesteuert wird Lambda per Reflection (PrinterController).
 	include "com.lambda:lambda:${project.lambda_version}"
 	include "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+	// Damit Lambda auch beim Starten aus der Entwicklungsumgebung (Spieltest) geladen wird
+	modLocalRuntime "com.lambda:lambda:${project.lambda_version}"
+	modLocalRuntime "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
 
 	// Baritone ist nicht mehr dabei: der Printer laeuft selbst (printer/path). Wer Baritone selbst installiert,
 	// kann es ueber "Mit Baritone laufen" weiter benutzen (per Reflection, BaritoneBridge).
