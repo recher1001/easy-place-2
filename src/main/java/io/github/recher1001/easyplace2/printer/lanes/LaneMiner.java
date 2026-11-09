@@ -68,6 +68,9 @@ public final class LaneMiner
     @Nullable private Object bulkSource;
     /** Gibt es noch etwas im grossen Teil? Dann werden einzelne Reste erst einmal ignoriert. */
     private boolean bulkLeft;
+    /** Wohin zuletzt gelaufen werden sollte und wie oft (klappt es nicht, wird anders weitergemacht). */
+    @Nullable private BlockPos lastWalk;
+    private int walkTries;
 
     /** Mindestzahl abzubauender Nachbarn (von 26), damit ein Block zum grossen Teil zaehlt. */
     private static final int BULK_NEIGHBOURS = 6;
@@ -138,6 +141,8 @@ public final class LaneMiner
         this.pendingLayer = null;
         this.path = null;
         this.index = 0;
+        this.lastWalk = null;
+        this.walkTries = 0;
     }
 
     /** Der Weg der aktuellen Lage (fuer Anzeige und Tests). */
@@ -221,9 +226,11 @@ public final class LaneMiner
         }
 
         // Oben ist (wieder) etwas dazugekommen, oder es geht gerade erst los: oben anfangen
+        // (nie tiefer als der unterste Block: darunter soll ja nichts weg, und dort koennte man nicht stehen)
         if (this.layerY == null || top > this.layerY + height - 1)
         {
-            this.layerY = top - height + 1;
+            int bottom = primary.stream().mapToInt(BlockPos::getY).min().orElseThrow();
+            this.layerY = Math.max(top - height + 1, bottom);
             this.pendingLayer = null;
             this.path = null;
         }
@@ -290,6 +297,18 @@ public final class LaneMiner
 
         BlockPos stand = step.pos().relative(step.dir().getOpposite());
 
+        // Star-Spitzhacke, und der Spieler steht noch ueber der Lage (z. B. oben auf dem Berg): ueber der Bahn senkrecht
+        // mit 3x3 nach unten bis auf die Lage, statt von oben Block fuer Block abzubauen
+        if (starSlot >= 0 && feet.getY() > layer)
+        {
+            Action enter = this.enterFromAbove(level, wanted, feet, step, layer, starSlot);
+
+            if (enter != null)
+            {
+                return enter;
+            }
+        }
+
         // Star-Spitzhacke: vor der Wand stehen, geradeaus schauen, schlagen, vorgehen, schlagen ... bis zum Ende der Bahn
         // (Waende mit Bloecken, die bleiben sollen, und Reste macht der Tunnel selbst einzeln, wie bei der Star-Linie)
         if (starSlot >= 0 && (stand.equals(feet) || inReach.contains(step.pos().above(1)) || onLaneBehind(feet, step)))
@@ -311,14 +330,84 @@ public final class LaneMiner
             return Action.tunnel(run, starSlot);
         }
 
+        // Star-Spitzhacke: erst in die Bahn stellen (dann geht es geradeaus ohne Kamerabewegung), nicht von der Seite
+        // einzelne Bloecke abbauen
+        if (starSlot >= 0 && feet.getY() == layer && !stand.equals(feet) && LaneWalker.standable(level, stand) && this.mayWalk(stand))
+        {
+            return Action.walk(stand);
+        }
+
         if (inReach.isEmpty())
         {
             // Hingehen, aber mit einem Feld Abstand zur Wand (von dort aus abbauen)
             BlockPos walkTo = j > 1 ? this.path.get(j - 2).pos() : j > 0 ? this.path.get(j - 1).pos() : stand;
-            return walkTo.equals(feet) ? Action.NONE : Action.walk(walkTo);
+            return walkTo.equals(feet) || !this.mayWalk(walkTo) ? Action.NONE : Action.walk(walkTo);
         }
 
         return Action.dig(inReach, -1, avoid);
+    }
+
+    /** Dasselbe Laufziel hoechstens ein paar Mal hintereinander (kommt man nicht hin, macht der normale Modus weiter). */
+    private boolean mayWalk(BlockPos to)
+    {
+        if (!to.equals(this.lastWalk))
+        {
+            this.lastWalk = to.immutable();
+            this.walkTries = 0;
+        }
+
+        return ++this.walkTries <= 3;
+    }
+
+    /**
+     * Von oben in die Lage: steht der Spieler ueber einer Stelle, an der die ganze 3x3-Saeule bis zur Lage weg darf,
+     * dort senkrecht hinunter. Sonst oben zu dem Feld ueber dem Anfang der Bahn laufen.
+     *
+     * @return null, wenn das hier nicht geht
+     */
+    @Nullable
+    private Action enterFromAbove(Level level, Set<BlockPos> wanted, BlockPos feet, LanePath.Step step, int layer, int starSlot)
+    {
+        if (wanted.contains(feet.below()) && columnClearable(level, wanted, feet, layer))
+        {
+            return Action.down(layer, starSlot);
+        }
+
+        for (int y = feet.getY() + 3; y > layer; y--)
+        {
+            BlockPos p = new BlockPos(step.pos().getX(), y, step.pos().getZ());
+
+            if (LaneWalker.standable(level, p))
+            {
+                if (!p.equals(feet) && wanted.contains(p.below()) && columnClearable(level, wanted, p, layer) && this.mayWalk(p))
+                {
+                    return Action.walk(p);
+                }
+
+                break;
+            }
+        }
+
+        return null;
+    }
+
+    /** Darf unter {@code feet} die ganze 3x3-Saeule bis zur Fusshoehe {@code layer} weg (oder ist schon frei)? */
+    private static boolean columnClearable(Level level, Set<BlockPos> wanted, BlockPos feet, int layer)
+    {
+        List<BlockPos> column = new ArrayList<>();
+
+        for (int y = feet.getY() - 1; y >= layer; y--)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    column.add(new BlockPos(feet.getX() + dx, y, feet.getZ() + dz));
+                }
+            }
+        }
+
+        return allClearable(level, column, wanted);
     }
 
     /**
@@ -331,12 +420,14 @@ public final class LaneMiner
                            int starSlot, int avoid)
     {
         int highestBelow = Integer.MIN_VALUE;
+        int lowestBelow = Integer.MAX_VALUE;
 
         for (BlockPos p : primary)
         {
             if (p.getY() < layer)
             {
                 highestBelow = Math.max(highestBelow, p.getY());
+                lowestBelow = Math.min(lowestBelow, p.getY());
             }
         }
 
@@ -345,7 +436,8 @@ public final class LaneMiner
             return Action.NONE;
         }
 
-        int newLayer = Math.max(layer - height, highestBelow - height + 1);
+        // Nie tiefer als der unterste Block (sind unten nur noch 1 oder 2 Reihen uebrig, nur so weit hinunter)
+        int newLayer = Math.max(Math.max(layer - height, highestBelow - height + 1), lowestBelow);
         BlockPos feet = player.blockPosition();
 
         if (feet.getY() <= newLayer)

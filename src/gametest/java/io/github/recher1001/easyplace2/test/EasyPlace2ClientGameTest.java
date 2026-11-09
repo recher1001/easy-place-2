@@ -700,7 +700,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         }
 
         String star = describe(LanePath.build(0, 5, 0, 5, 0, 3, 1, new Vec3(0.5, 0, 0.5)));
-        String expectedStar = "0,1E 1,1E 2,1E 3,1E 4,1E 5,1E 5,2S 5,3S 5,4S 4,4W 3,4W 2,4W 1,4W 0,4W";
+        String expectedStar = "0,1E 1,1E 2,1E 3,1E 4,1E 5,1E 4,2S 4,3S 4,4S 4,5S 3,4W 2,4W 1,4W 0,4W";
 
         if (!expectedStar.equals(star))
         {

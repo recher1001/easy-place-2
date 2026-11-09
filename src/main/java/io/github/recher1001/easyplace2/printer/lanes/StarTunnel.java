@@ -539,6 +539,10 @@ public final class StarTunnel
             {
                 // Bestes Werkzeug aus der Hotbar (Schaufel fuer Kies, Diamant-Spitzhacke fuer Stein ...), nie die Star-Spitzhacke
                 this.single = new BlockBreaker(p, -1, this.slot);
+                // Passt 3x3 um den Rest (nichts dabei, das bleiben soll, und nicht der Boden, auf dem man laeuft):
+                // auch dafuer die Star-Spitzhacke, dann gehen mehrere Reste mit einem Schlag weg
+                int floor = step.pos().getY();
+                this.single.allowStar(this.slot, q -> q.getY() >= floor && this.wanted.test(q));
                 this.graceTicks = 0;
                 return Result.RUNNING;
             }

@@ -61,7 +61,17 @@ public final class LanePath
 
         for (int c = minC + half; ; c += step)
         {
-            lanes.add(c);
+            // Die letzte Bahn nicht ueber den Rand hinaus: lieber ein Stueck ueber die vorige (dort ist schon Luft),
+            // sonst traefe die 3x3-Flaeche Bloecke daneben, die stehen bleiben sollen
+            if (c + half > maxC && maxC - half >= minC + half)
+            {
+                c = maxC - half;
+            }
+
+            if (lanes.isEmpty() || lanes.get(lanes.size() - 1) != c)
+            {
+                lanes.add(c);
+            }
 
             if (c + half >= maxC)
             {
@@ -82,31 +92,35 @@ public final class LanePath
 
         List<Step> path = new ArrayList<>();
         Integer previousLane = null;
+        // Breite Bahnen (3x3): die Kurve liegt ein Feld vor dem Rand, damit auch ihre 3 breite Wand ganz in der Flaeche
+        // liegt (sonst traefe sie Bloecke ausserhalb), und sie geht bis zur anderen Seite der neuen Bahn durch
+        int inset = half > 0 && maxA - minA >= 2 * half ? half : 0;
 
         for (int lane : lanes)
         {
             int startA = forward ? minA : maxA;
             int endA = forward ? maxA : minA;
             int da = forward ? 1 : -1;
+            int firstA = startA;
 
             // Kurve: von der vorigen Bahn seitlich herueber
             if (previousLane != null)
             {
                 int dc = lane > previousLane ? 1 : -1;
+                int turnA = startA + da * inset;
+                int last = inset > 0 ? lane + dc * half : lane;
 
-                for (int c = previousLane + dc; c != lane + dc; c += dc)
+                for (int c = previousLane + dc; c != last + dc; c += dc)
                 {
-                    path.add(new Step(pos(alongX, startA, c, y), dir(alongX, false, dc)));
+                    path.add(new Step(pos(alongX, turnA, c, y), dir(alongX, false, dc)));
                 }
+
+                // Der Anfang der Bahn ist mit der Kurve schon erreicht
+                firstA = turnA + da;
             }
 
-            for (int a = startA; a != endA + da; a += da)
+            for (int a = firstA; a != endA + da; a += da)
             {
-                if (previousLane != null && a == startA)
-                {
-                    continue; // schon mit der Kurve erreicht
-                }
-
                 path.add(new Step(pos(alongX, a, lane, y), dir(alongX, true, da)));
             }
 
