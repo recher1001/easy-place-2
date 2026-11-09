@@ -301,7 +301,8 @@ public final class BlockDigger
                     // Star-Spitzhacke auch fuer einzelne Bloecke, wenn in der 3x3-Flaeche nichts steht, was bleiben soll
                     int star = io.github.recher1001.easyplace2.printer.lanes.StarTool.slotForMining(player);
 
-                    if (star >= 0 && this.forceSlot < 0)
+                    // Nur beim Aushoehlen: bei Geruest und beim Neu-Ausrichten geht es immer um genau einen Block
+                    if (star >= 0 && this.forceSlot < 0 && this.source instanceof Excavation)
                     {
                         Level schematicWorld = schematic;
                         this.breaker.allowStar(star, p -> this.source.stillWanted(level, schematicWorld, p));

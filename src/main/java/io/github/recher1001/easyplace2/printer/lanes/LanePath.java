@@ -152,28 +152,54 @@ public final class LanePath
         // (die 3x3-Flaeche liegt dann laengs im Streifen). Angefangen wird dort, wo die letzte Bahn aufgehoert hat.
         if (strip != null && previousLane != null)
         {
-            int from = forward ? minA : maxA;
-            int to = forward ? maxA : minA;
-            int da = forward ? 1 : -1;
-            int in = maxA - minA >= 2 * half ? half : 0;
-            int lastA = to - da * in;
-            int a = from + da * in;
-
-            while (true)
-            {
-                path.add(new Step(pos(alongX, a, strip, y), dir(alongX, false, sgn)));
-
-                if (in == 0 || a + da * in == to)
-                {
-                    break;
-                }
-
-                int next = a + da * (2 * half + 1);
-                a = (next - lastA) * da > 0 ? lastA : next;
-            }
+            addStrip(path, alongX, forward ? minA : maxA, forward ? maxA : minA, strip, y, sgn, half);
         }
 
         return path;
+    }
+
+    /**
+     * Nur Streifen (1 breit), die von der Seite abgebaut werden: man steht daneben, schaut quer auf den Streifen und
+     * schlaegt alle 3 Felder einmal. Fuer schmale Reste neben einer schon freien Flaeche.
+     *
+     * @param columns die Streifen in der Reihenfolge, in der sie dran sind (der naechste an der freien Seite zuerst)
+     * @param sgn     Blickrichtung quer: +1 oder -1
+     */
+    public static List<Step> strip(boolean alongX, int minA, int maxA, List<Integer> columns, int y, int sgn, int half, Vec3 player)
+    {
+        double pa = alongX ? player.x : player.z;
+        boolean forward = Math.abs(pa - (minA + 0.5)) <= Math.abs(pa - (maxA + 0.5));
+        List<Step> path = new ArrayList<>();
+
+        for (int c : columns)
+        {
+            addStrip(path, alongX, forward ? minA : maxA, forward ? maxA : minA, c, y, sgn, half);
+            forward = !forward;
+        }
+
+        return path;
+    }
+
+    /** Schritte quer auf einen Streifen, von {@code from} nach {@code to}, so dass jede 3 breite Wand im Streifen liegt. */
+    private static void addStrip(List<Step> path, boolean alongX, int from, int to, int c, int y, int sgn, int half)
+    {
+        int da = to >= from ? 1 : -1;
+        int in = Math.abs(to - from) >= 2 * half ? half : 0;
+        int lastA = to - da * in;
+        int a = from + da * in;
+
+        while (true)
+        {
+            path.add(new Step(pos(alongX, a, c, y), dir(alongX, false, sgn)));
+
+            if (in == 0 || a + da * in == to)
+            {
+                break;
+            }
+
+            int next = a + da * (2 * half + 1);
+            a = (next - lastA) * da > 0 ? lastA : next;
+        }
     }
 
     /** Die Felder quer zur Laufrichtung (Breite {@code 2*half+1}) und {@code height} hoch, die dieser Schritt braucht. */

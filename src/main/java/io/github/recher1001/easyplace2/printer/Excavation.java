@@ -22,10 +22,24 @@ import io.github.recher1001.easyplace2.placement.StateMatcher;
 public final class Excavation implements BlockDigger.Source
 {
     private List<BlockPos> targets = List.of();
+    /** Die Liste des letzten Scans und alle Stellen darin (zum schnellen Nachschlagen). */
+    private List<BlockPos> source = List.of();
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet listed = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 
     /** Die aktuelle Liste aus dem letzten Scan. */
     public void update(List<BlockPos> targets)
     {
+        if (targets != this.source)
+        {
+            this.source = targets;
+            this.listed.clear();
+
+            for (BlockPos p : targets)
+            {
+                this.listed.add(p.asLong());
+            }
+        }
+
         this.targets = targets;
     }
 
@@ -38,6 +52,13 @@ public final class Excavation implements BlockDigger.Source
     @Override
     public boolean stillWanted(Level level, Level schematic, BlockPos pos)
     {
+        // Nur, was der Scan gelistet hat: ausserhalb der Schematic (und ausserhalb der eingestellten Schichten) liefert
+        // die Schematic-Welt auch Luft, dort darf aber nichts weg (wichtig fuer die 3x3-Flaeche der Star-Spitzhacke)
+        if (!this.listed.contains(pos.asLong()))
+        {
+            return false;
+        }
+
         BlockState wanted = schematic.getBlockState(pos);
         BlockState current = level.getBlockState(pos);
 

@@ -206,9 +206,9 @@ public final class LaneMiner
         {
             primary = wanted;
 
-            if (wasBulk)
+            if (wasBulk && !this.pathHasWork(primary, half, height))
             {
-                // Jetzt sind nur noch Reste da: neu planen
+                // Jetzt sind nur noch Reste da, die der bisherige Weg nicht trifft: neu planen
                 this.path = null;
                 this.layerY = null;
             }
@@ -260,7 +260,7 @@ public final class LaneMiner
 
         if (this.path == null)
         {
-            this.path = LanePath.build(band, layer, spacing, half, player.position());
+            this.path = star ? starPath(level, band, layer, player.position()) : LanePath.build(band, layer, spacing, half, player.position());
             this.index = 0;
         }
 
@@ -381,6 +381,74 @@ public final class LaneMiner
         }
 
         return Action.dig(inReach, -1, avoid);
+    }
+
+    /** Trifft der aktuelle Weg (ab dem aktuellen Schritt) noch etwas, das weg soll? */
+    private boolean pathHasWork(Set<BlockPos> todo, int half, int height)
+    {
+        if (this.path == null)
+        {
+            return false;
+        }
+
+        for (int i = this.index; i < this.path.size(); i++)
+        {
+            if (!intersect(LanePath.crossSection(this.path.get(i), half, height), todo).isEmpty())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Der Weg fuer die Star-Spitzhacke. Normal Bahnen (3 breit). Ist die Flaeche nur 1 oder 2 breit und daneben schon
+     * frei (ein schmaler Rest am Rand), wird sie von dort aus seitlich abgebaut: eine Bahn mitten hindurch wuerde mit
+     * ihrer 3x3-Flaeche daneben Bloecke treffen, die stehen bleiben sollen.
+     */
+    private static List<LanePath.Step> starPath(Level level, List<BlockPos> band, int layer, Vec3 player)
+    {
+        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, minZ = Integer.MAX_VALUE, maxZ = Integer.MIN_VALUE;
+
+        for (BlockPos p : band)
+        {
+            minX = Math.min(minX, p.getX());
+            maxX = Math.max(maxX, p.getX());
+            minZ = Math.min(minZ, p.getZ());
+            maxZ = Math.max(maxZ, p.getZ());
+        }
+
+        boolean alongX = (maxX - minX) >= (maxZ - minZ);
+        int minA = alongX ? minX : minZ, maxA = alongX ? maxX : maxZ;
+        int minC = alongX ? minZ : minX, maxC = alongX ? maxZ : maxX;
+
+        if (maxC - minC <= 1)
+        {
+            int low = 0, high = 0;
+
+            for (int a = minA; a <= maxA; a++)
+            {
+                if (LaneWalker.standable(level, alongX ? new BlockPos(a, layer, minC - 1) : new BlockPos(minC - 1, layer, a)))
+                {
+                    low++;
+                }
+
+                if (LaneWalker.standable(level, alongX ? new BlockPos(a, layer, maxC + 1) : new BlockPos(maxC + 1, layer, a)))
+                {
+                    high++;
+                }
+            }
+
+            if (Math.max(low, high) >= (maxA - minA + 2) / 2)
+            {
+                boolean fromLow = low >= high;
+                List<Integer> columns = minC == maxC ? List.of(minC) : fromLow ? List.of(minC, maxC) : List.of(maxC, minC);
+                return LanePath.strip(alongX, minA, maxA, columns, layer, fromLow ? 1 : -1, 1, player);
+            }
+        }
+
+        return LanePath.build(minX, maxX, minZ, maxZ, layer, 3, 1, player);
     }
 
     /**
