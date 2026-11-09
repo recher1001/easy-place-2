@@ -175,7 +175,7 @@ public final class OptionEntry
         bool(Page.PLACE, "easyPlace", Ep2Configs.EASY_PLACE_2);
         bool(Page.PLACE, "strict", Ep2Configs.STRICT_CROSSHAIR);
         bool(Page.PLACE, "restrict", Ep2Configs.RESTRICT_PLACEMENT);
-        integer(Page.PLACE, "placeDelay", Ep2Configs.DELAY_TICKS, 4, 40);
+        integer(Page.PLACE, "placeDelay", Ep2Configs.DELAY_TICKS, 1, 40);
         bool(Page.PLACE, "debug", Ep2Configs.DEBUG);
 
         number(Page.TURN, "turnSpeed", Ep2Configs.PRINTER_TURN_SPEED, 40, 720, 5, v -> String.format(Locale.ROOT, "%.0f°/s", v));

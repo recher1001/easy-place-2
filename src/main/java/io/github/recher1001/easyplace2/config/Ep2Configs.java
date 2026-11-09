@@ -33,7 +33,7 @@ public class Ep2Configs implements IConfigHandler
     public static final int VANILLA_USE_DELAY = 4;
 
     public static final ConfigBooleanHotkeyed EASY_PLACE_2   = new ConfigBooleanHotkeyed("easyPlace2Mode", false, "").apply(KEY);
-    public static final ConfigInteger         DELAY_TICKS    = new ConfigInteger("easyPlace2DelayTicks", VANILLA_USE_DELAY, VANILLA_USE_DELAY, 40).apply(KEY);
+    public static final ConfigInteger         DELAY_TICKS    = new ConfigInteger("easyPlace2DelayTicks", VANILLA_USE_DELAY, 1, 40).apply(KEY);
     public static final ConfigBoolean         STRICT_CROSSHAIR = new ConfigBoolean("easyPlace2StrictCrosshair", false).apply(KEY);
     public static final ConfigBoolean         RESTRICT_PLACEMENT = new ConfigBoolean("easyPlace2RestrictPlacement", true).apply(KEY);
     public static final ConfigBoolean         DEBUG          = new ConfigBoolean("easyPlace2Debug", false).apply(KEY);
