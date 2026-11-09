@@ -301,7 +301,9 @@ public final class LaneMiner
         // mit 3x3 nach unten bis auf die Lage, statt von oben Block fuer Block abzubauen
         if (starSlot >= 0 && feet.getY() > layer)
         {
-            Action enter = this.enterFromAbove(level, wanted, feet, step, layer, starSlot);
+            // Ein Feld vom Rand entfernt einsteigen: dort liegt die ganze 3x3-Saeule in der Flaeche
+            LanePath.Step entry = j + 1 < this.path.size() && this.path.get(j + 1).dir() == step.dir() ? this.path.get(j + 1) : step;
+            Action enter = this.enterFromAbove(level, wanted, feet, entry, layer, starSlot);
 
             if (enter != null)
             {
@@ -311,7 +313,21 @@ public final class LaneMiner
 
         // Star-Spitzhacke: vor der Wand stehen, geradeaus schauen, schlagen, vorgehen, schlagen ... bis zum Ende der Bahn
         // (Waende mit Bloecken, die bleiben sollen, und Reste macht der Tunnel selbst einzeln, wie bei der Star-Linie)
-        if (starSlot >= 0 && (stand.equals(feet) || inReach.contains(step.pos().above(1)) || onLaneBehind(feet, step)))
+        BlockPos rel = feet.subtract(step.pos());
+        int along = rel.getX() * step.dir().getStepX() + rel.getZ() * step.dir().getStepZ();
+        int across = Math.abs(rel.getX() * step.dir().getStepZ() - rel.getZ() * step.dir().getStepX());
+
+        // Die Wand liegt in der Bahn hinter dem Ruecken (z. B. nach dem Hinuntergraben): einmal umdrehen und sie von
+        // dieser Seite abbauen. Eine 3x3-Wand ist von beiden Seiten dieselbe.
+        if (starSlot >= 0 && rel.getY() == 0 && across == 0 && along > 0 && along <= 4)
+        {
+            return Action.tunnel(List.of(new LanePath.Step(step.pos(), step.dir().getOpposite())), starSlot);
+        }
+
+        // Losgraben nur von der richtigen Seite: vor der Wand (oder ein Feld daneben, dann rueckt der Tunnel in die Mitte)
+        boolean inFront = rel.getY() == 0 && along < 0 && across <= 1 && inReach.contains(step.pos().above(1));
+
+        if (starSlot >= 0 && (stand.equals(feet) || inFront || onLaneBehind(feet, step)))
         {
             List<LanePath.Step> run = new ArrayList<>();
 
@@ -368,18 +384,21 @@ public final class LaneMiner
     @Nullable
     private Action enterFromAbove(Level level, Set<BlockPos> wanted, BlockPos feet, LanePath.Step step, int layer, int starSlot)
     {
-        if (wanted.contains(feet.below()) && columnClearable(level, wanted, feet, layer))
+        boolean here = feet.getX() == step.pos().getX() && feet.getZ() == step.pos().getZ();
+        boolean canDown = wanted.contains(feet.below()) && columnClearable(level, wanted, feet, layer);
+
+        if (here && canDown)
         {
             return Action.down(layer, starSlot);
         }
 
-        for (int y = feet.getY() + 3; y > layer; y--)
+        for (int y = feet.getY() + 3; y > layer && !here; y--)
         {
             BlockPos p = new BlockPos(step.pos().getX(), y, step.pos().getZ());
 
             if (LaneWalker.standable(level, p))
             {
-                if (!p.equals(feet) && wanted.contains(p.below()) && columnClearable(level, wanted, p, layer) && this.mayWalk(p))
+                if (wanted.contains(p.below()) && columnClearable(level, wanted, p, layer) && this.mayWalk(p))
                 {
                     return Action.walk(p);
                 }
@@ -388,7 +407,8 @@ public final class LaneMiner
             }
         }
 
-        return null;
+        // Zum Bahnanfang geht es nicht: dann eben hier hinunter, wenn die Saeule hier ganz weg darf
+        return canDown ? Action.down(layer, starSlot) : null;
     }
 
     /** Darf unter {@code feet} die ganze 3x3-Saeule bis zur Fusshoehe {@code layer} weg (oder ist schon frei)? */

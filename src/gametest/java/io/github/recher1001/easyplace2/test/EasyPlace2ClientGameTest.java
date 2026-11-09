@@ -183,6 +183,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testAdjustAndReorient(context, server);
             testTowerUp(context, server);
             testStarTunnel(context, server);
+            testStarField(context, server);
             testExcavateMode(context, server);
             testStarLine(context, server);
         }
@@ -1649,6 +1650,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
     private static volatile boolean emulateStar;
     private static boolean starHookRegistered;
     private static final java.util.concurrent.atomic.AtomicInteger STAR_HITS = new java.util.concurrent.atomic.AtomicInteger();
+    /** Abgebaute Bloecke mit einem anderen Werkzeug, waehrend die Star-Spitzhacke nachgebaut wird. */
+    private static final java.util.concurrent.atomic.AtomicInteger OTHER_HITS = new java.util.concurrent.atomic.AtomicInteger();
 
     private static void registerStarHook()
     {
@@ -1660,6 +1663,11 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         starHookRegistered = true;
         net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) ->
         {
+            if (emulateStar && !player.getMainHandItem().is(Items.NETHERITE_PICKAXE))
+            {
+                OTHER_HITS.incrementAndGet();
+            }
+
             if (!emulateStar || !player.getMainHandItem().is(Items.NETHERITE_PICKAXE))
             {
                 return;
@@ -1818,6 +1826,94 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
 
         System.out.println("[EP2-TEST] Star-Tunnel ok: " + STAR_HITS.get() + " 3x3-Schlaege, Blick ruhig (max " + maxTurn[0] +
                 " Grad in " + tunnelTicks[0] + " Ticks) (" + (System.currentTimeMillis() - started) + " ms)");
+    }
+
+    /**
+     * Star-Spitzhacke auf einer Flaeche: ein Steinblock 7 lang, 6 breit und 5 hoch, wo die Schematic Luft will. Der
+     * Spieler steht oben drauf. Der Printer soll ueber dem Bahnanfang mit 3x3 hinunter, zwei Bahnen graben (mit Kurve),
+     * eine Lage tiefer gehen und wieder zwei Bahnen graben, und das fast nur mit der Star-Spitzhacke.
+     */
+    private static void testStarField(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        registerStarHook();
+        BlockPos min = new BlockPos(200, Y, 100);
+        BlockPos max = new BlockPos(206, Y + 4, 105);
+        server.runCommand(String.format(Locale.ROOT, "fill 194 %d 94 212 %d 111 air", Y, Y + 8));
+        context.waitFor(mc -> mc.level.getBlockState(max).isAir());
+        placeSchematic(context, min, max, "starfield");
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand("clear @a");
+        server.computeOnServer(s ->
+        {
+            ServerPlayer p = s.getPlayerList().getPlayers().get(0);
+            p.getInventory().setItem(0, new net.minecraft.world.item.ItemStack(Items.NETHERITE_PICKAXE));
+            p.getInventory().setItem(1, new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE));
+            return true;
+        });
+        server.runCommand(String.format(Locale.ROOT, "tp @a 203.5 %d 102.5 -90 0", Y + 5));
+        context.waitFor(mc -> mc.level.getBlockState(max).is(Blocks.STONE) &&
+                              mc.player.position().distanceTo(new Vec3(203.5, Y + 5, 102.5)) < 0.5 &&
+                              mc.player.getInventory().getItem(0).is(Items.NETHERITE_PICKAXE) &&
+                              SchematicWorldHandler.getSchematicWorld() != null, 200);
+        STAR_HITS.set(0);
+        OTHER_HITS.set(0);
+        emulateStar = true;
+        long started = System.currentTimeMillis();
+        context.runOnClient(mc ->
+        {
+            Ep2Configs.PRINTER_EXCAVATE.setBooleanValue(true);
+            Ep2Configs.PRINTER_LANE_MODE.setBooleanValue(true);
+            Ep2Configs.PRINTER_STAR_TOOL.setBooleanValue(true);
+            PrinterController.INSTANCE.start(PrinterController.Mode.EXCAVATE);
+        });
+
+        try
+        {
+            context.waitFor(mc -> !PrinterController.INSTANCE.isRunning(), 20 * 150);
+        }
+        catch (AssertionError e)
+        {
+            context.takeScreenshot("easyplace2-starfield-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Star-Flaeche haengt: Zustand " + PrinterController.INSTANCE.getState() +
+                    " (" + PrinterController.INSTANCE.getDetail() + "), Spieler bei " + mc.player.blockPosition().toShortString() +
+                    ", 3x3-Schlaege " + STAR_HITS.get() + ", einzeln " + OTHER_HITS.get()));
+            context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
+            throw e;
+        }
+        finally
+        {
+            emulateStar = false;
+            context.runOnClient(mc -> Ep2Configs.PRINTER_STAR_TOOL.setBooleanValue(false));
+        }
+
+        context.takeScreenshot("easyplace2-starfield-done");
+        int left = server.computeOnServer(s ->
+        {
+            int n = 0;
+
+            for (BlockPos p : BlockPos.betweenClosed(min, max))
+            {
+                if (!s.overworld().getBlockState(p).isAir())
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        });
+
+        System.out.println("[EP2-TEST] Star-Flaeche: " + STAR_HITS.get() + " 3x3-Schlaege, " + OTHER_HITS.get() + " einzeln, noch " + left +
+                " Bloecke (" + (System.currentTimeMillis() - started) + " ms)");
+
+        if (left > 0)
+        {
+            throw new AssertionError("Star-Flaeche nicht fertig: noch " + left + " Bloecke");
+        }
+
+        if (OTHER_HITS.get() > 6)
+        {
+            throw new AssertionError("Star-Flaeche: zu viel einzeln abgebaut (" + OTHER_HITS.get() + " Bloecke ohne Star-Spitzhacke)");
+        }
     }
 
     /** Legt eine Schematic aus dem aktuellen Weltstand an (nur sie ist aktiv). */
