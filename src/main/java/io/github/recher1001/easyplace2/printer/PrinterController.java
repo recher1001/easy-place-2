@@ -1998,6 +1998,12 @@ public final class PrinterController
         return false;
     }
 
+    /** Star-Tunnel: steht der Blick gerade fest geradeaus (nicht beim Ausrichten oder beim Abbauen einzelner Reste)? */
+    public boolean tunnelSteady()
+    {
+        return this.state == State.TUNNELING && this.tunnel.isSteady();
+    }
+
     /** Wie viele Bloecke seit dem Start per Rechtsklick eingestellt wurden. */
     public int getAdjusted()
     {

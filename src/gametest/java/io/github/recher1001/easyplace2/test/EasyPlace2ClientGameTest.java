@@ -1758,7 +1758,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         {
             context.waitFor(mc ->
             {
-                if (PrinterController.INSTANCE.getState() == PrinterController.State.TUNNELING)
+                // Nur solange geradeaus gegraben wird (einzelne Reste werden danach gezielt abgebaut, dabei dreht er sich)
+                if (PrinterController.INSTANCE.tunnelSteady())
                 {
                     tunnelTicks[0]++;
                     float dev = Math.max(Math.abs(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot() + 90.0f)), Math.abs(mc.player.getXRot()));

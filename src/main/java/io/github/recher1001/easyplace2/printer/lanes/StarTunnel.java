@@ -69,6 +69,12 @@ public final class StarTunnel
     }
 
     /** Wie oft eine Wand abgebaut wurde (fuer den Aufpasser). */
+    /** Steht der Blick gerade fest geradeaus (kein Ausrichten, kein Einzelabbau von Resten)? */
+    public boolean isSteady()
+    {
+        return this.aligned && this.single == null;
+    }
+
     public int broken()
     {
         return this.broken;
