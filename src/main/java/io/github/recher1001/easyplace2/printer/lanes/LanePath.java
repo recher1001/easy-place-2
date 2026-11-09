@@ -57,37 +57,57 @@ public final class LanePath
         int minC = alongX ? minZ : minX, maxC = alongX ? maxZ : maxX;
         int step = Math.max(1, spacing);
 
-        List<Integer> lanes = new ArrayList<>();
-
-        for (int c = minC + half; ; c += step)
-        {
-            // Die letzte Bahn nicht ueber den Rand hinaus: lieber ein Stueck ueber die vorige (dort ist schon Luft),
-            // sonst traefe die 3x3-Flaeche Bloecke daneben, die stehen bleiben sollen
-            if (c + half > maxC && maxC - half >= minC + half)
-            {
-                c = maxC - half;
-            }
-
-            if (lanes.isEmpty() || lanes.get(lanes.size() - 1) != c)
-            {
-                lanes.add(c);
-            }
-
-            if (c + half >= maxC)
-            {
-                break;
-            }
-        }
-
         // An der naechsten Ecke anfangen
         double pa = alongX ? player.x : player.z;
         double pc = alongX ? player.z : player.x;
-        boolean reverseLanes = Math.abs(pc - (lanes.get(lanes.size() - 1) + 0.5)) < Math.abs(pc - (lanes.get(0) + 0.5));
         boolean forward = Math.abs(pa - (minA + 0.5)) <= Math.abs(pa - (maxA + 0.5));
 
-        if (reverseLanes)
+        // Die Bahnen (Mitte der Bahn), von der Seite aus, die dem Spieler naeher ist. Eine Bahn ragt nie ueber den Rand:
+        // bleibt am Ende ein Rest, der schmaler als eine Bahn ist, rueckt die letzte Bahn an den Rand (ihre Mitte muss
+        // aber noch stehen, sonst gaebe es nichts, worauf man schlagen kann). Bleibt bei 3 breiten Bahnen genau ein
+        // Streifen uebrig, wird der von der letzten Bahn aus seitlich abgebaut (siehe unten).
+        List<Integer> lanes = new ArrayList<>();
+        Integer strip = null;
+        int sgn = 1;
+        int lo = minC + half, hi = maxC - half;
+
+        if (hi < lo)
         {
-            java.util.Collections.reverse(lanes);
+            lanes.add(minC + Math.min(half, (maxC - minC) / 2));
+        }
+        else
+        {
+            boolean fromMax = Math.abs(pc - (hi + 0.5)) < Math.abs(pc - (lo + 0.5));
+            sgn = fromMax ? -1 : 1;
+            int edge = fromMax ? minC : maxC;
+            int lastCenter = fromMax ? lo : hi;
+            int c = fromMax ? hi : lo;
+
+            while (true)
+            {
+                lanes.add(c);
+                int covered = c + sgn * half;
+
+                if (covered == edge)
+                {
+                    break;
+                }
+
+                int next = c + sgn * step;
+
+                if ((next - lastCenter) * sgn > 0)
+                {
+                    if (half > 0 && Math.abs(edge - covered) <= half)
+                    {
+                        strip = edge;
+                        break;
+                    }
+
+                    next = lastCenter;
+                }
+
+                c = next;
+            }
         }
 
         List<Step> path = new ArrayList<>();
@@ -126,6 +146,31 @@ public final class LanePath
 
             previousLane = lane;
             forward = !forward;
+        }
+
+        // Der uebrige Streifen (1 breit): aus der letzten Bahn heraus seitlich darauf schlagen, alle 3 Felder einmal
+        // (die 3x3-Flaeche liegt dann laengs im Streifen). Angefangen wird dort, wo die letzte Bahn aufgehoert hat.
+        if (strip != null && previousLane != null)
+        {
+            int from = forward ? minA : maxA;
+            int to = forward ? maxA : minA;
+            int da = forward ? 1 : -1;
+            int in = maxA - minA >= 2 * half ? half : 0;
+            int lastA = to - da * in;
+            int a = from + da * in;
+
+            while (true)
+            {
+                path.add(new Step(pos(alongX, a, strip, y), dir(alongX, false, sgn)));
+
+                if (in == 0 || a + da * in == to)
+                {
+                    break;
+                }
+
+                int next = a + da * (2 * half + 1);
+                a = (next - lastA) * da > 0 ? lastA : next;
+            }
         }
 
         return path;

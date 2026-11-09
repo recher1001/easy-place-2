@@ -708,6 +708,15 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             throw new AssertionError("Star-Bahnen falsch: " + star);
         }
 
+        // 4 breit: eine Bahn, der uebrige Streifen wird von ihr aus seitlich abgebaut (alle 3 Felder ein Schlag)
+        String strip = describe(LanePath.build(0, 6, 0, 3, 0, 3, 1, new Vec3(0.5, 0, 0.5)));
+        String expectedStrip = "0,1E 1,1E 2,1E 3,1E 4,1E 5,1E 6,1E 5,3S 2,3S 1,3S";
+
+        if (!expectedStrip.equals(strip))
+        {
+            throw new AssertionError("Star-Bahnen mit Reststreifen falsch: " + strip);
+        }
+
         System.out.println("[EP2-TEST] Bahnen ok");
     }
 
@@ -1829,19 +1838,39 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
     }
 
     /**
-     * Star-Spitzhacke auf einer Flaeche: ein Steinblock 7 lang, 6 breit und 5 hoch, wo die Schematic Luft will. Der
-     * Spieler steht oben drauf. Der Printer soll ueber dem Bahnanfang mit 3x3 hinunter, zwei Bahnen graben (mit Kurve),
-     * eine Lage tiefer gehen und wieder zwei Bahnen graben, und das fast nur mit der Star-Spitzhacke.
+     * Star-Spitzhacke auf einer Flaeche, wo die Schematic Luft will. Der Spieler steht oben drauf. Der Printer soll
+     * mit 3x3 hinunter, Bahnen graben (mit Kurve), Lage fuer Lage tiefer gehen, und das fast nur mit der
+     * Star-Spitzhacke. Drei Faelle: ein frei stehender Block (7 x 6 x 5), eine Grube im Stein mit krummen Massen
+     * (8 x 7 x 4: ein Reststreifen in der Breite, 2 + 2 Reihen in der Hoehe) und eine einzelne Reihe im Boden (7 x 7 x 1).
      */
     private static void testStarField(ClientGameTestContext context, TestDedicatedServerContext server)
     {
+        runStarField(context, server, "frei", new BlockPos(200, Y, 100), new BlockPos(206, Y + 4, 105), false);
+        runStarField(context, server, "grube", new BlockPos(200, Y, 100), new BlockPos(207, Y + 3, 106), true);
+        runStarField(context, server, "reihe", new BlockPos(200, Y, 100), new BlockPos(206, Y, 106), true);
+    }
+
+    /** @param embedded rundherum steht Stein, der bleiben muss (wie beim Aushoehlen im Boden) */
+    private static void runStarField(ClientGameTestContext context, TestDedicatedServerContext server, String name, BlockPos min, BlockPos max,
+                                     boolean embedded)
+    {
         registerStarHook();
-        BlockPos min = new BlockPos(200, Y, 100);
-        BlockPos max = new BlockPos(206, Y + 4, 105);
-        server.runCommand(String.format(Locale.ROOT, "fill 194 %d 94 212 %d 111 air", Y, Y + 8));
-        context.waitFor(mc -> mc.level.getBlockState(max).isAir());
-        placeSchematic(context, min, max, "starfield");
-        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        BlockPos shellMin = new BlockPos(min.getX() - 4, Y, min.getZ() - 4);
+        BlockPos shellMax = new BlockPos(max.getX() + 4, max.getY(), max.getZ() + 4);
+        server.runCommand(String.format(Locale.ROOT, "fill 194 %d 94 213 %d 112 air", Y, Y + 8));
+        context.waitFor(mc -> mc.level.getBlockState(max).isAir() && mc.level.getBlockState(min).isAir());
+        placeSchematic(context, min, max, "starfield_" + name);
+
+        if (embedded)
+        {
+            server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", shellMin.getX(), shellMin.getY(), shellMin.getZ(),
+                    shellMax.getX(), shellMax.getY(), shellMax.getZ()));
+        }
+        else
+        {
+            server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        }
+
         server.runCommand("clear @a");
         server.computeOnServer(s ->
         {
@@ -1850,9 +1879,10 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             p.getInventory().setItem(1, new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE));
             return true;
         });
-        server.runCommand(String.format(Locale.ROOT, "tp @a 203.5 %d 102.5 -90 0", Y + 5));
+        Vec3 startPos = new Vec3(203.5, max.getY() + 1, 102.5);
+        server.runCommand(String.format(Locale.ROOT, "tp @a 203.5 %d 102.5 -90 0", max.getY() + 1));
         context.waitFor(mc -> mc.level.getBlockState(max).is(Blocks.STONE) &&
-                              mc.player.position().distanceTo(new Vec3(203.5, Y + 5, 102.5)) < 0.5 &&
+                              mc.player.position().distanceTo(startPos) < 0.5 &&
                               mc.player.getInventory().getItem(0).is(Items.NETHERITE_PICKAXE) &&
                               SchematicWorldHandler.getSchematicWorld() != null, 200);
         STAR_HITS.set(0);
@@ -1873,8 +1903,8 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         }
         catch (AssertionError e)
         {
-            context.takeScreenshot("easyplace2-starfield-timeout");
-            context.runOnClient(mc -> System.out.println("[EP2-TEST] Star-Flaeche haengt: Zustand " + PrinterController.INSTANCE.getState() +
+            context.takeScreenshot("easyplace2-starfield-" + name + "-timeout");
+            context.runOnClient(mc -> System.out.println("[EP2-TEST] Star-Flaeche (" + name + ") haengt: Zustand " + PrinterController.INSTANCE.getState() +
                     " (" + PrinterController.INSTANCE.getDetail() + "), Spieler bei " + mc.player.blockPosition().toShortString() +
                     ", 3x3-Schlaege " + STAR_HITS.get() + ", einzeln " + OTHER_HITS.get()));
             context.runOnClient(mc -> PrinterController.INSTANCE.stop(null));
@@ -1886,33 +1916,52 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             context.runOnClient(mc -> Ep2Configs.PRINTER_STAR_TOOL.setBooleanValue(false));
         }
 
-        context.takeScreenshot("easyplace2-starfield-done");
-        int left = server.computeOnServer(s ->
+        context.takeScreenshot("easyplace2-starfield-" + name + "-done");
+        int[] counts = server.computeOnServer(s ->
         {
-            int n = 0;
+            int left = 0;
+            int damaged = 0;
 
             for (BlockPos p : BlockPos.betweenClosed(min, max))
             {
                 if (!s.overworld().getBlockState(p).isAir())
                 {
-                    n++;
+                    left++;
                 }
             }
 
-            return n;
+            if (embedded)
+            {
+                for (BlockPos p : BlockPos.betweenClosed(shellMin, shellMax))
+                {
+                    boolean inside = p.getX() >= min.getX() && p.getX() <= max.getX() && p.getZ() >= min.getZ() && p.getZ() <= max.getZ();
+
+                    if (!inside && s.overworld().getBlockState(p).isAir())
+                    {
+                        damaged++;
+                    }
+                }
+            }
+
+            return new int[] { left, damaged };
         });
 
-        System.out.println("[EP2-TEST] Star-Flaeche: " + STAR_HITS.get() + " 3x3-Schlaege, " + OTHER_HITS.get() + " einzeln, noch " + left +
-                " Bloecke (" + (System.currentTimeMillis() - started) + " ms)");
+        System.out.println("[EP2-TEST] Star-Flaeche (" + name + "): " + STAR_HITS.get() + " 3x3-Schlaege, " + OTHER_HITS.get() + " einzeln, noch " +
+                counts[0] + " Bloecke, " + counts[1] + " daneben abgebaut (" + (System.currentTimeMillis() - started) + " ms)");
 
-        if (left > 0)
+        if (counts[0] > 0)
         {
-            throw new AssertionError("Star-Flaeche nicht fertig: noch " + left + " Bloecke");
+            throw new AssertionError("Star-Flaeche (" + name + ") nicht fertig: noch " + counts[0] + " Bloecke");
+        }
+
+        if (counts[1] > 0)
+        {
+            throw new AssertionError("Star-Flaeche (" + name + "): " + counts[1] + " Bloecke ausserhalb der Schematic abgebaut");
         }
 
         if (OTHER_HITS.get() > 6)
         {
-            throw new AssertionError("Star-Flaeche: zu viel einzeln abgebaut (" + OTHER_HITS.get() + " Bloecke ohne Star-Spitzhacke)");
+            throw new AssertionError("Star-Flaeche (" + name + "): zu viel einzeln abgebaut (" + OTHER_HITS.get() + " Bloecke ohne Star-Spitzhacke)");
         }
     }
 

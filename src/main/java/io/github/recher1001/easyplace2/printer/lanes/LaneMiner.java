@@ -230,7 +230,7 @@ public final class LaneMiner
         if (this.layerY == null || top > this.layerY + height - 1)
         {
             int bottom = primary.stream().mapToInt(BlockPos::getY).min().orElseThrow();
-            this.layerY = Math.max(top - height + 1, bottom);
+            this.layerY = top - rowsToTake(top - bottom + 1, height) + 1;
             this.pendingLayer = null;
             this.path = null;
         }
@@ -297,6 +297,17 @@ public final class LaneMiner
 
         BlockPos stand = step.pos().relative(step.dir().getOpposite());
 
+        // Star-Spitzhacke und nur noch die Reihe auf Fusshoehe uebrig: von oben in 3x3-Stuecken abbauen
+        if (starSlot >= 0 && band.stream().noneMatch(p -> p.getY() > layer))
+        {
+            Action patch = this.patch(level, wanted, feet, layer, starSlot);
+
+            if (patch != null)
+            {
+                return patch;
+            }
+        }
+
         // Star-Spitzhacke, und der Spieler steht noch ueber der Lage (z. B. oben auf dem Berg): ueber der Bahn senkrecht
         // mit 3x3 nach unten bis auf die Lage, statt von oben Block fuer Block abzubauen
         if (starSlot >= 0 && feet.getY() > layer)
@@ -335,9 +346,18 @@ public final class LaneMiner
             {
                 LanePath.Step s = this.path.get(i);
 
-                if (i > j && (s.dir() != step.dir() || !s.pos().equals(this.path.get(i - 1).pos().relative(step.dir()))))
+                if (i > j)
                 {
-                    break;
+                    // Lueckenlos geradeaus, oder (Reststreifen) dieselbe Blickrichtung seitlich versetzt: dann rueckt
+                    // der Tunnel mit A/D weiter, ohne die Kamera zu bewegen
+                    BlockPos d = s.pos().subtract(this.path.get(i - 1).pos());
+                    boolean ahead = s.pos().equals(this.path.get(i - 1).pos().relative(step.dir()));
+                    boolean sideways = d.getY() == 0 && d.getX() * step.dir().getStepX() + d.getZ() * step.dir().getStepZ() == 0;
+
+                    if (s.dir() != step.dir() || !(ahead || sideways))
+                    {
+                        break;
+                    }
                 }
 
                 run.add(s);
@@ -361,6 +381,113 @@ public final class LaneMiner
         }
 
         return Action.dig(inReach, -1, avoid);
+    }
+
+    /**
+     * Wie viele Reihen die naechste Lage nimmt, wenn noch {@code rows} Reihen uebrig sind. Mit der Star-Spitzhacke
+     * (3 hoch) muss die mittlere Reihe einer Lage stehen, damit man geradeaus darauf schlagen kann: deshalb bei 4
+     * uebrigen Reihen 2 + 2 statt 3 + 1 (eine einzelne Reihe liesse sich nur von oben abbauen).
+     */
+    private static int rowsToTake(int rows, int height)
+    {
+        return height == 3 && rows == 4 ? 2 : Math.min(height, Math.max(1, rows));
+    }
+
+    /**
+     * Nur noch die Reihe auf Fusshoehe ist uebrig (nichts mehr in Kopfhoehe, worauf man geradeaus schlagen koennte):
+     * oben auf die Reihe stellen, senkrecht nach unten schauen und die 3x3-Flaeche unter sich abbauen, dann zum
+     * naechsten Stueck. Gewaehlt wird das Stueck mit den meisten Bloecken, bei gleich vielen das naechste.
+     *
+     * @return null, wenn es so ein Stueck nicht gibt (dann geht es normal weiter)
+     */
+    @Nullable
+    private Action patch(Level level, Set<BlockPos> wanted, BlockPos feet, int layer, int starSlot)
+    {
+        // Die ganze Reihe zaehlt, auch ihr Rand (nicht nur der "grosse Teil")
+        List<BlockPos> row = new ArrayList<>();
+
+        for (BlockPos p : wanted)
+        {
+            if (p.getY() == layer)
+            {
+                row.add(p);
+            }
+        }
+
+        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, minZ = Integer.MAX_VALUE, maxZ = Integer.MIN_VALUE;
+
+        for (BlockPos p : row)
+        {
+            minX = Math.min(minX, p.getX());
+            maxX = Math.max(maxX, p.getX());
+            minZ = Math.min(minZ, p.getZ());
+            maxZ = Math.max(maxZ, p.getZ());
+        }
+
+        BlockPos best = null;
+        double bestScore = -Double.MAX_VALUE;
+
+        for (BlockPos c : row)
+        {
+            if (!level.getBlockState(c).is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE) ||
+                !LaneWalker.standable(level, c.above()))
+            {
+                continue;
+            }
+
+            int count = 0;
+            boolean clear = true;
+
+            for (int dx = -1; dx <= 1 && clear; dx++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    BlockPos p = c.offset(dx, 0, dz);
+                    BlockState state = level.getBlockState(p);
+
+                    if (wanted.contains(p))
+                    {
+                        count++;
+                    }
+                    else if (!state.isAir() && !state.canBeReplaced())
+                    {
+                        clear = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!clear || count < 3)
+            {
+                continue;
+            }
+
+            // Erst die Stuecke am Rand, dann die dazwischen: bleibt in der Mitte ein schmaler Rest, steht dessen Mitte noch
+            // (am Rand liesse sich ein schmaler Rest nicht mehr von oben abbauen, ohne daneben etwas zu treffen)
+            int edges = (c.getX() - 1 == minX ? 1 : 0) + (c.getX() + 1 == maxX ? 1 : 0) + (c.getZ() - 1 == minZ ? 1 : 0) +
+                        (c.getZ() + 1 == maxZ ? 1 : 0);
+            double score = count * 10.0 + edges * 5.0 - Math.sqrt(c.above().distSqr(feet)) * 0.5;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = c;
+            }
+        }
+
+        if (best == null)
+        {
+            return null;
+        }
+
+        BlockPos top = best.above();
+
+        if (top.equals(feet))
+        {
+            return Action.down(layer, starSlot);
+        }
+
+        return this.mayWalk(top) ? Action.walk(top) : null;
     }
 
     /** Dasselbe Laufziel hoechstens ein paar Mal hintereinander (kommt man nicht hin, macht der normale Modus weiter). */
@@ -457,7 +584,7 @@ public final class LaneMiner
         }
 
         // Nie tiefer als der unterste Block (sind unten nur noch 1 oder 2 Reihen uebrig, nur so weit hinunter)
-        int newLayer = Math.max(Math.max(layer - height, highestBelow - height + 1), lowestBelow);
+        int newLayer = highestBelow - rowsToTake(highestBelow - lowestBelow + 1, height) + 1;
         BlockPos feet = player.blockPosition();
 
         if (feet.getY() <= newLayer)
