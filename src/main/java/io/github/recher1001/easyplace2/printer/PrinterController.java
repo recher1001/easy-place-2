@@ -176,6 +176,12 @@ public final class PrinterController
 
     private int placed;
     private long startMillis;
+    /** Am Ende: so oft wurde Uebersprungenes (Geruest, Aushub) schon noch einmal versucht. */
+    private int finishRetries;
+    /** Wurde schon gemeldet, dass Material fehlt (Ton nur einmal)? */
+    private boolean missingNotified;
+    /** Ab so wenig Haltbarkeit wird ein Werkzeug nicht weiter benutzt. */
+    private static final int TOOL_RESERVE = 12;
 
     private PrinterController()
     {
@@ -295,6 +301,8 @@ public final class PrinterController
         this.missingMaterials.clear();
         this.pending.clear();
         this.placed = 0;
+        this.finishRetries = 0;
+        this.missingNotified = false;
         this.startMillis = System.currentTimeMillis();
         this.mode = mode;
         this.lineStarted = false;
@@ -524,6 +532,19 @@ public final class PrinterController
 
         this.stateTicks++;
 
+        // Werkzeug fast kaputt: anhalten, bevor es zerbricht
+        if (this.toolWornOut(player))
+        {
+            String tool = player.getMainHandItem().getHoverName().getString();
+            this.interrupt(mc);
+            this.current = null;
+            this.userPaused = true;
+            this.setState(State.PAUSED, "tool");
+            message(Component.translatable("easyplace2.printer.msg.tool_worn", tool).withStyle(ChatFormatting.GOLD));
+            notifySound(mc);
+            return;
+        }
+
         // Nie endlos im Kreis: geht nichts mehr voran, wird stufenweise eingegriffen
         if (this.watchdogCounts())
         {
@@ -568,6 +589,7 @@ public final class PrinterController
                     if (broke)
                     {
                         this.watchdog.progress();
+                        this.finishRetries = 0;
                     }
 
                     // Aushoehlen: gleich mit dem naechsten Block weitermachen, ohne Pause und ohne neuen Scan
@@ -764,7 +786,16 @@ public final class PrinterController
                 }
             }
             case MOVING -> this.tickMoving(player, now);
-            case AIMING -> this.tickAiming(level);
+            case AIMING ->
+            {
+                this.tickAiming(level);
+
+                // Liegt das Fadenkreuz schon auf dem Punkt und ist keine Wartezeit mehr offen: gleich klicken
+                if (this.state == State.CLICKING && this.settleTicks <= 0 && now >= this.nextClickTick)
+                {
+                    this.tickClicking(mc, player, level, now);
+                }
+            }
             case CLICKING -> this.tickClicking(mc, player, level, now);
             default -> {}
         }
@@ -970,12 +1001,23 @@ public final class PrinterController
                 return;
             }
 
+            boolean nothingLeft = snap.missing().isEmpty() && snap.unloaded().isEmpty() &&
+                                  !this.excavator.hasWork(level, schematic, p -> true, now);
+            int skippedNow = this.cleaner.skippedCount(now) + this.excavator.skippedCount(now);
+
             if (!snap.unloaded().isEmpty() && this.canWalk())
             {
                 this.walkToUnloaded(player, snap.unloaded(), now);
             }
-            else if (snap.missing().isEmpty() && snap.unloaded().isEmpty() && this.cleaner.skippedCount(now) == 0 &&
-                     this.excavator.skippedCount(now) == 0 && !this.excavator.hasWork(level, schematic, p -> true, now))
+            else if (nothingLeft && skippedNow > 0 && this.finishRetries++ < 3)
+            {
+                // Nicht lange warten: Uebersprungenes (Geruest, Aushub) gleich noch einmal versuchen. Geht es auch nach
+                // ein paar Runden nicht, wird trotzdem fertig gemeldet (mit Hinweis), statt als "steckt fest" zu enden.
+                this.cleaner.clearSkipped();
+                this.excavator.clearSkipped();
+                this.setState(State.SELECTING, "skipped");
+            }
+            else if (nothingLeft)
             {
                 // Uebersprungenes Geruest wird vorher noch einmal versucht (der Watchdog sorgt dafuer, dass das endet)
                 int left = (int) ScaffoldTracker.INSTANCE.positions().stream().filter(level::hasChunkAt).count();
@@ -986,7 +1028,12 @@ public final class PrinterController
                 int waterBlocked = this.water.blockedCount();
                 this.setState(State.DONE, "");
                 int wrong = snap.wrong() + this.reorient.remaining(level, schematic);
+                int placedTotal = this.placed;
+                long seconds = (System.currentTimeMillis() - this.startMillis) / 1000;
                 this.stop(Component.translatable("easyplace2.printer.msg.done", snap.done(), snap.total(), wrong).withStyle(ChatFormatting.GREEN));
+                message(Component.translatable("easyplace2.printer.msg.summary", placedTotal,
+                        String.format("%d:%02d", seconds / 60, seconds % 60)).withStyle(ChatFormatting.GRAY));
+                notifySound(mc);
 
                 if (waterBlocked > 0)
                 {
@@ -1041,15 +1088,23 @@ public final class PrinterController
                 return;
             }
 
+            if (!this.missingNotified)
+            {
+                this.missingNotified = true;
+                notifySound(mc);
+            }
+
             this.setState(State.MISSING_MATERIAL, "");
             return;
         }
+
+        this.missingNotified = false;
 
         // Von unten nach oben bauen: nur die unterste offene Schicht (und eine darueber)
         int lowest = buildable.stream().mapToInt(t -> t.pos().getY()).min().orElse(0);
         Vec3 eye = player.getEyePosition();
         List<SchematicScanner.Target> layer = new ArrayList<>(buildable.stream().filter(t -> t.pos().getY() <= lowest + 1).toList());
-        layer.sort(Comparator.comparingDouble(t -> Vec3.atCenterOf(t.pos()).distanceToSqr(eye)));
+        layer.sort(Comparator.comparingDouble(t -> t.pos().distToCenterSqr(eye)));
 
         double reach = player.blockInteractionRange();
         int tried = 0;
@@ -1059,9 +1114,11 @@ public final class PrinterController
         // man sich am wenigsten drehen muss, am liebsten mit dem Item, das schon in der Hand ist
         List<SchematicScanner.Target> reachable = new ArrayList<>();
 
+        double reachableSq = (reach + 1.0) * (reach + 1.0);
+
         for (SchematicScanner.Target t : layer)
         {
-            if (Vec3.atCenterOf(t.pos()).distanceTo(eye) > reach + 1.0)
+            if (t.pos().distToCenterSqr(eye) > reachableSq)
             {
                 break;
             }
@@ -1070,7 +1127,7 @@ public final class PrinterController
         }
 
         reachable.sort(Comparator.<SchematicScanner.Target>comparingInt(t -> t.pos().getY())
-                .thenComparing(Comparator.<SchematicScanner.Target>comparingDouble(t -> Vec3.atCenterOf(t.pos()).distanceToSqr(eye)).reversed()));
+                .thenComparing(Comparator.<SchematicScanner.Target>comparingDouble(t -> t.pos().distToCenterSqr(eye)).reversed()));
 
         // Pro Tick nur ein Teil; klappt keiner, beim naechsten Tick die naechsten (der Reihe nach)
         int start = this.selectRound * CANDIDATES_PER_TICK;
@@ -1575,6 +1632,13 @@ public final class PrinterController
         this.pending.add(new Pending(t, now));
         this.current = null;
         this.setState(State.SELECTING, "");
+
+        // Gleich das naechste Ziel waehlen und den Kopf dorthin drehen (wie ein Spieler, der nach dem Klick sofort
+        // weiterschaut); geklickt wird trotzdem erst wieder nach der normalen Pause
+        if (schematicWorld != null && this.running)
+        {
+            this.select(mc, player, level, schematicWorld, now);
+        }
     }
 
     /** Gesetzte Bloecke, bei denen noch geprueft wird, ob der Server sie behaelt. */
@@ -1600,6 +1664,7 @@ public final class PrinterController
             {
                 Reorient.placedByPrinter(pos);
                 this.placed++;
+                this.finishRetries = 0;
                 this.watchdog.progress();
                 this.failures.remove(pos);
                 this.moveAttempts.remove(pos);
@@ -1773,6 +1838,7 @@ public final class PrinterController
                 int open = snap != null ? snap.missing().size() : 0;
                 message(Component.translatable("easyplace2.printer.msg.stuck", this.watchdog.idleSeconds(), open, this.blacklist.size())
                         .withStyle(ChatFormatting.GOLD));
+                notifySound(mc);
             }
         }
     }
@@ -2232,6 +2298,30 @@ public final class PrinterController
         }
 
         ScaffoldTracker.INSTANCE.setUsable(usable);
+    }
+
+    /** Baut der Printer gerade ab und das Werkzeug in der Hand ist fast kaputt? */
+    private boolean toolWornOut(LocalPlayer player)
+    {
+        if (!Ep2Configs.PRINTER_PROTECT_TOOLS.getBooleanValue())
+        {
+            return false;
+        }
+
+        // Nur waehrend wirklich abgebaut wird (dann ist das Werkzeug in der Hand auch das benutzte)
+        ItemStack held = player.getMainHandItem();
+        return BlockBreaker.isMining(player.level()) && held.isDamageableItem() &&
+               held.getMaxDamage() - held.getDamageValue() <= TOOL_RESERVE;
+    }
+
+    /** Kurzer Ton, wenn der Printer fertig ist oder Hilfe braucht (abschaltbar). */
+    private static void notifySound(Minecraft mc)
+    {
+        if (Ep2Configs.PRINTER_SOUND.getBooleanValue())
+        {
+            mc.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
+                    net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0f));
+        }
     }
 
     private boolean canWalk()

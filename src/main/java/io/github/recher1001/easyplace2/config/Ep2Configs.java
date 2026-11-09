@@ -86,6 +86,8 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigBoolean PRINTER_ADJUST      = new ConfigBoolean("printerAdjustStates", true).apply(KEY);
     public static final ConfigBoolean PRINTER_FIX_ROTATION = new ConfigBoolean("printerFixRotation", true).apply(KEY);
     public static final ConfigInteger PRINTER_STUCK_SECONDS = new ConfigInteger("printerStuckSeconds", 90, 20, 600).apply(KEY);
+    public static final ConfigBoolean PRINTER_PROTECT_TOOLS = new ConfigBoolean("printerProtectTools", true).apply(KEY);
+    public static final ConfigBoolean PRINTER_SOUND       = new ConfigBoolean("printerSound", true).apply(KEY);
     // Module
     public static final ConfigHotkey  MODULE_INVSEE       = new ConfigHotkey("moduleInvseeHotkey", "").apply(KEY);
     public static final ConfigDouble  MODULE_INVSEE_ANGLE = new ConfigDouble("moduleInvseeAngle", 45.0, 5.0, 180.0).apply(KEY);
@@ -141,6 +143,8 @@ public class Ep2Configs implements IConfigHandler
             PRINTER_REPLACE_WRONG,
             PRINTER_ADJUST,
             PRINTER_FIX_ROTATION,
+            PRINTER_PROTECT_TOOLS,
+            PRINTER_SOUND,
             MODULE_INVSEE,
             MODULE_INVSEE_ANGLE,
             MODULE_INVSEE_RANGE,

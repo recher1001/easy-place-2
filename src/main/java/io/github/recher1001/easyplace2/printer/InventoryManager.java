@@ -12,8 +12,11 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.component.DataComponents;
 
 import io.github.recher1001.easyplace2.config.Ep2Configs;
+import io.github.recher1001.easyplace2.printer.scaffold.ScaffoldTracker;
 
 /**
  * Holt Items wie ein Spieler in die Hand, Schritt fuer Schritt mit menschlichen Pausen:
@@ -225,6 +228,18 @@ public final class InventoryManager
 
         int selected = inv.getSelectedSlot();
 
+        // Werkzeuge, Eimer, Essen und Geruest-Bloecke bleiben in der Hotbar (sonst fehlt z. B. ploetzlich die Spitzhacke)
+        for (int n = 1; n <= HOTBAR_SIZE; n++)
+        {
+            int i = (selected + n) % HOTBAR_SIZE;
+            ItemStack stack = inv.getItem(i);
+
+            if (!keep.contains(stack.getItem()) && !precious(stack))
+            {
+                return i;
+            }
+        }
+
         for (int n = 1; n <= HOTBAR_SIZE; n++)
         {
             int i = (selected + n) % HOTBAR_SIZE;
@@ -236,6 +251,13 @@ public final class InventoryManager
         }
 
         return selected;
+    }
+
+    /** Sachen, die der Printer selbst in der Hotbar braucht (Werkzeug, Eimer, Geruest) oder der Spieler (Essen). */
+    private static boolean precious(ItemStack stack)
+    {
+        return stack.isDamageableItem() || stack.is(Items.WATER_BUCKET) || stack.is(Items.BUCKET) ||
+               stack.has(DataComponents.FOOD) || ScaffoldTracker.INSTANCE.items().contains(stack.getItem());
     }
 
     private static int findSlot(Inventory inv, Item item, int from, int to)
@@ -274,6 +296,7 @@ public final class InventoryManager
 
     private int shortDelay()
     {
-        return 2 + this.random.nextInt(3);
+        // Schnell bauen: Hotbar-Platz gleich wechseln (wie eine Zahlentaste)
+        return Ep2Configs.PRINTER_FAST_BUILD.getBooleanValue() ? 1 : 2 + this.random.nextInt(3);
     }
 }

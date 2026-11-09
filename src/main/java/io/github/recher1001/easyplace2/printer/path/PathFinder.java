@@ -262,8 +262,19 @@ public final class PathFinder
     /** Kann man mit den Fuessen in diesem Feld stehen? (ohne Suche, z. B. fuer gerade Abkuerzungen) */
     public static boolean standableAt(Level level, BlockPos feet)
     {
-        return new PathFinder(level).standable(feet);
+        PathFinder check = checker;
+
+        if (check == null || check.level != level)
+        {
+            check = new PathFinder(level);
+            checker = check;
+        }
+
+        return check.standable(feet);
     }
+
+    /** Fuer {@link #standableAt}: wird wiederverwendet, solange die Welt dieselbe ist. */
+    @Nullable private static PathFinder checker;
 
     /** Nur fuer Blockpruefungen. */
     private PathFinder(Level level)

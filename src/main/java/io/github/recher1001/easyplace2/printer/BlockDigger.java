@@ -116,7 +116,22 @@ public final class BlockDigger
      */
     public boolean hasWork(Level level, Level schematic, Predicate<BlockPos> filter, long now)
     {
-        return !this.candidates(level, schematic, filter, now).isEmpty();
+        this.skipped.values().removeIf(until -> until <= now);
+
+        for (BlockPos p : this.source.candidates(level, schematic))
+        {
+            if (this.wanted(level, schematic, filter, p))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean wanted(Level level, Level schematic, Predicate<BlockPos> filter, BlockPos p)
+    {
+        return level.hasChunkAt(p) && !this.skipped.containsKey(p) && filter.test(p) && this.source.stillWanted(level, schematic, p);
     }
 
     /**
@@ -150,50 +165,52 @@ public final class BlockDigger
      */
     public boolean start(LocalPlayer player, Level level, Level schematic, Predicate<BlockPos> filter, long now)
     {
-        List<BlockPos> list = this.candidates(level, schematic, filter, now);
+        this.skipped.values().removeIf(until -> until <= now);
 
-        if (list.isEmpty())
+        // Erst alles in Reichweite (ohne Laufen), dabei der hoechste zuerst; danach der naechste weiter weg.
+        // Was weiter weg ist, wird erst genau geprueft, wenn in Reichweite nichts mehr geht (bei grossen Flaechen
+        // waeren das sonst nach jedem Block zigtausend Pruefungen).
+        Vec3 eye = player.getEyePosition();
+        double reach = RefillUtil.maxDistance(player) + 0.5;
+        double reachSq = reach * reach;
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet listed = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+        List<BlockPos> near = new ArrayList<>();
+        List<BlockPos> far = new ArrayList<>();
+
+        for (BlockPos p : this.source.candidates(level, schematic))
         {
-            return false;
+            listed.add(p.asLong());
+
+            if (p.distToCenterSqr(eye) <= reachSq)
+            {
+                if (this.wanted(level, schematic, filter, p))
+                {
+                    near.add(p);
+                }
+            }
+            else if (!this.skipped.containsKey(p))
+            {
+                far.add(p);
+            }
         }
 
-        BlockPos feet = player.blockPosition();
-        BlockPos support = feet.below();
-        java.util.Set<BlockPos> all = new java.util.HashSet<>(list);
-        BlockPos chosen = null;
-        BlockPos unsafe = null;
+        Comparator<BlockPos> order = Comparator.<BlockPos>comparingInt(p -> -p.getY()).thenComparingDouble(p -> p.distToCenterSqr(eye));
+        near.sort(order);
+        BlockPos[] unsafe = new BlockPos[1];
+        BlockPos chosen = this.pick(near, false, listed, player, level, schematic, filter, unsafe);
 
-        for (BlockPos p : list)
+        if (chosen == null && !far.isEmpty())
         {
-            // Von oben nach unten: was darueber noch weg muss, kommt zuerst
-            if (all.contains(p.above()))
-            {
-                continue;
-            }
-
-            if (p.equals(feet) || p.equals(feet.above()))
-            {
-                // Steckt der Spieler darin (sollte nicht vorkommen), zuerst den Kopf-Block
-                chosen = p;
-                break;
-            }
-
-            if (p.equals(support) && !safeToDropFrom(level, support))
-            {
-                unsafe = p;
-                continue;
-            }
-
-            chosen = p;
-            break;
+            far.sort(order);
+            chosen = this.pick(far, true, listed, player, level, schematic, filter, unsafe);
         }
 
         if (chosen == null)
         {
             // Geht gerade nicht (z. B. nur der Block unter den Fuessen ueber einem Abgrund): eine Weile auslassen
-            if (unsafe != null)
+            if (unsafe[0] != null)
             {
-                this.skipped.put(unsafe, now + SKIP_TICKS);
+                this.skipped.put(unsafe[0], now + SKIP_TICKS);
             }
 
             return false;
@@ -204,6 +221,51 @@ public final class BlockDigger
         this.walkedWithScaffold = false;
         this.go(Step.CHECK);
         return true;
+    }
+
+    /**
+     * Der erste Block der (sortierten) Liste, der jetzt abgebaut werden darf.
+     *
+     * @param lazy die Liste ist noch nicht geprueft (ob der Block wirklich weg soll)
+     */
+    @Nullable
+    private BlockPos pick(List<BlockPos> list, boolean lazy, it.unimi.dsi.fastutil.longs.LongOpenHashSet listed, LocalPlayer player,
+                          Level level, Level schematic, Predicate<BlockPos> filter, BlockPos[] unsafe)
+    {
+        BlockPos feet = player.blockPosition();
+        BlockPos support = feet.below();
+
+        for (BlockPos p : list)
+        {
+            if (lazy && !this.wanted(level, schematic, filter, p))
+            {
+                continue;
+            }
+
+            // Von oben nach unten: was darueber noch weg muss, kommt zuerst
+            BlockPos above = p.above();
+
+            if (listed.contains(above.asLong()) && this.wanted(level, schematic, filter, above))
+            {
+                continue;
+            }
+
+            if (p.equals(feet) || p.equals(feet.above()))
+            {
+                // Steckt der Spieler darin (sollte nicht vorkommen), zuerst den Kopf-Block
+                return p;
+            }
+
+            if (p.equals(support) && !safeToDropFrom(level, support))
+            {
+                unsafe[0] = p;
+                continue;
+            }
+
+            return p;
+        }
+
+        return null;
     }
 
     /** @return true, wenn der aktuelle Block erledigt ist (abgebaut oder aufgegeben) */
@@ -319,29 +381,6 @@ public final class BlockDigger
     }
 
     // ---------------------------------------------------------------- intern
-
-    private List<BlockPos> candidates(Level level, Level schematic, Predicate<BlockPos> filter, long now)
-    {
-        this.skipped.values().removeIf(until -> until <= now);
-        List<BlockPos> list = new ArrayList<>();
-
-        for (BlockPos p : this.source.candidates(level, schematic))
-        {
-            if (level.hasChunkAt(p) && !this.skipped.containsKey(p) && filter.test(p) && this.source.stillWanted(level, schematic, p))
-            {
-                list.add(p);
-            }
-        }
-
-        // Erst alles in Reichweite (ohne Laufen), dabei der hoechste zuerst; danach der naechste weiter weg
-        LocalPlayer player = Minecraft.getInstance().player;
-        Vec3 eye = player != null ? player.getEyePosition() : Vec3.ZERO;
-        double reach = player != null ? RefillUtil.maxDistance(player) + 0.5 : 4.5;
-        list.sort(Comparator.<BlockPos>comparingInt(p -> Vec3.atCenterOf(p).distanceTo(eye) <= reach ? 0 : 1)
-                .thenComparingInt(p -> -p.getY())
-                .thenComparingDouble(p -> Vec3.atCenterOf(p).distanceToSqr(eye)));
-        return list;
-    }
 
     /** Darf der Block unter den Fuessen weg? Nur wenn man danach hoechstens ein paar Bloecke faellt. */
     private static boolean safeToDropFrom(Level level, BlockPos support)

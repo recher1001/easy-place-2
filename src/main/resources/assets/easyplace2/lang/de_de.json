@@ -490,5 +490,18 @@
     "easyplace2.printer.opt.starDelay.desc": "Pause zwischen zwei abgebauten Blöcken (Vanilla 5 Ticks), damit der Server mitkommt (keine Geisterblöcke)",
     "easyplace2.config.name.printerStarDelay": "printerStarDelay",
     "easyplace2.config.prettyName.printerStarDelay": "Printer: Pause zwischen zwei Abbauten",
-    "easyplace2.config.comment.printerStarDelay": "So viele Ticks wartet der Printer nach jedem abgebauten Block (normal und mit der Star-Spitzhacke), bevor er den nächsten anfängt; gezielt wird währenddessen schon. Vanilla wartet beim Gedrückthalten 5 Ticks. Taucht ein Block wieder auf (Server hat abgelehnt), wird er noch einmal abgebaut."
+    "easyplace2.config.comment.printerStarDelay": "So viele Ticks wartet der Printer nach jedem abgebauten Block (normal und mit der Star-Spitzhacke), bevor er den nächsten anfängt; gezielt wird währenddessen schon. Vanilla wartet beim Gedrückthalten 5 Ticks. Taucht ein Block wieder auf (Server hat abgelehnt), wird er noch einmal abgebaut.",
+    "easyplace2.config.name.printerProtectTools": "printerProtectTools",
+    "easyplace2.config.prettyName.printerProtectTools": "Printer: Werkzeug schonen",
+    "easyplace2.config.comment.printerProtectTools": "Ist das Werkzeug in der Hand beim Abbauen fast kaputt (12 Haltbarkeit oder weniger), hält der Printer an, bevor es zerbricht.",
+    "easyplace2.config.name.printerSound": "printerSound",
+    "easyplace2.config.prettyName.printerSound": "Printer: Ton bei Meldungen",
+    "easyplace2.config.comment.printerSound": "Kurzer Ton, wenn der Printer fertig ist, Material fehlt, das Werkzeug fast kaputt ist oder er feststeckt.",
+    "easyplace2.printer.opt.protectTools": "Werkzeug schonen",
+    "easyplace2.printer.opt.protectTools.desc": "Anhalten, bevor das Werkzeug beim Abbauen zerbricht",
+    "easyplace2.printer.opt.sound": "Ton bei Meldungen",
+    "easyplace2.printer.opt.sound.desc": "Ton, wenn fertig, Material fehlt oder der Printer Hilfe braucht",
+    "easyplace2.printer.msg.tool_worn": "Werkzeug fast kaputt (%s). Pausiert – nimm ein anderes oder repariere es und drück Weiter.",
+    "easyplace2.printer.msg.summary": "%s Blöcke gesetzt in %s Minuten.",
+    "easyplace2.printer.detail.tool": "Werkzeug fast kaputt, angehalten"
 }
