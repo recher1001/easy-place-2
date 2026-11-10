@@ -215,7 +215,12 @@ public final class InventoryManager
         }
     }
 
-    private int chooseHotbarSlot(Inventory inv, Set<Item> keep)
+    /**
+     * Der Hotbar-Platz, in den ein Item aus dem Inventar gelegt wird.
+     *
+     * @param keep Items, die nicht verdraengt werden sollen
+     */
+    public static int chooseHotbarSlot(Inventory inv, Set<Item> keep)
     {
         // 1. leerer Platz, 2. Platz mit einem Item, das die Schematic nicht braucht, 3. der aktuelle Platz
         for (int i = 0; i < HOTBAR_SIZE; i++)

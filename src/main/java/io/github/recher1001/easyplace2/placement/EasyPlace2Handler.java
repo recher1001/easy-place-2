@@ -11,6 +11,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
@@ -31,6 +33,7 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import io.github.recher1001.easyplace2.EasyPlace2;
 import io.github.recher1001.easyplace2.config.Ep2Configs;
 import io.github.recher1001.easyplace2.mixin.MinecraftAccessor;
+import io.github.recher1001.easyplace2.printer.InventoryManager;
 import io.github.recher1001.easyplace2.printer.PrinterController;
 
 /**
@@ -99,12 +102,19 @@ public class EasyPlace2Handler
 
         // Item mit Litematicas eigener Logik in die Hand holen (Hotbar, Inventar, Shulker-Option).
         // Der Printer holt Items selbst wie ein Spieler ueber das Inventar, dann wird hier nichts getauscht.
-        InteractionHand hand = EntityUtils.getUsedHandForItem(player, required);
+        InteractionHand hand = handWith(player, required);
 
         if (hand == null && !PrinterController.INSTANCE.isRunning())
         {
-            InventoryUtils.schematicWorldPickBlock(required, target, schematicWorld, mc);
-            hand = EntityUtils.getUsedHandForItem(player, required);
+            // Falsches Item in der Hand: im selben Tick wechseln und gleich setzen (auch beim Gedrueckthalten).
+            // Erst selbst (Hotbar-Platz waehlen, sonst aus dem Inventar in die Hotbar tauschen), sonst Litematicas
+            // eigene Logik (z. B. Shulker-Option).
+            if (!switchToItem(mc, player, required))
+            {
+                InventoryUtils.schematicWorldPickBlock(required, target, schematicWorld, mc);
+            }
+
+            hand = handWith(player, required);
         }
 
         if (hand == null)
@@ -127,6 +137,65 @@ public class EasyPlace2Handler
         RECENTLY_PLACED.put(target.immutable(), System.currentTimeMillis());
 
         return true;
+    }
+
+    /** Die Hand, die das Item haelt (Haupthand zuerst), oder null. */
+    @Nullable
+    private static InteractionHand handWith(LocalPlayer player, ItemStack required)
+    {
+        InteractionHand hand = EntityUtils.getUsedHandForItem(player, required);
+
+        if (hand != null)
+        {
+            return hand;
+        }
+
+        if (player.getMainHandItem().is(required.getItem()))
+        {
+            return InteractionHand.MAIN_HAND;
+        }
+
+        return player.getOffhandItem().is(required.getItem()) ? InteractionHand.OFF_HAND : null;
+    }
+
+    /**
+     * Das Item sofort in die Hand holen: liegt es in der Hotbar, den Platz waehlen; liegt es im Inventar, mit einem
+     * Platz der Hotbar tauschen (Werkzeug, Eimer und Essen bleiben dabei liegen) und den waehlen.
+     *
+     * @return false, wenn das Item nicht im Inventar ist
+     */
+    private static boolean switchToItem(Minecraft mc, LocalPlayer player, ItemStack required)
+    {
+        Inventory inv = player.getInventory();
+        int hotbarSize = Inventory.getSelectionSize();
+
+        for (int i = 0; i < hotbarSize; i++)
+        {
+            if (inv.getItem(i).is(required.getItem()))
+            {
+                inv.setSelectedSlot(i);
+                return true;
+            }
+        }
+
+        // Nur im eigenen Inventar tauschen (nie, waehrend eine Kiste o. Ae. offen ist)
+        if (mc.gameMode == null || player.containerMenu != player.inventoryMenu)
+        {
+            return false;
+        }
+
+        for (int i = hotbarSize; i < 36; i++)
+        {
+            if (inv.getItem(i).is(required.getItem()))
+            {
+                int hotbar = InventoryManager.chooseHotbarSlot(inv, java.util.Set.of(required.getItem()));
+                mc.gameMode.handleInventoryMouseClick(player.inventoryMenu.containerId, i, hotbar, ClickType.SWAP, player);
+                inv.setSelectedSlot(hotbar);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

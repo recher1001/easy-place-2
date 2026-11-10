@@ -186,6 +186,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testStarField(context, server);
             testExcavateMode(context, server);
             testStarLine(context, server);
+            testManualSwitchAndHold(context, server);
         }
     }
 
@@ -1963,6 +1964,84 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         {
             throw new AssertionError("Star-Flaeche (" + name + "): zu viel einzeln abgebaut (" + OTHER_HITS.get() + " Bloecke ohne Star-Spitzhacke)");
         }
+    }
+
+    /**
+     * Selber bauen (ohne Printer): drei Steine in einer Reihe, der Stein liegt nur im Inventar (nicht in der Hotbar),
+     * in der Hand ist eine Spitzhacke. Rechte Maustaste gedrueckt halten: Easy Place 2.0 muss den Stein im selben Tick
+     * in die Hand holen und setzen, und mit Verzoegerung 1 jeden Tick einen Block. Die Spitzhacke bleibt in der Hotbar.
+     */
+    private static void testManualSwitchAndHold(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos min = new BlockPos(22, Y, 20);
+        BlockPos max = new BlockPos(24, Y, 20);
+        server.runCommand(String.format(Locale.ROOT, "fill 17 %d 16 28 %d 24 air", Y, Y + 3));
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand(String.format(Locale.ROOT, "tp @a 20.5 %d 20.5 -90 15.64", Y));
+        context.waitFor(mc -> mc.level.getBlockState(max).is(Blocks.STONE) && mc.level.getBlockState(min).is(Blocks.STONE), 200);
+        placeSchematic(context, min, max, "manual");
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand("clear @a");
+        server.computeOnServer(s ->
+        {
+            ServerPlayer p = s.getPlayerList().getPlayers().get(0);
+            p.getInventory().setItem(0, new net.minecraft.world.item.ItemStack(Items.IRON_PICKAXE));
+
+            for (int i = 1; i < 9; i++)
+            {
+                p.getInventory().setItem(i, new net.minecraft.world.item.ItemStack(Items.OAK_PLANKS, 4));
+            }
+
+            p.getInventory().setItem(20, new net.minecraft.world.item.ItemStack(Items.STONE, 16));
+            return true;
+        });
+        context.waitFor(mc -> mc.level.getBlockState(max).isAir() && mc.level.getBlockState(min).isAir() &&
+                              mc.player.position().distanceTo(new Vec3(20.5, Y, 20.5)) < 0.5 &&
+                              mc.player.getInventory().getItem(20).is(Items.STONE) &&
+                              mc.player.getInventory().getItem(0).is(Items.IRON_PICKAXE) &&
+                              SchematicWorldHandler.getSchematicWorld() != null &&
+                              SchematicWorldHandler.getSchematicWorld().getBlockState(max).is(Blocks.STONE), 200);
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+            Ep2Configs.EASY_PLACE_2.setBooleanValue(true);
+            Ep2Configs.STRICT_CROSSHAIR.setBooleanValue(false);
+            Ep2Configs.DELAY_TICKS.setIntegerValue(1);
+            mc.player.getInventory().setSelectedSlot(0);
+        });
+        context.waitTicks(5);
+
+        try
+        {
+            context.getInput().holdMouse(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+            context.waitTicks(6);
+            context.getInput().releaseMouse(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+        }
+        finally
+        {
+            context.runOnClient(mc -> Ep2Configs.DELAY_TICKS.setIntegerValue(Ep2Configs.VANILLA_USE_DELAY));
+        }
+
+        context.waitTicks(10);
+
+        for (BlockPos p : BlockPos.betweenClosed(min, max))
+        {
+            assertBlock(server, p.immutable(), state -> state.is(Blocks.STONE), "Stein wurde beim Gedrueckthalten nicht gesetzt (1 Block pro Tick)");
+        }
+
+        context.runOnClient(mc ->
+        {
+            if (!mc.player.getInventory().getItem(0).is(Items.IRON_PICKAXE))
+            {
+                throw new AssertionError("Die Spitzhacke wurde aus der Hotbar verdraengt: " + mc.player.getInventory().getItem(0));
+            }
+
+            if (!mc.player.getMainHandItem().is(Items.STONE))
+            {
+                throw new AssertionError("Der Stein ist nicht in der Hand: " + mc.player.getMainHandItem());
+            }
+        });
+        System.out.println("[EP2-TEST] Selber bauen: Item im selben Tick gewechselt, 3 Bloecke in 6 Ticks ok");
     }
 
     /** Legt eine Schematic aus dem aktuellen Weltstand an (nur sie ist aktiv). */
