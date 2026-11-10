@@ -663,6 +663,16 @@ public final class LaneMiner
             return null;
         }
 
+        if (starSlot >= 0)
+        {
+            // Star-Spitzhacke: nicht einfach hier hinunter, sondern dort, wo die naechste Lage anfaengt (ueber dem Anfang
+            // ihrer ersten Bahn). Dann passt das 3x3-Loch genau in die Bahn und es bleiben keine Reste daneben stehen.
+            this.layerY = newLayer;
+            this.pendingLayer = null;
+            this.path = null;
+            return null;
+        }
+
         this.pendingLayer = newLayer;
 
         // Die Saeule unter dem Spieler: alles muss weg duerfen (oder schon Luft sein)

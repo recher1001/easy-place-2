@@ -66,15 +66,50 @@ public final class BlockBreaker
         this.mayBreak = mayBreak;
     }
 
-    private boolean starFits(Level level, BlockState state, net.minecraft.core.Direction face)
+    private boolean starFits(Level level, BlockState state, net.minecraft.core.Direction face, LocalPlayer player)
     {
         if (this.starSlot < 0 || this.mayBreak == null || !state.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE))
         {
             return false;
         }
 
-        net.minecraft.core.Direction.Axis axis = face.getAxis();
+        // Welche 3x3-Flaeche der Server nimmt, haengt vom Server ab: quer zur getroffenen Seite oder quer zur
+        // Blickrichtung. Schraeg angeschaut sind das verschiedene Flaechen, deshalb muessen alle passen, die in Frage
+        // kommen (geradeaus im Tunnel oder senkrecht nach unten sind sie dieselbe).
+        java.util.EnumSet<net.minecraft.core.Direction.Axis> axes = java.util.EnumSet.of(face.getAxis());
+        float pitch = Math.abs(player.getXRot());
 
+        if (pitch > 35.0f)
+        {
+            axes.add(net.minecraft.core.Direction.Axis.Y);
+        }
+
+        if (pitch < 60.0f)
+        {
+            axes.add(player.getDirection().getAxis());
+            // Nahe an der Diagonale kann der Server auch die andere waagerechte Richtung nehmen
+            float off = Math.abs(net.minecraft.util.Mth.wrapDegrees(player.getYRot() - player.getDirection().toYRot()));
+
+            if (off > 30.0f)
+            {
+                axes.add(player.getDirection().getClockWise().getAxis());
+            }
+        }
+
+        for (net.minecraft.core.Direction.Axis axis : axes)
+        {
+            if (!this.planeFits(level, axis))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Darf um den Block herum die ganze 3x3-Flaeche quer zu {@code axis} weg (oder ist schon frei)? */
+    private boolean planeFits(Level level, net.minecraft.core.Direction.Axis axis)
+    {
         for (int a = -1; a <= 1; a++)
         {
             for (int b = -1; b <= 1; b++)
@@ -186,7 +221,7 @@ public final class BlockBreaker
                 // Passt die Star-Spitzhacke (nichts in der 3x3-Flaeche, das bleiben soll)? Dann die, sonst das beste Werkzeug
                 if (this.starSlot >= 0)
                 {
-                    if (this.starFits(level, state, bhr.getDirection()))
+                    if (this.starFits(level, state, bhr.getDirection(), player))
                     {
                         player.getInventory().setSelectedSlot(this.starSlot);
                     }
