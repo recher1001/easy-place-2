@@ -1056,9 +1056,9 @@ public class PrinterScreen extends Screen
     private void buildKeys()
     {
         int width = this.cx1 - this.cx0;
-        String[] keys = { "menu", "toggle", "easyplace", "storage", "invsee", "macroRecord", "macroPlay" };
+        String[] keys = { "menu", "toggle", "easyplace", "storage", "invsee", "macroRecord", "macroPlay", "caves" };
         IHotkey[] hotkeys = { Ep2Configs.PRINTER_MENU, Ep2Configs.PRINTER_TOGGLE, Ep2Configs.EASY_PLACE_2, Ep2Configs.PRINTER_MARK_STORAGE,
-                              Ep2Configs.MODULE_INVSEE, Ep2Configs.MODULE_MACRO_RECORD, Ep2Configs.MODULE_MACRO_PLAY };
+                              Ep2Configs.MODULE_INVSEE, Ep2Configs.MODULE_MACRO_RECORD, Ep2Configs.MODULE_MACRO_PLAY, Ep2Configs.SP_CAVES };
         int y = this.contentTop;
 
         for (int i = 0; i < keys.length; i++)

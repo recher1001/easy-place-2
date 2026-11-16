@@ -187,6 +187,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             testExcavateMode(context, server);
             testStarLine(context, server);
             testManualSwitchAndHold(context, server);
+            testCaveOutlines(context, server);
         }
     }
 
@@ -2042,6 +2043,64 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             }
         });
         System.out.println("[EP2-TEST] Selber bauen: Item im selben Tick gewechselt, 3 Bloecke in 6 Ticks ok");
+    }
+
+    /**
+     * Einzelspieler-Hoehlen: ein hohler Steinblock (innen 7 x 5 x 7 Luft) ist eine Hoehle. Mit der Einstellung an
+     * muessen ihre Umrisse gefunden und gezeichnet werden. Auf einem Server bleibt es aus (hier zum Testen erlaubt).
+     */
+    private static void testCaveOutlines(ClientGameTestContext context, TestDedicatedServerContext server)
+    {
+        BlockPos min = new BlockPos(40, Y, 40);
+        BlockPos max = new BlockPos(48, Y + 6, 48);
+        server.runCommand(String.format(Locale.ROOT, "fill 30 %d 30 58 %d 58 air", Y, Y + 10));
+        server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone hollow", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        server.runCommand(String.format(Locale.ROOT, "tp @a 34.5 %d 44.5 -90 10", Y));
+        context.waitFor(mc -> mc.level.getBlockState(max).is(Blocks.STONE) && mc.level.getBlockState(new BlockPos(44, Y + 3, 44)).isAir() &&
+                              mc.player.position().distanceTo(new Vec3(34.5, Y, 44.5)) < 0.5, 200);
+        context.runOnClient(mc ->
+        {
+            PrinterController.INSTANCE.stop(null);
+
+            // Auf einem Server ist es aus
+            Ep2Configs.SP_CAVES.setBooleanValue(true);
+            io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowAnywhere = false;
+        });
+        context.waitTicks(20);
+        int onServer = context.computeOnClient(mc -> io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.INSTANCE.lineCount());
+
+        if (onServer != 0)
+        {
+            throw new AssertionError("Hoehlenumrisse laufen auch auf einem Server (" + onServer + " Linien)");
+        }
+
+        context.runOnClient(mc -> io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowAnywhere = true);
+
+        try
+        {
+            context.waitFor(mc -> io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.INSTANCE.lineCount() > 0 &&
+                                  io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.INSTANCE.emitted() > 0, 200);
+            context.waitTicks(5);
+            context.takeScreenshot("easyplace2-caves");
+            int[] counts = context.computeOnClient(mc -> new int[] {
+                    io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.INSTANCE.lineCount(),
+                    io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.INSTANCE.emitted() });
+            System.out.println("[EP2-TEST] Hoehlenumrisse: " + counts[0] + " Linien, " + counts[1] + " gezeichnet");
+
+            // Innen 6 ebene Waende: nur deren Raender, kein Gitter (ein Gitter waeren ueber 600 Linien)
+            if (counts[0] > 200)
+            {
+                throw new AssertionError("Hoehlenumrisse zeichnen ein Gitter statt der Raender: " + counts[0] + " Linien");
+            }
+        }
+        finally
+        {
+            context.runOnClient(mc ->
+            {
+                Ep2Configs.SP_CAVES.setBooleanValue(false);
+                io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowAnywhere = false;
+            });
+        }
     }
 
     /** Legt eine Schematic aus dem aktuellen Weltstand an (nur sie ist aktiv). */

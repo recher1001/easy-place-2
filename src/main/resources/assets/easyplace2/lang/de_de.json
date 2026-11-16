@@ -503,5 +503,22 @@
     "easyplace2.printer.opt.sound.desc": "Ton, wenn fertig, Material fehlt oder der Printer Hilfe braucht",
     "easyplace2.printer.msg.tool_worn": "Werkzeug fast kaputt (%s). Pausiert – nimm ein anderes oder repariere es und drück Weiter.",
     "easyplace2.printer.msg.summary": "%s Blöcke gesetzt in %s Minuten.",
-    "easyplace2.printer.detail.tool": "Werkzeug fast kaputt, angehalten"
+    "easyplace2.printer.detail.tool": "Werkzeug fast kaputt, angehalten",
+    "easyplace2.printer.section.singleplayer": "EINZELSPIELER",
+    "easyplace2.printer.page.caves": "Höhlen",
+    "easyplace2.printer.opt.caves": "Höhlen durch Wände zeigen",
+    "easyplace2.printer.opt.caves.desc": "Umrisse von Höhlen in der Nähe (nur in deiner Einzelspielerwelt, keine Erze)",
+    "easyplace2.printer.opt.cavesRange": "Umkreis",
+    "easyplace2.printer.opt.cavesRange.desc": "So weit um dich herum werden Höhlen gesucht",
+    "easyplace2.printer.key.caves": "Höhlen zeigen",
+    "easyplace2.printer.key.caves.desc": "Höhlenumrisse an/aus (nur Einzelspieler)",
+    "easyplace2.caves.msg.on": "Höhlenumrisse an",
+    "easyplace2.caves.msg.off": "Höhlenumrisse aus",
+    "easyplace2.caves.msg.singleplayer_only": "Höhlenumrisse gehen nur in deiner Einzelspielerwelt",
+    "easyplace2.config.name.singleplayerCaves": "singleplayerCaves",
+    "easyplace2.config.prettyName.singleplayerCaves": "Einzelspieler: Höhlen zeigen",
+    "easyplace2.config.comment.singleplayerCaves": "Zeigt Umrisse von Höhlen in der Nähe durch Wände (nur in der eigenen Einzelspielerwelt). Blaue Linien, tief unten lila.",
+    "easyplace2.config.name.singleplayerCavesRange": "singleplayerCavesRange",
+    "easyplace2.config.prettyName.singleplayerCavesRange": "Einzelspieler: Höhlen-Umkreis",
+    "easyplace2.config.comment.singleplayerCavesRange": "So viele Blöcke um den Spieler herum werden Höhlen gesucht."
 }

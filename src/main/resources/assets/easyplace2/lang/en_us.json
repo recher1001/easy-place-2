@@ -503,5 +503,22 @@
     "easyplace2.printer.opt.sound.desc": "Sound when done, material is missing or the printer needs help",
     "easyplace2.printer.msg.tool_worn": "Tool almost broken (%s). Paused – take another one or repair it and press Resume.",
     "easyplace2.printer.msg.summary": "%s blocks placed in %s minutes.",
-    "easyplace2.printer.detail.tool": "Tool almost broken, paused"
+    "easyplace2.printer.detail.tool": "Tool almost broken, paused",
+    "easyplace2.printer.section.singleplayer": "SINGLEPLAYER",
+    "easyplace2.printer.page.caves": "Caves",
+    "easyplace2.printer.opt.caves": "Show caves through walls",
+    "easyplace2.printer.opt.caves.desc": "Outlines of nearby caves (only in your singleplayer world, no ores)",
+    "easyplace2.printer.opt.cavesRange": "Range",
+    "easyplace2.printer.opt.cavesRange.desc": "How far around you caves are searched",
+    "easyplace2.printer.key.caves": "Show caves",
+    "easyplace2.printer.key.caves.desc": "Cave outlines on/off (singleplayer only)",
+    "easyplace2.caves.msg.on": "Cave outlines on",
+    "easyplace2.caves.msg.off": "Cave outlines off",
+    "easyplace2.caves.msg.singleplayer_only": "Cave outlines only work in your singleplayer world",
+    "easyplace2.config.name.singleplayerCaves": "singleplayerCaves",
+    "easyplace2.config.prettyName.singleplayerCaves": "Singleplayer: show caves",
+    "easyplace2.config.comment.singleplayerCaves": "Shows outlines of nearby caves through walls (only in your own singleplayer world). Blue lines, purple deep down.",
+    "easyplace2.config.name.singleplayerCavesRange": "singleplayerCavesRange",
+    "easyplace2.config.prettyName.singleplayerCavesRange": "Singleplayer: cave range",
+    "easyplace2.config.comment.singleplayerCavesRange": "How many blocks around the player caves are searched."
 }
