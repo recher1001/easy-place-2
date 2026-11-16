@@ -46,15 +46,16 @@ jobs:
             if unzip -l "$j" 2>/dev/null | grep -q 'net/minecraft/client/gui/Font.class'; then JAR="$j"; break; fi
           done
           echo "JAR=$JAR"
-          for c in net.minecraft.client.renderer.LevelRenderer net.minecraft.client.Minecraft net.minecraft.client.renderer.GameRenderer net.minecraft.gizmos.Gizmos net.minecraft.gizmos.SimpleGizmoCollector net.minecraft.client.renderer.debug.DebugRenderer; do
-            echo "=== $c"
-            javap -c -p -cp "$JAR" "$c" 2>/dev/null > /tmp/dis.txt
-            # Methoden-Koepfe und jede Zeile mit Gizmo-Bezug (mit etwas Umfeld)
-            grep -n -i -E "^  [a-z].*\(|gizmo|emitGizmos|withCollector" /tmp/dis.txt | grep -i -B1 -E "gizmo|withCollector" | head -150
-          done
-          echo "=== gizmo method bodies"
-          javap -c -p -cp "$JAR" net.minecraft.gizmos.Gizmos 2>/dev/null | head -120
-          javap -c -p -cp "$JAR" net.minecraft.client.renderer.debug.DebugRenderer 2>/dev/null | grep -A60 "void emitGizmos" | head -80
+          javap -c -p -cp "$JAR" net.minecraft.client.renderer.LevelRenderer 2>/dev/null > /tmp/lr.txt
+          echo "=== renderLevel (Aufrufe)"
+          awk '/public void renderLevel\(/,/^$/' /tmp/lr.txt | grep -E "invoke|if|goto|getfield" | head -150
+          echo "=== method_75413"
+          awk '/private void method_75413\(/,/^$/' /tmp/lr.txt | head -80
+          echo "=== method_62214 (bis Gizmos)"
+          awk '/private void method_62214\(/,/^$/' /tmp/lr.txt | grep -E "invoke|if|goto" | head -80
+          javap -c -p -cp "$JAR" net.minecraft.client.Minecraft 2>/dev/null > /tmp/mc.txt
+          echo "=== Minecraft.runTick"
+          awk '/private void runTick\(boolean\);/,/^$/' /tmp/mc.txt | grep -E "invoke|if|goto|getfield|putfield" | head -140
       # Ist der Artifact-Speicher auf GitHub voll, bleibt der Build trotzdem gruen
       - name: capture build artifacts
         uses: actions/upload-artifact@v7

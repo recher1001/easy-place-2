@@ -61,7 +61,12 @@ public final class CaveOutlines
 
     public void register()
     {
-        ClientTickEvents.END_CLIENT_TICK.register(this::tick);
+        ClientTickEvents.END_CLIENT_TICK.register(mc ->
+        {
+            this.tick(mc);
+            // Am Ende jedes Ticks: Minecraft sammelt hier die Linien eines Ticks und zeichnet sie bis zum naechsten
+            this.emit();
+        });
     }
 
     /** Darf es hier laufen? Nur in der eigenen Einzelspielerwelt. */
@@ -283,7 +288,8 @@ public final class CaveOutlines
 
         for (Line line : this.lines)
         {
-            Gizmos.line(line.a(), line.b(), line.color(), 1.5f).setAlwaysOnTop();
+            // Etwas laenger als ein Tick sichtbar, damit es zwischen zwei Ticks nicht flackert
+            Gizmos.line(line.a(), line.b(), line.color(), 2.0f).setAlwaysOnTop().persistForMillis(60);
             this.emitted++;
         }
     }

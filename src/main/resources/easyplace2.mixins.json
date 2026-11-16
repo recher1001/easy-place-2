@@ -7,7 +7,6 @@
 		"BlockItemInvoker",
 		"ChatComponentAccessor",
 		"ChatScreenMixin",
-		"DebugRendererMixin",
 		"FontAccessor",
 		"MinecraftAccessor",
 		"MinecraftMixin",
