@@ -46,10 +46,24 @@ jobs:
             if unzip -l "$j" 2>/dev/null | grep -q 'net/minecraft/client/gui/Font.class'; then JAR="$j"; break; fi
           done
           echo "JAR=$JAR"
-          for v in 1.16.0 1.17.0 1.18.0; do
-            echo "=== baritone $v"
-            curl -sL -o /tmp/b.jar "https://github.com/cabaletta/baritone/releases/download/v$v/baritone-standalone-fabric-$v.jar" && ls -la /tmp/b.jar
-            unzip -p /tmp/b.jar fabric.mod.json | grep -A4 '"depends"'
+          echo "=== gizmo/debug classes"
+          unzip -l "$JAR" | grep -oE 'net/minecraft/(gizmos|client/renderer/debug|client/renderer/ShapeRenderer|client/renderer/RenderType|client/renderer/rendertype)[^ ]*\.class' | sort | head -120
+          for c in net.minecraft.gizmos.Gizmos net.minecraft.gizmos.GizmoStyle net.minecraft.gizmos.GizmoProperties net.minecraft.gizmos.CuboidGizmo net.minecraft.client.renderer.ShapeRenderer net.minecraft.client.renderer.debug.DebugRenderer; do
+            echo "=== $c"; javap -cp "$JAR" "$c" 2>&1 | head -80
+          done
+          echo "=== fabric rendering"
+          for j in $(find ~/.gradle .gradle -name 'fabric-rendering-v1*.jar' -not -name '*sources*' 2>/dev/null | head -3); do
+            echo "jar $j"; unzip -l "$j" | grep -oE 'net/fabricmc/fabric/api/client/rendering/v1/[^ ]*World[^ ]*\.class' | sort
+            for c in $(unzip -l "$j" | grep -oE 'net/fabricmc/fabric/api/client/rendering/v1/(world/)?World[A-Za-z]*\.class' | sed 's/\.class//; s#/#.#g' | sort -u); do
+              echo "--- $c"; javap -cp "$j" "$c" 2>&1 | head -60
+            done
+          done
+          echo "=== malilib render"
+          for j in $(find ~/.gradle .gradle -iname '*malilib*.jar' -not -name '*sources*' 2>/dev/null | head -2); do
+            echo "jar $j"
+            for c in fi.dy.masa.malilib.event.RenderEventHandler fi.dy.masa.malilib.interfaces.IRenderer fi.dy.masa.malilib.render.RenderUtils; do
+              echo "--- $c"; javap -cp "$j" "$c" 2>&1 | grep -iE "class|interface|world|Box|Line|Outline|onRender" | head -60
+            done
           done
       # Ist der Artifact-Speicher auf GitHub voll, bleibt der Build trotzdem gruen
       - name: capture build artifacts
