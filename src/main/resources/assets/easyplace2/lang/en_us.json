@@ -531,5 +531,8 @@
     "easyplace2.caves.server.button.remove": "Remove permission",
     "easyplace2.config.name.singleplayerCavesServers": "singleplayerCavesServers",
     "easyplace2.config.prettyName.singleplayerCavesServers": "Singleplayer: allowed servers",
-    "easyplace2.config.comment.singleplayerCavesServers": "Your own servers where cave outlines also work (addresses separated by commas). Easiest to allow in the menu under Caves."
+    "easyplace2.config.comment.singleplayerCavesServers": "Your own servers where cave outlines also work (addresses separated by commas). Easiest to allow in the menu under Caves.",
+    "easyplace2.printer.head.caves.a": "Caves",
+    "easyplace2.printer.head.caves.b": "Singleplayer",
+    "easyplace2.printer.head.caves.sub": "Cave outlines through walls – key H"
 }

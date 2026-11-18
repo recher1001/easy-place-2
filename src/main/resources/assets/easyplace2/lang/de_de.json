@@ -531,5 +531,8 @@
     "easyplace2.caves.server.button.remove": "Freigabe entfernen",
     "easyplace2.config.name.singleplayerCavesServers": "singleplayerCavesServers",
     "easyplace2.config.prettyName.singleplayerCavesServers": "Einzelspieler: freigegebene Server",
-    "easyplace2.config.comment.singleplayerCavesServers": "Eigene Server, auf denen die Höhlenumrisse auch gehen (Adressen mit Komma getrennt). Am einfachsten im Menü unter Höhlen freigeben."
+    "easyplace2.config.comment.singleplayerCavesServers": "Eigene Server, auf denen die Höhlenumrisse auch gehen (Adressen mit Komma getrennt). Am einfachsten im Menü unter Höhlen freigeben.",
+    "easyplace2.printer.head.caves.a": "Höhlen",
+    "easyplace2.printer.head.caves.b": "Einzelspieler",
+    "easyplace2.printer.head.caves.sub": "Umrisse von Höhlen durch Wände – Taste H"
 }

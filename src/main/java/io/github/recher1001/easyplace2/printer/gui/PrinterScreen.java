@@ -1441,7 +1441,7 @@ public class PrinterScreen extends Screen
                     : Component.translatable("easyplace2.caves.server.address", server);
             Component state = Component.translatable(allowed ? "easyplace2.caves.server.allowed" : "easyplace2.caves.server.blocked");
             Ui.text(g, font, Ui.clip(font, title.getString(), a.w - buttonW - 24), a.x + 10, a.y + 6, Ui.text());
-            Ui.text(g, font, state, a.x + 10, a.y + 18, allowed ? Ui.GREEN : Ui.textFaint());
+            Ui.text(g, font, Ui.clip(font, state.getString(), a.w - buttonW - 24), a.x + 10, a.y + 18, allowed ? Ui.GREEN : Ui.textFaint());
         }, null));
         Controls.Button button = new Controls.Button(this.cx1 - buttonW - 5, this.contentTop + 5, buttonW, 20,
                 () -> Component.translatable(io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowed(mc)
