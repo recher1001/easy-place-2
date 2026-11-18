@@ -97,8 +97,10 @@ public class Ep2Configs implements IConfigHandler
     public static final ConfigHotkey  MODULE_MACRO_RECORD = new ConfigHotkey("moduleMacroRecordHotkey", "").apply(KEY);
     public static final ConfigHotkey  MODULE_MACRO_PLAY   = new ConfigHotkey("moduleMacroPlayHotkey", "").apply(KEY);
     // Einzelspieler
-    public static final ConfigBooleanHotkeyed SP_CAVES   = new ConfigBooleanHotkeyed("singleplayerCaves", false, "").apply(KEY);
+    public static final ConfigBooleanHotkeyed SP_CAVES   = new ConfigBooleanHotkeyed("singleplayerCaves", false, "H").apply(KEY);
     public static final ConfigInteger SP_CAVES_RANGE      = new ConfigInteger("singleplayerCavesRange", 24, 8, 48).apply(KEY);
+    /** Eigene Server, auf denen die Hoehlenumrisse auch gehen (Adressen, mit Komma getrennt). */
+    public static final ConfigString  SP_CAVES_SERVERS    = new ConfigString("singleplayerCavesServers", "").apply(KEY);
 
     public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
             EASY_PLACE_2,
@@ -156,7 +158,8 @@ public class Ep2Configs implements IConfigHandler
             MODULE_MACRO_RECORD,
             MODULE_MACRO_PLAY,
             SP_CAVES,
-            SP_CAVES_RANGE
+            SP_CAVES_RANGE,
+            SP_CAVES_SERVERS
     );
 
     public static void loadFromFile()

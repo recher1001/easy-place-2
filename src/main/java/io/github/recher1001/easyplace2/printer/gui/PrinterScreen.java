@@ -251,6 +251,7 @@ public class PrinterScreen extends Screen
                 case KEYS -> this.buildKeys();
                 case INFO -> this.buildInfo();
                 case MACROS -> this.buildMacros();
+                case CAVES -> this.buildCaves();
                 default ->
                 {
                     this.addViewToggles();
@@ -1423,6 +1424,42 @@ public class PrinterScreen extends Screen
     }
 
     // ---------------------------------------------------------------- Info
+
+    /** Hoehlen: oben die Freigabe fuer den aktuellen Server, darunter die normalen Einstellungen. */
+    private void buildCaves()
+    {
+        int width = this.cx1 - this.cx0;
+        Minecraft mc = Minecraft.getInstance();
+        int buttonW = 120;
+        this.add(new Controls.Area(this.cx0, this.contentTop, width, 30, (g, font, a, hover) ->
+        {
+            this.paintCard(g, a, hover);
+            String server = io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.currentServer(mc);
+            boolean allowed = io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowed(mc);
+            Component title = mc.hasSingleplayerServer() ? Component.translatable("easyplace2.caves.server.singleplayer")
+                    : server == null ? Component.translatable("easyplace2.caves.server.none")
+                    : Component.translatable("easyplace2.caves.server.address", server);
+            Component state = Component.translatable(allowed ? "easyplace2.caves.server.allowed" : "easyplace2.caves.server.blocked");
+            Ui.text(g, font, Ui.clip(font, title.getString(), a.w - buttonW - 24), a.x + 10, a.y + 6, Ui.text());
+            Ui.text(g, font, state, a.x + 10, a.y + 18, allowed ? Ui.GREEN : Ui.textFaint());
+        }, null));
+        Controls.Button button = new Controls.Button(this.cx1 - buttonW - 5, this.contentTop + 5, buttonW, 20,
+                () -> Component.translatable(io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowed(mc)
+                        ? "easyplace2.caves.server.button.remove" : "easyplace2.caves.server.button.allow"),
+                Ui::accent, false,
+                () -> io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.setCurrentServerAllowed(mc,
+                        !io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowed(mc)));
+        button.enabled = () -> !mc.hasSingleplayerServer() && io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.currentServer(mc) != null;
+        this.add(button);
+
+        // Die Einstellungen darunter (der sichtbare Bereich selbst bleibt, sonst waere die Karte oben abgeschnitten)
+        int top = this.contentTop;
+        this.contentTop = top + 36;
+        this.addViewToggles();
+        this.addResetChip();
+        this.buildOptions(OptionEntry.of(page));
+        this.contentTop = top;
+    }
 
     private void buildInfo()
     {

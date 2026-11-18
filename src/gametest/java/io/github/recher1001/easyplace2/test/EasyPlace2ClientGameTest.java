@@ -936,6 +936,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         assertBlock(server, logs[0], state -> state.is(Blocks.OAK_SAPLING), "Makro: Setzling wurde nicht gesetzt");
         context.takeScreenshot("easyplace2-macro-done");
         menuScreenshot(context, OptionEntry.Page.MACROS, false, "easyplace2-module-macros");
+        menuScreenshot(context, OptionEntry.Page.CAVES, false, "easyplace2-singleplayer-caves");
         System.out.println("[EP2-TEST] Makro (Baum faellen, Setzling setzen) ok");
     }
 
@@ -2074,7 +2075,27 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             throw new AssertionError("Hoehlenumrisse laufen auch auf einem Server (" + onServer + " Linien)");
         }
 
-        context.runOnClient(mc -> io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowAnywhere = true);
+        // Den eigenen Server freigeben (wie der Knopf im Menue): dann geht es auch hier, nur auf genau diesem Server
+        context.runOnClient(mc ->
+        {
+            if (io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.currentServer(mc) == null)
+            {
+                throw new AssertionError("Server-Adresse unbekannt");
+            }
+
+            io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.setCurrentServerAllowed(mc, true);
+        });
+
+        // Mit der Taste aus- und wieder anschalten
+        context.runOnClient(mc -> io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.toggle(mc));
+        context.waitTicks(3);
+        boolean off = context.computeOnClient(mc -> !Ep2Configs.SP_CAVES.getBooleanValue());
+        context.runOnClient(mc -> io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.toggle(mc));
+
+        if (!off)
+        {
+            throw new AssertionError("Hoehlenumrisse liessen sich mit der Taste nicht ausschalten");
+        }
 
         try
         {
@@ -2098,6 +2119,7 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             context.runOnClient(mc ->
             {
                 Ep2Configs.SP_CAVES.setBooleanValue(false);
+                io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.setCurrentServerAllowed(mc, false);
                 io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.allowAnywhere = false;
             });
         }

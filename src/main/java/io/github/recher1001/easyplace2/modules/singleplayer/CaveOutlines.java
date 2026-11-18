@@ -27,7 +27,8 @@ import io.github.recher1001.easyplace2.config.Ep2Configs;
  * Wo so eine Luft an einen festen Block grenzt, liegt eine Hoehlenwand. Gezeichnet werden nur die Raender jeder
  * ebenen Wandflaeche, so sieht man die Form der Hoehle statt eines Gitters. Gescannt wird in Stuecken pro Tick.
  * <p>
- * Auf Servern (auch LAN-Welten anderer) ist das aus: es laeuft nur, wenn die Welt auf diesem Rechner laeuft.
+ * Auf Servern ist das aus, ausser der Spieler hat genau diesen Server selbst freigegeben (z. B. den eigenen Server,
+ * auf dem seine Welt laeuft). Die Freigabe gilt nur fuer diese eine Adresse.
  */
 public final class CaveOutlines
 {
@@ -69,10 +70,76 @@ public final class CaveOutlines
         });
     }
 
-    /** Darf es hier laufen? Nur in der eigenen Einzelspielerwelt. */
+    /** Darf es hier laufen? In der eigenen Einzelspielerwelt, oder auf einem Server, den der Spieler selbst freigegeben hat. */
     public static boolean allowed(Minecraft mc)
     {
-        return allowAnywhere || mc.hasSingleplayerServer();
+        if (allowAnywhere || mc.hasSingleplayerServer())
+        {
+            return true;
+        }
+
+        String address = currentServer(mc);
+        return address != null && servers().contains(address);
+    }
+
+    /** Die Adresse des Servers, auf dem der Spieler gerade ist (klein geschrieben, ohne Standard-Port), oder null. */
+    @org.jetbrains.annotations.Nullable
+    public static String currentServer(Minecraft mc)
+    {
+        net.minecraft.client.multiplayer.ServerData data = mc.getCurrentServer();
+
+        if (data == null || mc.hasSingleplayerServer())
+        {
+            return null;
+        }
+
+        return normalize(data.ip);
+    }
+
+    private static String normalize(String address)
+    {
+        String a = address.trim().toLowerCase(java.util.Locale.ROOT);
+        return a.endsWith(":25565") ? a.substring(0, a.length() - 6) : a;
+    }
+
+    /** Die freigegebenen Server. */
+    public static java.util.Set<String> servers()
+    {
+        java.util.Set<String> set = new java.util.LinkedHashSet<>();
+
+        for (String part : Ep2Configs.SP_CAVES_SERVERS.getStringValue().split(","))
+        {
+            if (!part.isBlank())
+            {
+                set.add(normalize(part));
+            }
+        }
+
+        return set;
+    }
+
+    /** Den Server, auf dem man gerade ist, freigeben oder die Freigabe wieder entfernen. */
+    public static void setCurrentServerAllowed(Minecraft mc, boolean allow)
+    {
+        String address = currentServer(mc);
+
+        if (address == null)
+        {
+            return;
+        }
+
+        java.util.Set<String> set = servers();
+
+        if (allow)
+        {
+            set.add(address);
+        }
+        else
+        {
+            set.remove(address);
+        }
+
+        Ep2Configs.SP_CAVES_SERVERS.setValueFromString(String.join(",", set));
     }
 
     public static boolean active(Minecraft mc)
@@ -86,7 +153,7 @@ public final class CaveOutlines
         if (!allowed(mc))
         {
             Ep2Configs.SP_CAVES.setBooleanValue(false);
-            message(mc, Component.translatable("easyplace2.caves.msg.singleplayer_only").withStyle(ChatFormatting.GOLD));
+            message(mc, Component.translatable("easyplace2.caves.msg.server_not_allowed").withStyle(ChatFormatting.GOLD));
             return;
         }
 
@@ -116,7 +183,7 @@ public final class CaveOutlines
             {
                 // Auf einem Server angeschaltet (z. B. aus der gespeicherten Einstellung): einmal sagen, warum nichts kommt
                 this.hintShown = true;
-                message(mc, Component.translatable("easyplace2.caves.msg.singleplayer_only").withStyle(ChatFormatting.GOLD));
+                message(mc, Component.translatable("easyplace2.caves.msg.server_not_allowed").withStyle(ChatFormatting.GOLD));
             }
 
             this.lines = List.of();
