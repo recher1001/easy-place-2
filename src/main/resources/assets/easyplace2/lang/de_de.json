@@ -534,5 +534,15 @@
     "easyplace2.config.comment.singleplayerCavesServers": "Eigene Server, auf denen die Höhlenumrisse auch gehen (Adressen mit Komma getrennt). Am einfachsten im Menü unter Höhlen freigeben.",
     "easyplace2.printer.head.caves.a": "Höhlen",
     "easyplace2.printer.head.caves.b": "Einzelspieler",
-    "easyplace2.printer.head.caves.sub": "Umrisse von Höhlen durch Wände – Taste H"
+    "easyplace2.printer.head.caves.sub": "Höhlen und Erze darin durch Wände – Taste H",
+    "easyplace2.printer.opt.cavesOres": "Erze in Höhlen",
+    "easyplace2.printer.opt.cavesOres.desc": "Erze an Höhlenwänden leuchten in ihrer Farbe (nicht tief im Stein)",
+    "easyplace2.printer.opt.cavesCoal": "Auch Kohle",
+    "easyplace2.printer.opt.cavesCoal.desc": "Kohle mit anzeigen (sonst wird es schnell unübersichtlich)",
+    "easyplace2.config.name.singleplayerCavesOres": "singleplayerCavesOres",
+    "easyplace2.config.prettyName.singleplayerCavesOres": "Einzelspieler: Erze in Höhlen",
+    "easyplace2.config.comment.singleplayerCavesOres": "Markiert Erze, die direkt an einer Höhle liegen, in ihrer Farbe (Diamant türkis, Smaragd grün, Gold gelb, Redstone rot, Lapis blau, Eisen hell, Kupfer orange, Antiker Schrott braun).",
+    "easyplace2.config.name.singleplayerCavesCoal": "singleplayerCavesCoal",
+    "easyplace2.config.prettyName.singleplayerCavesCoal": "Einzelspieler: auch Kohle",
+    "easyplace2.config.comment.singleplayerCavesCoal": "Kohle bei den Erzen in Höhlen mit anzeigen."
 }

@@ -534,5 +534,15 @@
     "easyplace2.config.comment.singleplayerCavesServers": "Your own servers where cave outlines also work (addresses separated by commas). Easiest to allow in the menu under Caves.",
     "easyplace2.printer.head.caves.a": "Caves",
     "easyplace2.printer.head.caves.b": "Singleplayer",
-    "easyplace2.printer.head.caves.sub": "Cave outlines through walls – key H"
+    "easyplace2.printer.head.caves.sub": "Caves and their ores through walls – key H",
+    "easyplace2.printer.opt.cavesOres": "Ores in caves",
+    "easyplace2.printer.opt.cavesOres.desc": "Ores on cave walls glow in their colour (not deep in the stone)",
+    "easyplace2.printer.opt.cavesCoal": "Coal too",
+    "easyplace2.printer.opt.cavesCoal.desc": "Also show coal (otherwise it gets cluttered quickly)",
+    "easyplace2.config.name.singleplayerCavesOres": "singleplayerCavesOres",
+    "easyplace2.config.prettyName.singleplayerCavesOres": "Singleplayer: ores in caves",
+    "easyplace2.config.comment.singleplayerCavesOres": "Marks ores directly next to a cave in their colour (diamond cyan, emerald green, gold yellow, redstone red, lapis blue, iron light, copper orange, ancient debris brown).",
+    "easyplace2.config.name.singleplayerCavesCoal": "singleplayerCavesCoal",
+    "easyplace2.config.prettyName.singleplayerCavesCoal": "Singleplayer: coal too",
+    "easyplace2.config.comment.singleplayerCavesCoal": "Also show coal among the ores in caves."
 }

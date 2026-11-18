@@ -226,6 +226,8 @@ public final class OptionEntry
         bool(Page.INVSEE, "invseeChatClick", Ep2Configs.MODULE_INVSEE_CHAT_CLICK);
         number(Page.INVSEE, "invseeAngle", Ep2Configs.MODULE_INVSEE_ANGLE, 5, 180, 5, v -> String.format(Locale.ROOT, "%.0f°", v));
         bool(Page.CAVES, "caves", Ep2Configs.SP_CAVES);
+        bool(Page.CAVES, "cavesOres", Ep2Configs.SP_CAVES_ORES);
+        bool(Page.CAVES, "cavesCoal", Ep2Configs.SP_CAVES_COAL);
         ALL.add(new OptionEntry(Page.CAVES, "cavesRange", Kind.INT, Ep2Configs.SP_CAVES_RANGE, 8, 48, 2,
                 v -> String.format(Locale.ROOT, "%d m", Math.round(v))));
         number(Page.INVSEE, "invseeRange", Ep2Configs.MODULE_INVSEE_RANGE, 4, 128, 1, v -> String.format(Locale.ROOT, "%.0f m", v));

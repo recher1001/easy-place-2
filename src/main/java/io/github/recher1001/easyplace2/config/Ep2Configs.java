@@ -99,6 +99,8 @@ public class Ep2Configs implements IConfigHandler
     // Einzelspieler
     public static final ConfigBooleanHotkeyed SP_CAVES   = new ConfigBooleanHotkeyed("singleplayerCaves", false, "H").apply(KEY);
     public static final ConfigInteger SP_CAVES_RANGE      = new ConfigInteger("singleplayerCavesRange", 24, 8, 48).apply(KEY);
+    public static final ConfigBoolean SP_CAVES_ORES       = new ConfigBoolean("singleplayerCavesOres", true).apply(KEY);
+    public static final ConfigBoolean SP_CAVES_COAL       = new ConfigBoolean("singleplayerCavesCoal", false).apply(KEY);
     /** Eigene Server, auf denen die Hoehlenumrisse auch gehen (Adressen, mit Komma getrennt). */
     public static final ConfigString  SP_CAVES_SERVERS    = new ConfigString("singleplayerCavesServers", "").apply(KEY);
 
@@ -159,6 +161,8 @@ public class Ep2Configs implements IConfigHandler
             MODULE_MACRO_PLAY,
             SP_CAVES,
             SP_CAVES_RANGE,
+            SP_CAVES_ORES,
+            SP_CAVES_COAL,
             SP_CAVES_SERVERS
     );
 

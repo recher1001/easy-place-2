@@ -37,16 +37,22 @@ public final class CaveOutlines
     /** So viele Bloecke werden pro Tick geprueft. */
     private static final int BLOCKS_PER_TICK = 24_000;
     /** Hoechstens so viele Linien werden gezeichnet (die naechsten zuerst). */
-    private static final int MAX_LINES = 12_000;
-    private static final int COLOR = 0xFF33DDFF;
-    private static final int COLOR_DEEP = 0xFF8A5CFF;
+    private static final int MAX_LINES = 8_000;
+    /** Hoechstens so viele Erze (die naechsten zuerst). */
+    private static final int MAX_ORES = 600;
+    // Leichter Schein statt harter Linien: Farbe ohne Deckkraft, die kommt beim Zeichnen dazu
+    private static final int COLOR = 0x33DDFF;
+    private static final int COLOR_DEEP = 0x8A5CFF;
 
     /** Nur fuer den Spieltest: auch auf einem Server (dort gibt es keine Einzelspielerwelt). */
     public static boolean allowAnywhere;
 
     private record Line(Vec3 a, Vec3 b, int color, double dist) {}
 
+    private record Ore(BlockPos pos, int color, double dist) {}
+
     private List<Line> lines = List.of();
+    private List<Ore> ores = List.of();
     private int emitted;
 
     // laufender Scan
@@ -187,6 +193,7 @@ public final class CaveOutlines
             }
 
             this.lines = List.of();
+            this.ores = List.of();
             this.scanning = false;
             return;
         }
@@ -232,6 +239,7 @@ public final class CaveOutlines
             else
             {
                 this.lines = this.buildLines(level, player.getEyePosition());
+                this.ores = Ep2Configs.SP_CAVES_ORES.getBooleanValue() ? this.findOres(level, player.getEyePosition()) : List.of();
                 this.scanning = false;
             }
         }
@@ -313,6 +321,69 @@ public final class CaveOutlines
         return result;
     }
 
+    /**
+     * Erze an den Hoehlenwaenden: nur, was direkt an Hoehlenluft grenzt (also in der Hoehle zu sehen waere), keine
+     * Erze tief im Stein.
+     */
+    private List<Ore> findOres(ClientLevel level, Vec3 eye)
+    {
+        List<Ore> result = new ArrayList<>();
+        LongOpenHashSet seen = new LongOpenHashSet();
+        BlockPos.MutableBlockPos n = new BlockPos.MutableBlockPos();
+
+        for (long key : this.cave)
+        {
+            BlockPos p = BlockPos.of(key);
+
+            for (Direction d : Direction.values())
+            {
+                n.setWithOffset(p, d);
+
+                if (!seen.add(n.asLong()))
+                {
+                    continue;
+                }
+
+                int color = oreColor(level.getBlockState(n));
+
+                if (color != 0)
+                {
+                    result.add(new Ore(n.immutable(), color, Vec3.atCenterOf(n).distanceToSqr(eye)));
+                }
+            }
+        }
+
+        if (result.size() > MAX_ORES)
+        {
+            result.sort((a, b) -> Double.compare(a.dist(), b.dist()));
+            result = new ArrayList<>(result.subList(0, MAX_ORES));
+        }
+
+        return result;
+    }
+
+    /** Farbe fuer ein Erz (ohne Deckkraft), 0 wenn es keins ist. */
+    private static int oreColor(BlockState state)
+    {
+        if (state.is(net.minecraft.tags.BlockTags.DIAMOND_ORES)) return 0x4DF2FF;
+        if (state.is(net.minecraft.tags.BlockTags.EMERALD_ORES)) return 0x3DFF6E;
+        if (state.is(net.minecraft.world.level.block.Blocks.ANCIENT_DEBRIS)) return 0xB0704A;
+        if (state.is(net.minecraft.tags.BlockTags.GOLD_ORES)) return 0xFFD23D;
+        if (state.is(net.minecraft.tags.BlockTags.REDSTONE_ORES)) return 0xFF3B3B;
+        if (state.is(net.minecraft.tags.BlockTags.LAPIS_ORES)) return 0x3D63FF;
+        if (state.is(net.minecraft.tags.BlockTags.IRON_ORES)) return 0xE8C2A0;
+        if (state.is(net.minecraft.tags.BlockTags.COPPER_ORES)) return 0xFF8A3D;
+        if (state.is(net.minecraft.world.level.block.Blocks.NETHER_QUARTZ_ORE)) return 0xF2EDE4;
+        if (state.is(net.minecraft.tags.BlockTags.COAL_ORES)) return Ep2Configs.SP_CAVES_COAL.getBooleanValue() ? 0x9A9A9A : 0;
+        return 0;
+    }
+
+    /** Wie viele Erze gerade markiert sind (fuer den Spieltest). */
+    public int oreCount()
+    {
+        return this.ores.size();
+    }
+
     /** Die Kante der Flaeche auf Seite {@code d} von Block {@code p}, die in Richtung {@code t} liegt. */
     private static Vec3[] edge(BlockPos p, Direction d, Direction t)
     {
@@ -353,10 +424,20 @@ public final class CaveOutlines
             return;
         }
 
+        // Etwas laenger als ein Tick sichtbar, damit es zwischen zwei Ticks nicht flackert. Jede Linie zweimal: breit und
+        // fast durchsichtig (der Schein), darueber schmal und halb durchsichtig.
         for (Line line : this.lines)
         {
-            // Etwas laenger als ein Tick sichtbar, damit es zwischen zwei Ticks nicht flackert
-            Gizmos.line(line.a(), line.b(), line.color(), 2.0f).setAlwaysOnTop().persistForMillis(60);
+            Gizmos.line(line.a(), line.b(), 0x18000000 | line.color(), 7.0f).setAlwaysOnTop().persistForMillis(60);
+            Gizmos.line(line.a(), line.b(), 0x70000000 | line.color(), 1.5f).setAlwaysOnTop().persistForMillis(60);
+            this.emitted++;
+        }
+
+        // Erze: ein leicht leuchtender Kasten in der Erzfarbe
+        for (Ore ore : this.ores)
+        {
+            Gizmos.cuboid(new net.minecraft.world.phys.AABB(ore.pos()).inflate(0.03),
+                    GizmoStyle.strokeAndFill(0xD0000000 | ore.color(), 2.0f, 0x38000000 | ore.color())).setAlwaysOnTop().persistForMillis(60);
             this.emitted++;
         }
     }

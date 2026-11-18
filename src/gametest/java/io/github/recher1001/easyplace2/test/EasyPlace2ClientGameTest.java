@@ -2056,6 +2056,11 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
         BlockPos max = new BlockPos(48, Y + 6, 48);
         server.runCommand(String.format(Locale.ROOT, "fill 30 %d 30 58 %d 58 air", Y, Y + 10));
         server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone hollow", min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()));
+        // Ein Diamant an der Hoehlenwand (wird gezeigt), einer tief im Stein daneben (nicht) und Kohle (aus)
+        server.runCommand(setblock(new BlockPos(48, Y + 2, 44), "diamond_ore"));
+        server.runCommand(setblock(new BlockPos(40, Y + 1, 44), "coal_ore"));
+        server.runCommand(String.format(Locale.ROOT, "fill 50 %d 43 52 %d 45 stone", Y, Y + 2));
+        server.runCommand(setblock(new BlockPos(51, Y + 1, 44), "diamond_ore"));
         server.runCommand(String.format(Locale.ROOT, "tp @a 34.5 %d 44.5 -90 10", Y));
         context.waitFor(mc -> mc.level.getBlockState(max).is(Blocks.STONE) && mc.level.getBlockState(new BlockPos(44, Y + 3, 44)).isAir() &&
                               mc.player.position().distanceTo(new Vec3(34.5, Y, 44.5)) < 0.5, 200);
@@ -2106,7 +2111,13 @@ public class EasyPlace2ClientGameTest implements FabricClientGameTest
             int[] counts = context.computeOnClient(mc -> new int[] {
                     io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.INSTANCE.lineCount(),
                     io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.INSTANCE.emitted() });
-            System.out.println("[EP2-TEST] Hoehlenumrisse: " + counts[0] + " Linien, " + counts[1] + " gezeichnet");
+            int ores = context.computeOnClient(mc -> io.github.recher1001.easyplace2.modules.singleplayer.CaveOutlines.INSTANCE.oreCount());
+            System.out.println("[EP2-TEST] Hoehlenumrisse: " + counts[0] + " Linien, " + counts[1] + " gezeichnet, " + ores + " Erze");
+
+            if (ores != 1)
+            {
+                throw new AssertionError("Erze in der Hoehle: erwartet 1 (der Diamant an der Wand), gefunden " + ores);
+            }
 
             // Innen 6 ebene Waende: nur deren Raender, kein Gitter (ein Gitter waeren ueber 600 Linien)
             if (counts[0] > 200)
